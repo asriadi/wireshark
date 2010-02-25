@@ -241,6 +241,7 @@ set(ASN1_DISSECTOR_SRC
 	dissectors/packet-ros.c
 	dissectors/packet-rtnet.c
 	dissectors/packet-rtse.c
+	dissectors/packet-rua.c
 	dissectors/packet-s4406.c
 	dissectors/packet-sabp.c
 	dissectors/packet-s1ap.c
@@ -260,6 +261,7 @@ set(DIRTY_ASN1_DISSECTOR_SRC
 	dissectors/packet-ansi_map.c
 	dissectors/packet-gnm.c
 	dissectors/packet-gsm_map.c
+	dissectors/packet-hnbap.c
 	dissectors/packet-inap.c
 	dissectors/packet-ldap.c
 	dissectors/packet-lte-rrc.c
@@ -1276,8 +1278,9 @@ add_library(epan ${LINK_MODE_LIB}
 	${LIBWIRESHARK_ASM_FILES}
 )
 
-# In case we want the libwireshark name back
-# SET_TARGET_PROPERTIES(epan PROPERTIES OUTPUT_NAME "wireshark")
+# By default the name for a library with target name epan will be libepan,
+# but Ethereal is now named Wireshark
+SET_TARGET_PROPERTIES(epan PROPERTIES OUTPUT_NAME "wireshark")
 
 target_link_libraries(epan
 	${WSLUA_LIB}
