@@ -20,18 +20,15 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 
-PROTOCOL_NAME=cms
+PROTOCOL_NAME=HI2Operations
 
-DISSECTOR_FILES=packet-$(PROTOCOL_NAME).c \
-	packet-$(PROTOCOL_NAME).h
+DISSECTOR_FILES=packet-$(PROTOCOL_NAME).c 
 
-
-EXPORT_FILES = \
-	$(PROTOCOL_NAME)-exp.cnf
-
-EXT_ASN_FILE_LIST =
-
-ASN_FILE_LIST = CryptographicMessageSyntax.asn AttributeCertificateVersion1.asn
+ASN_FILE_LIST = HI2Operations_ver11.asn \
+	UmtsHI2Operations.asn \
+	TS101909201.asn \
+	PCESP.asn \
+	EN301040.asn
 
 # The packet-$(PROTOCOL_NAME)-template.h and $(PROTOCOL_NAME).asn
 # files do not exist for all protocols: Please add/remove as required.
@@ -39,30 +36,13 @@ EXTRA_DIST = \
 	Makefile.nmake \
 	$(ASN_FILE_LIST) \
 	packet-$(PROTOCOL_NAME)-template.c \
-	packet-$(PROTOCOL_NAME)-template.h \
 	$(PROTOCOL_NAME).cnf
 
 SRC_FILES = \
 	$(EXTRA_DIST) \
 	$(EXT_ASN_FILE_LIST)
 
-A2W_FLAGS= -b -e -C
+A2W_FLAGS= -b 
 
-EXTRA_CNF= \
-	../x509af/x509af-exp.cnf \
-	../x509ce/x509ce-exp.cnf \
-	../x509if/x509if-exp.cnf \
-	../x509sat/x509sat-exp.cnf
-
-../x509af/x509af-exp.cnf:
-	(cd ../x509af && $(MAKE_CNF_EXPORT))
-
-../x509ce/x509ce-exp.cnf:
-	(cd ../x509ce && $(MAKE_CNF_EXPORT))
-
-../x509if/x509if-exp.cnf:
-	(cd ../x509if && $(MAKE_CNF_EXPORT))
-
-../x509sat/x509sat-exp.cnf:
-	(cd ../x509sat && $(MAKE_CNF_EXPORT))
+EXTRA_CNF=
 
