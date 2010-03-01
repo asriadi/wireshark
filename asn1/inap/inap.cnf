@@ -2,6 +2,9 @@
 # inap conformation file
 # $Id$
 
+#.IMPORT ../dap/dap-exp.cnf
+#.IMPORT ../dsp/dsp-exp.cnf
+
 #.EXPORTS
 BothwayThroughConnectionInd
 CallingPartysCategory
@@ -15,17 +18,12 @@ MiscCallInfo
 RedirectionInformation
 ServiceKey
 
-#.PDU_NEW
-#ERROR.&ParameterType
-#OPERATION.&ArgumentType
-#OPERATION.&ResultType
-#.END
-
 #.NO_EMIT
 
 #.OMIT_ASSIGNMENT
 # Removed as they are giving 'defined but not used' warnings currently.
 Priority
+RejectProblem
 #.END
 
 #.TYPE_RENAME
