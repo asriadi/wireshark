@@ -74,7 +74,9 @@ static int hf_mac_lte_oob_send_sr = -1;
 static int hf_mac_lte_oob_sr_failure = -1;
 
 /* MAC SCH header fields */
+static int hf_mac_lte_ulsch = -1;
 static int hf_mac_lte_ulsch_header = -1;
+static int hf_mac_lte_dlsch = -1;
 static int hf_mac_lte_dlsch_header = -1;
 static int hf_mac_lte_sch_subheader = -1;
 
@@ -1332,13 +1334,13 @@ static int DetectIfDLHARQResend(packet_info *pinfo, tvbuff_t *tvb, volatile int 
                           (pinfo->fd->abs_ts.secs - lastData->received_time.secs);
                     gint nseconds_between_packets =
                           pinfo->fd->abs_ts.nsecs - lastData->received_time.nsecs;
-
-                    /* TODO: want to round to nearest millisecond */
+                          
+                    /* Round difference to nearest millisecond */
                     gint total_gap = (seconds_between_packets*1000) +
-                                     (nseconds_between_packets / 1000000);
+                                     ((nseconds_between_packets+500000) / 1000000);
 
-                    /* Should be 8 ms apart, but allow some leeway */
-                    if ((total_gap >= 7) && (total_gap <= 9)) {
+                    /* Should be 8 ms apart */
+                    if ((total_gap == 8)) {
                         /* Resend detected!!! Store result */
                         result = se_alloc(sizeof(DLHARQResult));
                         result->previousFrameNum = lastData->framenum;
@@ -1444,11 +1446,12 @@ static void TrackReportedULHARQResend(packet_info *pinfo, tvbuff_t *tvb, volatil
                         gint nseconds_between_packets =
                               pinfo->fd->abs_ts.nsecs - lastData->received_time.nsecs;
 
+                        /* Round to nearest ms */
                         gint total_gap = (seconds_between_packets*1000) +
-                                         (nseconds_between_packets / 1000000);
+                                         ((nseconds_between_packets+500000) / 1000000);
 
-                        /* Should be 8 ms apart, but allow some leeway */
-                        if ((total_gap >= 7) && (total_gap <= 9)) {
+                        /* Should be 8 ms apart */
+                        if ((total_gap == 9)) {
                             /* Original detected!!! Store result */
                             result = se_alloc(sizeof(ULHARQResult));
                             result->previousFrameNum = lastData->framenum;
@@ -1732,6 +1735,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     volatile guint8 n;
     proto_item      *truncated_ti;
     proto_item      *padding_length_ti;
+    proto_item      *hidden_root_ti;
 
     /* Keep track of LCIDs and lengths as we dissect the header */
     volatile guint8 number_of_headers = 0;
@@ -1770,6 +1774,16 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     if ((direction == DIRECTION_UPLINK) && global_mac_lte_track_sr) {
         TrackSRInfo(SR_Grant, pinfo, tree, tvb, p_mac_lte_info->rnti, NULL);
     }
+
+    /* Add hidden item to filter on */
+    hidden_root_ti = proto_tree_add_string_format(tree,
+                                                 (direction == DIRECTION_UPLINK) ?
+                                                    hf_mac_lte_ulsch :
+                                                    hf_mac_lte_dlsch,
+                                                 tvb, offset, 0,
+                                                 "",
+                                                 "Hidden header");
+    PROTO_ITEM_SET_HIDDEN(hidden_root_ti);
 
     /* Add PDU block header subtree */
     pdu_header_ti = proto_tree_add_string_format(tree,
@@ -2977,6 +2991,12 @@ void proto_register_mac_lte(void)
 
         /*******************************************/
         /* MAC shared channel header fields        */
+        { &hf_mac_lte_ulsch,
+            { "UL-SCH",
+              "mac-lte.ulsch", FT_STRING, BASE_NONE, NULL, 0x0,
+              NULL, HFILL
+            }
+        },
         { &hf_mac_lte_ulsch_header,
             { "UL-SCH Header",
               "mac-lte.ulsch.header", FT_STRING, BASE_NONE, NULL, 0x0,
@@ -2986,6 +3006,12 @@ void proto_register_mac_lte(void)
         { &hf_mac_lte_dlsch_header,
             { "DL-SCH Header",
               "mac-lte.dlsch.header", FT_STRING, BASE_NONE, NULL, 0x0,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_lte_dlsch,
+            { "DL-SCH",
+              "mac-lte.dlsch", FT_STRING, BASE_NONE, NULL, 0x0,
               NULL, HFILL
             }
         },
@@ -3414,7 +3440,6 @@ void proto_register_mac_lte(void)
         UAT_FLD_VS(lcid_drb_mappings, channel_type, "RLC Channel Type", rlc_channel_type_vals, "The MAC LCID"),
         UAT_END_FIELDS
     };
-
 
     /* Register protocol. */
     proto_mac_lte = proto_register_protocol("MAC-LTE", "MAC-LTE", "mac-lte");
