@@ -307,6 +307,11 @@ static const value_string civic_address_type_values[] = {
 	{ 0, NULL }
 };
 
+static const value_string cablelab_ipaddr_mode_vals[] = {
+	{ 1, "IPv4" },
+	{ 2, "IPv6" },
+	{ 0, NULL }
+};
 
 static gboolean novell_string = FALSE;
 
@@ -1615,6 +1620,15 @@ bootp_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree, int voff,
 	        int enterprise = 0;
 		int data_len;
 
+		if (optlen == 1) {
+			/* CableLab specific */
+			s_option = tvb_get_guint8(tvb, optoff);
+			proto_tree_add_text(v_tree, tvb, optoff, optlen, 
+					    "CableLabs IP addressing mode preference: %s",
+					    val_to_str (s_option, cablelab_ipaddr_mode_vals, "Unknown"));
+			break;
+		}
+
 		optend = optoff + optlen;
 	        optleft = optlen;
 
@@ -1682,8 +1696,9 @@ bootp_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree, int voff,
 		  optleft -= 5;
 
 		  /* Handle DSL Forum TR-111 Option 125 */
-		  if ( enterprise == 3561 ) {
+		  switch (enterprise) {
 
+		  case 3561: /* ADSL Forum */
 		    s_end = optoff + s_option_len;
 		    if ( s_end > optend ) {
 		      proto_tree_add_text(v_tree, tvb, optoff, 1,
@@ -1698,8 +1713,8 @@ bootp_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree, int voff,
 		      optoff = dissect_vendor_tr111_suboption(e_tree,
 								 tvb, optoff, s_end);
 		    }
-		  } else if ( enterprise == 4491 ) {
 
+		  case 4491: /* CableLab */
 		    s_end = optoff + s_option_len;
 		    if ( s_end > optend ) {
 		      proto_tree_add_text(v_tree, tvb, optoff, 1,
@@ -1714,8 +1729,8 @@ bootp_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree, int voff,
 		      optoff = dissect_vendor_cl_suboption(e_tree,
 								 tvb, optoff, s_end);
 		    }
-		  } else {
 
+		  default:
 		    /* skip over the data and look for next enterprise number */
 		    optoff += s_option_len;
 		  }
@@ -1994,14 +2009,20 @@ bootp_dhcp_decode_agent_info(proto_tree *v_tree, tvbuff_t *tvb, int optoff,
 	case 9: /* Vendor-Specific Information Suboption    [RFC 4243] */
 		while (suboptoff < optend) {
 			enterprise = tvb_get_ntohl(tvb, suboptoff);
-			vti = proto_tree_add_text(v_tree, tvb, suboptoff, 4,
+			datalen = tvb_get_guint8(tvb, suboptoff+4);
+			vti = proto_tree_add_text(v_tree, tvb, suboptoff, 4 + datalen,
 					    "Enterprise-number: %s (%u)",
 					    val_to_str( enterprise, sminmpec_values, "Unknown"),
 					    enterprise);
 			suboptoff += 4;
 
-			if ( enterprise == 4491 ) {
-				subtree = proto_item_add_subtree(vti, ett_bootp_option);
+			subtree = proto_item_add_subtree(vti, ett_bootp_option);
+			proto_tree_add_text(subtree, tvb, suboptoff, 1,
+					    "Data Length: %u", datalen);
+			suboptoff++;
+
+			switch (enterprise) {
+			case 4491: /* CableLab */
 				vs_opt = tvb_get_guint8(tvb, suboptoff);
 				suboptoff++;
 				vs_len = tvb_get_guint8(tvb, suboptoff);
@@ -2015,18 +2036,20 @@ bootp_dhcp_decode_agent_info(proto_tree *v_tree, tvbuff_t *tvb, int optoff,
 						tag_len = tvb_get_guint8(tvb, suboptoff+1);
 						suboptoff+=2;
 						if (tag == 1) {
-							proto_tree_add_text(subtree, tvb, suboptoff, vs_len,
+							proto_tree_add_text(subtree, tvb, suboptoff, tag_len,
 							    "DOCSIS Version Number %d.%d",
 							    tvb_get_guint8(tvb, suboptoff),
 							    tvb_get_guint8(tvb, suboptoff+1));
 							suboptoff+=2;
 						} else {
-							proto_tree_add_text(subtree, tvb, suboptoff, vs_len,
+							proto_tree_add_text(subtree, tvb, suboptoff, tag_len,
 							    "Unknown tag=%u %s (%d byte%s)", tag, 
 							    tvb_bytes_to_str(tvb, suboptoff, tag_len),
 							    tag_len, plurality(tag_len, "", "s"));
 							suboptoff += tag_len;
 						}
+					} else {
+						suboptoff += vs_len;
 					}
 					break;
 
@@ -2034,17 +2057,15 @@ bootp_dhcp_decode_agent_info(proto_tree *v_tree, tvbuff_t *tvb, int optoff,
 					proto_tree_add_text(subtree, tvb, suboptoff, vs_len,
 					    "Invalid suboption %d (%d byte%s)",
 					    vs_opt, vs_len, plurality(vs_len, "", "s"));
+					suboptoff += vs_len;
 					break;
 				}
-			} else {
-		     		datalen = tvb_get_guint8(tvb, suboptoff);
-		     		proto_tree_add_text(v_tree, tvb, suboptoff, 1,
-				    "Data Length: %u", datalen);
-		     		suboptoff++;
-
-		     		proto_tree_add_text(v_tree, tvb, suboptoff, datalen,
+				break;
+			default:
+		     		proto_tree_add_text(subtree, tvb, suboptoff, datalen,
 				    "Suboption Data: %s", tvb_bytes_to_str(tvb, suboptoff, datalen));
 		     		suboptoff += datalen;
+				break;
 			}
 		}
 		break;
@@ -2881,8 +2902,9 @@ dissect_vendor_cl_suboption(proto_tree *v_tree, tvbuff_t *tvb,
 		case val_u_byte:
 			val = tvb_get_guint8(tvb, suboptoff);
 			proto_tree_add_text(v_tree, tvb, optoff, subopt_len+2,
-				"Suboption %d: %s%d", subopt,
-				o125_cl_opt[subopt].text, val);
+				"Suboption %d: %s\"%s\"", subopt,
+				o125_cl_opt[subopt].text,
+				tvb_bytes_to_str(tvb, suboptoff, subopt_len));
 			break;
 
 		case val_u_short:
