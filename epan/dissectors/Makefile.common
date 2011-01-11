@@ -744,6 +744,7 @@ DISSECTOR_SRC = \
 	packet-lpd.c		\
 	packet-lsc.c		\
 	packet-ltp.c		\
+	packet-lucent_hnb.c	\
 	packet-lwapp.c		\
 	packet-lwres.c		\
 	packet-m2pa.c		\
