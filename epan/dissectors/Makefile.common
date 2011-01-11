@@ -69,6 +69,8 @@ DIRTY_PIDL_DISSECTOR_SRC = \
 	packet-dcerpc-dnsserver.c 	\
 	packet-dcerpc-eventlog.c \
 	packet-dcerpc-lsa.c \
+	packet-ehdlc.c		\
+	packet-gsm_abis_om2000.c	\
 	packet-dcerpc-winreg.c
 
 #

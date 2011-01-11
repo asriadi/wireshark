@@ -735,12 +735,15 @@ enum {
 	OML_DIALECT_ETSI,
 	OML_DIALECT_SIEMENS,
 	OML_DIALECT_IPA,
+	OML_DIALECT_ERICSSON,
 };
 
 /* which A-bis OML dialect to use (prefrence) */
 static gint global_oml_dialect = OML_DIALECT_ETSI;
 
 static proto_tree *top_tree;
+
+static dissector_handle_t sub_om2000;
 
 /* TS 12.21 Chapter 8.1 / TS 08.59 */
 static const value_string oml_msg_disc_vals[] = {
@@ -1155,6 +1158,7 @@ static const enum_val_t oml_dialect_enumvals[] = {
 	{ "etsi",	"ETSI/3GPP TS 12.21",	OML_DIALECT_ETSI },
 	{ "siemens",	"Siemens",		OML_DIALECT_SIEMENS },
 	{ "ipaccess",	"ip.access",		OML_DIALECT_IPA },
+	{ "om2000",	"Ericsson OM2000",	OML_DIALECT_ERICSSON },
 	{ NULL, NULL, 0 }
 };
 
@@ -1820,6 +1824,7 @@ dissect_abis_oml(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 	top_tree = tree;
 	if (tree) {
 		guint8 msg_disc = tvb_get_guint8(tvb, offset);
+		guint8 len = tvb_get_guint8(tvb, offset+3);
 
 		ti = proto_tree_add_item(tree, proto_abis_oml, tvb, 0, -1, FALSE);
 		oml_tree = proto_item_add_subtree(ti, ett_oml);
@@ -1833,6 +1838,14 @@ dissect_abis_oml(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 		proto_tree_add_item(oml_tree, hf_oml_length, tvb, offset++,
 				    1, TRUE);
 
+		if (global_oml_dialect == OML_DIALECT_ERICSSON) {
+			tvbuff_t *subtvb;
+			subtvb = tvb_new_subset(tvb, offset, len, len);
+
+			if (sub_om2000)
+				call_dissector(sub_om2000, subtvb, pinfo, tree);
+		} else {
+
 		switch (msg_disc) {
 		case ABIS_OM_MDISC_FOM:
 			offset = dissect_oml_fom(tvb, pinfo, oml_tree,
@@ -1845,6 +1858,8 @@ dissect_abis_oml(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 		case ABIS_OM_MDISC_TRAU:
 		default:
 			break;
+		}
+
 		}
 	}
 }
@@ -2372,4 +2387,6 @@ proto_reg_handoff_abis_oml(void)
 	} else {
 		/* preferences have been changed */
 	}
+
+	sub_om2000 = find_dissector("gsm_abis_om2000");
 }
