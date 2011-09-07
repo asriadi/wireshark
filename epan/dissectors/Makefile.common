@@ -71,6 +71,8 @@ DIRTY_PIDL_DISSECTOR_SRC = \
 	packet-dcerpc-lsa.c \
 	packet-ehdlc.c		\
 	packet-gsm_abis_om2000.c	\
+	packet-gsm_sim.c	\
+	packet-card_app_toolkit.c	\
 	packet-dcerpc-winreg.c
 
 #

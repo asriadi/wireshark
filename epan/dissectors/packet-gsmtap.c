@@ -187,6 +187,7 @@ enum {
 	GSMTAP_SUB_PDU,
 	GSMTAP_SUB_HACK,
 	GSMTAP_SUB_PHY_ATTRIBUTES,
+	GSMTAP_SUB_SIM,
 
 	GSMTAP_SUB_MAX
 };
@@ -349,6 +350,13 @@ dissect_gsmtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 	col_clear(pinfo->cinfo, COL_INFO);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "GSMTAP");
+
+	/* Some GSMTAP types are completely unrelated to the Um air interface */
+	switch (type) {
+	case GSMTAP_TYPE_SIM:
+		call_dissector(sub_handles[GSMTAP_SUB_SIM], payload_tvb, pinfo, tree);
+		return;
+	}
 
 	if (arfcn & GSMTAP_ARFCN_F_UPLINK) {
 		col_append_str(pinfo->cinfo, COL_RES_NET_SRC, "MS");
@@ -573,6 +581,7 @@ proto_reg_handoff_gsmtap(void)
 	sub_handles[GSMTAP_SUB_LLC] = find_dissector("llcgprs");
 	sub_handles[GSMTAP_SUB_SNDCP] = find_dissector("sndcp");
 	sub_handles[GSMTAP_SUB_ABIS] = find_dissector("gsm_a_dtap");
+	sub_handles[GSMTAP_SUB_SIM] = find_dissector("gsm_sim");
 	sub_handles[GSMTAP_SUB_CDMA_CODE] = find_dissector("wimax_cdma_code_burst_handler"); 
 	sub_handles[GSMTAP_SUB_FCH] = find_dissector("wimax_fch_burst_handler"); 
 	sub_handles[GSMTAP_SUB_FFB] = find_dissector("wimax_ffb_burst_handler"); 
