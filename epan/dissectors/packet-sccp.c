@@ -689,6 +689,7 @@ static int hf_sccp_xudt_msg_reassembled_in = -1;
 static int hf_sccp_xudt_msg_reassembled_length = -1;
 static int hf_sccp_assoc_msg = -1;
 static int hf_sccp_assoc_id = -1;
+static int hf_sccp_data_param = -1;
 
 /* Initialize the subtree pointers */
 static gint ett_sccp = -1;
@@ -1790,6 +1791,8 @@ dissect_sccp_data_param(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
     guint8 other_ssn = INVALID_SSN;
     const mtp3_addr_pc_t* dpc = NULL;
     const mtp3_addr_pc_t* opc = NULL;
+
+    proto_tree_add_item(tree, hf_sccp_data_param, tvb, 0, tvb_length(tvb), TRUE);
 
     if (trace_sccp && assoc && assoc != &no_assoc) {
         pinfo->sccp_info = assoc->curr_msg;
@@ -3400,6 +3403,10 @@ proto_register_sccp(void)
     {&hf_sccp_assoc_msg,
 	{"Message in frame", "sccp.assoc.msg",
 	FT_FRAMENUM, BASE_NONE, NULL, 0x00, NULL, HFILL }
+    },
+    {&hf_sccp_data_param,
+	{"Data parameter", "sccp.data_param",
+	FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL }
     },
 
   };
