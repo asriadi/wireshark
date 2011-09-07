@@ -551,6 +551,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-eth.c
 	dissectors/packet-etherip.c
 	dissectors/packet-ethertype.c
+	dissectors/packet-etsi_card_app_toolkit.c
 	dissectors/packet-evrc.c
 	dissectors/packet-exec.c
 	dissectors/packet-extreme.c
@@ -608,6 +609,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-gsm_ipa.c
 	dissectors/packet-gsm_bsslap.c
 	dissectors/packet-gsm_bssmap_le.c
+	dissectors/packet-gsm_sim.c
 	dissectors/packet-gsm_sms.c
 	dissectors/packet-gsm_sms_ud.c
 	dissectors/packet-gsm_um.c
