@@ -602,6 +602,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-gsm_a_gm.c
 	dissectors/packet-gsm_a_rp.c
 	dissectors/packet-gsm_a_rr.c
+	dissectors/packet-gsm_abis_oml.c
 	dissectors/packet-gsm_ipa.c
 	dissectors/packet-gsm_bsslap.c
 	dissectors/packet-gsm_bssmap_le.c
