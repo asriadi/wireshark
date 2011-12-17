@@ -4497,7 +4497,7 @@ proto_reg_handoff_rsl(void)
     dissector_handle_t rsl_handle;
 
     rsl_handle = create_dissector_handle(dissect_rsl, proto_rsl);
-    dissector_add_uint("lapd.gsm.sapi", LAPD_GSM_SAPI_RA_SIG_PROC, rsl_handle);
+//dissector_add_uint("lapd.gsm.sapi", LAPD_GSM_SAPI_RA_SIG_PROC, rsl_handle);
 
     gsm_cbch_handle = find_dissector("gsm_cbch");
     gsm_cbs_handle = find_dissector("gsm_cell_broadcast");
