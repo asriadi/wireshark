@@ -34,14 +34,6 @@
 #endif
 
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
-#ifdef HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-
 #include <glib.h>
 
 #include <epan/packet.h>
@@ -630,7 +622,7 @@ dissect_isns_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 	    offset += 4;
 
 	    proto_tree_add_item(tt,hf_isns_heartbeat_counter, tvb, offset, 4, ENC_BIG_ENDIAN);
-	    offset += 4;
+	    /*offset += 4;*/
 	    break;
 	}
 	/* Responses */

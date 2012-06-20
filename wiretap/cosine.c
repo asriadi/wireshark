@@ -294,13 +294,12 @@ int cosine_open(wtap *wth, int *err, gchar **err_info)
 	if (file_seek(wth->fh, 0L, SEEK_SET, err) == -1)	/* rewind */
 		return -1;
 
-	wth->data_offset = 0;
 	wth->file_encap = WTAP_ENCAP_COSINE;
 	wth->file_type = WTAP_FILE_COSINE;
 	wth->snapshot_length = 0; /* not known */
 	wth->subtype_read = cosine_read;
 	wth->subtype_seek_read = cosine_seek_read;
-    wth->tsprecision = WTAP_FILE_TSPREC_CSEC;
+	wth->tsprecision = WTAP_FILE_TSPREC_CSEC;
 
 	return 1;
 }
@@ -334,7 +333,6 @@ static gboolean cosine_read(wtap *wth, int *err, gchar **err_info,
 	    err_info)) == -1)
 		return FALSE;
 
-	wth->data_offset = offset;
 	wth->phdr.presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN;
 	wth->phdr.caplen = caplen;
 	*data_offset = offset;

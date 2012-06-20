@@ -84,7 +84,7 @@ typedef enum {
 static GtkWidget    *status_pane_left, *status_pane_right;
 static GtkWidget    *info_bar, *info_bar_event, *packets_bar, *profile_bar, *profile_bar_event;
 static GtkWidget    *expert_info_error, *expert_info_warn, *expert_info_note;
-static GtkWidget    *expert_info_chat, *expert_info_none;
+static GtkWidget    *expert_info_chat, *expert_info_comment, *expert_info_none;
 
 static GtkWidget    *capture_comment_none, *capture_comment;
 
@@ -299,7 +299,7 @@ statusbar_new(void)
     GtkWidget *status_hbox;
 
     /* Status hbox */
-    status_hbox = gtk_hbox_new(FALSE, 1);
+    status_hbox = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(status_hbox), 0);
 
     /* info (main) statusbar */
@@ -318,9 +318,9 @@ statusbar_new(void)
     status_capture_comment_new();
 
     /* Pane for the statusbar */
-    status_pane_left = gtk_hpaned_new();
+    status_pane_left = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_widget_show(status_pane_left);
-    status_pane_right = gtk_hpaned_new();
+    status_pane_right = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_widget_show(status_pane_right);
 
     return status_hbox;
@@ -365,6 +365,7 @@ statusbar_widgets_emptying(GtkWidget *statusbar)
     g_object_ref(G_OBJECT(expert_info_warn));
     g_object_ref(G_OBJECT(expert_info_note));
     g_object_ref(G_OBJECT(expert_info_chat));
+    g_object_ref(G_OBJECT(expert_info_comment));
     g_object_ref(G_OBJECT(expert_info_none));
     g_object_ref(G_OBJECT(capture_comment));
     g_object_ref(G_OBJECT(capture_comment_none));
@@ -383,6 +384,7 @@ statusbar_widgets_pack(GtkWidget *statusbar)
     gtk_box_pack_start(GTK_BOX(statusbar), expert_info_warn, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(statusbar), expert_info_note, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(statusbar), expert_info_chat, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(statusbar), expert_info_comment, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(statusbar), expert_info_none, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(statusbar), capture_comment, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(statusbar), capture_comment_none, FALSE, FALSE, 2);
@@ -464,9 +466,9 @@ profile_bar_new(void)
     gtk_container_add(GTK_CONTAINER(profile_bar_event), profile_bar);
     g_signal_connect(profile_bar_event, "button_press_event", G_CALLBACK(profile_show_popup_cb), NULL);
     g_signal_connect(profile_bar_event, "button_press_event", G_CALLBACK(popup_menu_handler),
-		     g_object_get_data(G_OBJECT(popup_menu_object), PM_STATUSBAR_PROFILES_KEY));
+                     g_object_get_data(G_OBJECT(popup_menu_object), PM_STATUSBAR_PROFILES_KEY));
     profile_ctx = gtk_statusbar_get_context_id(GTK_STATUSBAR(profile_bar), "profile");
-	gtk_widget_set_tooltip_text(profile_bar_event, "Click to change configuration profile");
+    gtk_widget_set_tooltip_text(profile_bar_event, "Click to change configuration profile");
     profile_bar_update();
 
     gtk_widget_show(profile_bar);
@@ -486,7 +488,7 @@ packets_bar_update(void)
             gtk_statusbar_pop(GTK_STATUSBAR(packets_bar), packets_ctx);
         } else {
             packets_str = g_string_new ("");
-	}
+        }
 
         /* Do we have any packets? */
         if(cfile.count) {
@@ -580,6 +582,13 @@ status_expert_new(void)
     gtk_container_add(GTK_CONTAINER(expert_info_chat), expert_image);
     g_signal_connect(expert_info_chat, "button_press_event", G_CALLBACK(expert_comp_dlg_event_cb), NULL);
 
+    expert_image = gtk_image_new_from_stock(GTK_STOCK_YES, GTK_ICON_SIZE_MENU);
+    gtk_widget_set_tooltip_text(expert_image, "COMMENT is the highest expert info level");
+    gtk_widget_show(expert_image);
+    expert_info_comment = gtk_event_box_new();
+    gtk_container_add(GTK_CONTAINER(expert_info_comment), expert_image);
+    g_signal_connect(expert_info_comment, "button_press_event", G_CALLBACK(expert_comp_dlg_event_cb), NULL);
+
     expert_image = pixbuf_to_widget(expert_none_pb_data);
     gtk_widget_set_tooltip_text(expert_image, "No expert info");
     gtk_widget_show(expert_image);
@@ -596,6 +605,7 @@ status_expert_hide(void)
     gtk_widget_hide(expert_info_warn);
     gtk_widget_hide(expert_info_note);
     gtk_widget_hide(expert_info_chat);
+    gtk_widget_hide(expert_info_comment);
     gtk_widget_hide(expert_info_none);
 }
 
@@ -616,6 +626,9 @@ status_expert_update(void)
         break;
     case(PI_CHAT):
         gtk_widget_show(expert_info_chat);
+        break;
+    case(PI_COMMENT):
+        gtk_widget_show(expert_info_comment);
         break;
     default:
         gtk_widget_show(expert_info_none);
@@ -717,24 +730,24 @@ statusbar_cf_file_closed_cb(capture_file *cf _U_)
 {
     /* go back to "No packets" */
     packets_bar_update();
-	/* Remove comments icon */
-	status_capture_comment_hide();
-	/* Remove experts icon */
-	status_expert_hide();
+    /* Remove comments icon */
+    status_capture_comment_hide();
+    /* Remove experts icon */
+    status_expert_hide();
 }
 
 
 static void
-statusbar_cf_file_read_started_cb(capture_file *cf)
+statusbar_cf_file_read_started_cb(capture_file *cf, const char *action)
 {
-    const gchar *name_ptr;
+    gchar *name_ptr;
 
     /* Ensure we pop any previous loaded filename */
     statusbar_pop_file_msg();
 
-    name_ptr = get_basename(cf->filename);
-
-    statusbar_push_file_msg(" Loading: %s", name_ptr);
+    name_ptr = g_filename_display_basename(cf->filename);
+    statusbar_push_file_msg(" %s: %s", action, name_ptr);
+    g_free(name_ptr);
 }
 
 
@@ -743,7 +756,7 @@ statusbar_cf_file_read_finished_cb(capture_file *cf)
 {
     statusbar_pop_file_msg();
     statusbar_set_filename(cf->filename, cf->f_datalen, &(cf->elapsed_time));
-	status_capture_comment_update();
+    status_capture_comment_update();
 }
 
 
@@ -886,6 +899,20 @@ statusbar_capture_fixed_finished_cb(capture_options *capture_opts _U_)
     gtk_statusbar_pop(GTK_STATUSBAR(packets_bar), packets_ctx);
 }
 
+static void
+statusbar_capture_failed_cb(capture_options *capture_opts _U_)
+{
+#if 0
+    capture_file *cf = capture_opts->cf;
+#endif
+
+    /* Pop the "<live capture in progress>" message off the status bar. */
+    statusbar_pop_file_msg();
+    welcome_header_pop_msg();
+
+    /* Pop the "<capturing>" message off the status bar */
+    gtk_statusbar_pop(GTK_STATUSBAR(packets_bar), packets_ctx);
+}
 #endif /* HAVE_LIBPCAP */
 
 
@@ -899,7 +926,7 @@ static void
 statusbar_cf_file_save_started_cb(gchar *filename)
 {
     statusbar_pop_file_msg();
-    statusbar_push_file_msg(" Saving: %s...", get_basename(filename));
+    statusbar_push_file_msg(" Saving: %s...", g_filename_display_basename(filename));
 }
 
 static void
@@ -910,15 +937,42 @@ statusbar_cf_file_save_finished_cb(gpointer data _U_)
 }
 
 static void
-statusbar_cf_file_reload_finished_cb(capture_file *cf)
+statusbar_cf_file_save_failed_cb(gpointer data _U_)
 {
+    /* Pop the "Saving:" message off the status bar. */
     statusbar_pop_file_msg();
-    statusbar_set_filename(cf->filename, cf->f_datalen, &(cf->elapsed_time));
 }
 
+static void
+statusbar_cf_file_save_stopped_cb(gpointer data _U_)
+{
+    /* Pop the "Saving:" message off the status bar. */
+    statusbar_pop_file_msg();
+}
 
 static void
-statusbar_cf_file_save_failed_cb(gpointer data _U_)
+statusbar_cf_file_export_specified_packets_started_cb(gchar *filename)
+{
+    statusbar_pop_file_msg();
+    statusbar_push_file_msg(" Exporting to: %s...", g_filename_display_basename(filename));
+}
+
+static void
+statusbar_cf_file_export_specified_packets_finished_cb(gpointer data _U_)
+{
+    /* Pop the "Exporting to:" message off the status bar. */
+    statusbar_pop_file_msg();
+}
+
+static void
+statusbar_cf_file_export_specified_packets_failed_cb(gpointer data _U_)
+{
+    /* Pop the "Exporting to:" message off the status bar. */
+    statusbar_pop_file_msg();
+}
+
+static void
+statusbar_cf_file_export_specified_packets_stopped_cb(gpointer data _U_)
 {
     /* Pop the "Saving:" message off the status bar. */
     statusbar_pop_file_msg();
@@ -937,10 +991,24 @@ statusbar_cf_callback(gint event, gpointer data, gpointer user_data _U_)
         statusbar_cf_file_closed_cb(data);
         break;
     case(cf_cb_file_read_started):
-        statusbar_cf_file_read_started_cb(data);
+        statusbar_cf_file_read_started_cb(data, "Loading");
         break;
     case(cf_cb_file_read_finished):
         statusbar_cf_file_read_finished_cb(data);
+        break;
+    case(cf_cb_file_reload_started):
+        statusbar_cf_file_read_started_cb(data, "Reloading");
+        break;
+    case(cf_cb_file_reload_finished):
+        statusbar_cf_file_read_finished_cb(data);
+        break;
+    case(cf_cb_file_rescan_started):
+        statusbar_cf_file_read_started_cb(data, "Rescanning");
+        break;
+    case(cf_cb_file_rescan_finished):
+        statusbar_cf_file_read_finished_cb(data);
+        break;
+    case(cf_cb_file_fast_save_finished):
         break;
     case(cf_cb_packet_selected):
         break;
@@ -955,11 +1023,23 @@ statusbar_cf_callback(gint event, gpointer data, gpointer user_data _U_)
     case(cf_cb_file_save_finished):
         statusbar_cf_file_save_finished_cb(data);
         break;
-    case(cf_cb_file_save_reload_finished):
-        statusbar_cf_file_reload_finished_cb(data);
-        break;
     case(cf_cb_file_save_failed):
         statusbar_cf_file_save_failed_cb(data);
+        break;
+    case(cf_cb_file_save_stopped):
+        statusbar_cf_file_save_stopped_cb(data);
+        break;
+    case(cf_cb_file_export_specified_packets_started):
+        statusbar_cf_file_export_specified_packets_started_cb(data);
+        break;
+    case(cf_cb_file_export_specified_packets_finished):
+        statusbar_cf_file_export_specified_packets_finished_cb(data);
+        break;
+    case(cf_cb_file_export_specified_packets_failed):
+        statusbar_cf_file_export_specified_packets_failed_cb(data);
+        break;
+    case(cf_cb_file_export_specified_packets_stopped):
+        statusbar_cf_file_export_specified_packets_stopped_cb(data);
         break;
     default:
         g_warning("statusbar_cf_callback: event %u unknown", event);
@@ -997,6 +1077,9 @@ statusbar_capture_callback(gint event, capture_options *capture_opts,
     case(capture_cb_capture_stopping):
         /* Beware: this state won't be called, if the capture child
          * closes the capturing on it's own! */
+        break;
+    case(capture_cb_capture_failed):
+        statusbar_capture_failed_cb(capture_opts);
         break;
     default:
         g_warning("statusbar_capture_callback: event %u unknown", event);

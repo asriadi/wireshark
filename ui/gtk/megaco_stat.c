@@ -29,10 +29,6 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
 #include <string.h>
 
 #include <gtk/gtk.h>
@@ -162,7 +158,7 @@ gtk_megacostat_init(const char *optarg, void *userdata _U_)
 	}
 
 	if (!*megaco_ctx_track->varp.boolp || !*h248_ctx_track->varp.boolp) {
-		simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", "Track Context option at Protocols -> MEGACO and Protocols -> H248 preferences has to be set to true to enable measurement of service reponse times.");
+		simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", "Track Context option at Protocols -> MEGACO and Protocols -> H248 preferences has to be set to true to enable measurement of service response times.");
 		return;
 	}
 
@@ -181,7 +177,7 @@ gtk_megacostat_init(const char *optarg, void *userdata _U_)
 
 	gtk_window_set_default_size(GTK_WINDOW(ms->win), 550, 150);
 
-	ms->vbox=gtk_vbox_new(FALSE, 3);
+	ms->vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 6, FALSE);
 
 	init_main_stat_window(ms->win, ms->vbox, "MEGACO Service Response Time (SRT) Statistics", ms->filter);
 

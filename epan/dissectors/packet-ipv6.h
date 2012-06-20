@@ -78,44 +78,31 @@ struct	ip6_ext {
 	guchar	ip6e_len;
 };
 
-/* Hop-by-Hop options header */
-/* XXX should we pad it to force alignment on an 8-byte boundary? */
-struct ip6_hbh {
-	guint8 ip6h_nxt;	/* next header */
-	guint8 ip6h_len;	/* length in units of 8 octets */
-	/* followed by options */
-};
-
-/* Destination options header */
-/* XXX should we pad it to force alignment on an 8-byte boundary? */
-struct ip6_dest {
-	guint8 ip6d_nxt;	/* next header */
-	guint8 ip6d_len;	/* length in units of 8 octets */
-	/* followed by options */
-};
 
 /* Option types and related macros */
-#define IP6OPT_PAD1				0x00	/* 00 0 00000 */
-#define IP6OPT_PADN				0x01	/* 00 0 00001 */
-#define IP6OPT_JUMBO			0xC2	/* 11 0 00010 = 194 */
-#define IP6OPT_JUMBO_LEN		6
+#define IP6OPT_PAD1			0x00	/* 00 0 00000 */
+#define IP6OPT_PADN			0x01	/* 00 0 00001 */
+#define IP6OPT_TEL			0x04	/* 00 0 00100 */
 #define IP6OPT_RTALERT			0x05	/* 00 0 00101 */
+#define IP6OPT_CALIPSO			0x07	/* 00 0 00111 */
+#define IP6OPT_QUICKSTART		0x26	/* 00 1 00110 */
+#define IP6OPT_ENDI			0x8A	/* 10 0 01010 */
+#define IP6OPT_EXP_1E			0x1E	/* 00 0 11110 */
+#define IP6OPT_EXP_3E			0x3E	/* 00 1 11110 */
+#define IP6OPT_EXP_5E			0x5E	/* 01 0 11110 */
+#define IP6OPT_RPL			0x63	/* 01 1 00011 */
+#define IP6OPT_EXP_7E			0x7E	/* 01 1 11110 */
+#define IP6OPT_EXP_9E			0x9E	/* 10 0 11110 */
+#define IP6OPT_EXP_BE			0xBE	/* 10 1 11110 */
+#define IP6OPT_JUMBO			0xC2	/* 11 0 00010 = 194 */
+#define IP6OPT_HOME_ADDRESS		0xC9	/* 11 0 01001 */
+#define IP6OPT_EXP_DE			0xDE	/* 11 0 11110 */
+#define IP6OPT_EXP_FE			0xFE	/* 11 1 11110 */
 
-#define IP6OPT_RTALERT_LEN		4
-#define IP6OPT_RTALERT_MLD		0	/* Datagram contains MLD message */
-#define IP6OPT_RTALERT_RSVP		1	/* Datagram contains RSVP message */
-#define IP6OPT_RTALERT_ACTNET	2	/* contains an Active Networks msg */
-#define IP6OPT_MINLEN			2
+#define IP6OPT_RTALERT_MLD		0	/* Datagram contains MLD msg */
+#define IP6OPT_RTALERT_RSVP		1	/* Datagram contains RSVP msg */
+#define IP6OPT_RTALERT_ACTNET		2	/* Datagram contains ACTNET msg */
 
-#define IP6OPT_HOME_ADDRESS	0xC9  /* 11 0 01001 */
-
-#define IP6OPT_TYPE(o)		((o) & 0xC0)
-#define IP6OPT_TYPE_SKIP	0x00
-#define IP6OPT_TYPE_DISCARD	0x40
-#define IP6OPT_TYPE_FORCEICMP	0x80
-#define IP6OPT_TYPE_ICMP	0xC0
-
-#define IP6OPT_MUTABLE		0x20
 
 /* Routing header */
 struct ip6_rthdr {
@@ -201,6 +188,7 @@ struct ip6_shim {
 };
 
 #define IP6F_OFF_MASK		0xfff8	/* mask out offset from _offlg */
+#define IP6F_OFF_SHIFT		3	/* right-shift offset by this many bits */
 #define IP6F_RESERVED_MASK	0x0006	/* reserved bits in ip6f_offlg */
 #define IP6F_MORE_FRAG		0x0001	/* more-fragments flag */
 

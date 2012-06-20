@@ -84,7 +84,7 @@ win32:INCLUDEPATH += \
 
 SOURCES_WS_C = \
     ../../airpcap_loader.c \
-    ../../alert_box.c     \
+    ../../ui/alert_box.c     \
     ../../capture-pcap-util.c     \
     ../../capture.c       \
     ../../capture_ifinfo.c \
@@ -253,29 +253,34 @@ win32 {
     LIBS += $$PA_OBJECTS
     LIBS += \
         wsock32.lib user32.lib shell32.lib comctl32.lib \
-        -L../../epan -llibwireshark -L../../wsutil -llibwsutil -L../../wiretap -lwiretap-1.7.0 \
+        -L../../epan -llibwireshark -L../../wsutil -llibwsutil -L../../wiretap -lwiretap-$${WTAP_VERSION} \
         -L$${GLIB_DIR}/lib -lglib-2.0 -lgmodule-2.0
 
     EXTRA_BINFILES = \
         ../../dumpcap.exe \
-        ../../epan/libwireshark.dll ../../wiretap/wiretap-1.7.0.dll ../../wsutil/libwsutil.dll \
+        ../../epan/libwireshark.dll ../../wiretap/wiretap-$${WTAP_VERSION}.dll ../../wsutil/libwsutil.dll \
         $${GLIB_DIR}/bin/libglib-2.0-0.dll $${GLIB_DIR}/bin/libgmodule-2.0-0.dll \
-        $${GLIB_DIR}/bin/libgthread-2.0-0.dll $${GLIB_DIR}/bin/intl.dll \
+        $${GLIB_DIR}/bin/libgthread-2.0-0.dll $${GLIB_DIR}/bin/$${INTL_DLL} \
         $${C_ARES_DIR}/bin/libcares-2.dll $${ZLIB_DIR}/zlib1.dll \
         $${GNUTLS_DIR}/bin/libgcrypt-11.dll $${GNUTLS_DIR}/bin/libgnutls-26.dll \
         $${GNUTLS_DIR}/bin/libgpg-error-0.dll $${GNUTLS_DIR}/bin/ $${GNUTLS_DIR}/bin/libtasn1-3.dll \
         $${GNUTLS_DIR}/bin/libintl-8.dll $${SMI_DIR}/bin/libsmi-2.dll \
-        $${KFW_DIR}/bin/comerr32.dll $${KFW_DIR}/bin/krb5_32.dll $${KFW_DIR}/bin/k5sprt32.dll \
         $${LUA_DIR}/lua5.1.dll \
+        $${GEOIP_DIR}/bin/libGeoIP-1.dll \
         ../../colorfilters ../../dfilters ../../cfilters
+
+    wireshark_use_kfw {
+        EXTRA_BINFILES += \
+            $${KFW_DIR}/bin/comerr32.dll $${KFW_DIR}/bin/krb5_32.dll $${KFW_DIR}/bin/k5sprt32.dll
+    }
 
     EXTRA_BINFILES ~= s,/,\\,g
     for(FILE,EXTRA_BINFILES){
         QMAKE_POST_LINK +=$$quote($(COPY_FILE) $${FILE} $(DESTDIR)$$escape_expand(\\n\\t))
     }
-    PLUGINS_DIR = $(DESTDIR)\\plugins\\$${VERSION}
+    PLUGINS_DIR = $(DESTDIR)\\plugins\\$${VERSION_FULL}
     QMAKE_POST_LINK +=$$quote($(CHK_DIR_EXISTS) $${PLUGINS_DIR} $(MKDIR) $${PLUGINS_DIR}$$escape_expand(\\n\\t))
-    QMAKE_POST_LINK +=$$quote($(COPY_FILE) ..\\..\\wireshark-gtk2\\plugins\\$${VERSION}\\*.dll $(DESTDIR)\\plugins\\$${VERSION}$$escape_expand(\\n\\t))
+    QMAKE_POST_LINK +=$$quote($(COPY_FILE) ..\\..\\wireshark-gtk2\\plugins\\$${VERSION_FULL}\\*.dll $(DESTDIR)\\plugins\\$${VERSION_FULL}$$escape_expand(\\n\\t))
 
     # This doesn't depend on wireshark-gtk2. It also doesn't work.
     #PLUGINS_IN_PWD=$${IN_PWD}

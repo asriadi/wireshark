@@ -892,7 +892,7 @@ rel_time_to_secs_str(const nstime_t *rel_time)
  */
 
 char *
-decode_bits_in_field(const gint bit_offset, const gint no_of_bits, const guint64 value)
+decode_bits_in_field(const guint bit_offset, const gint no_of_bits, const guint64 value)
 {
 	guint64 mask = 0,tmp;
 	char *str;
@@ -986,7 +986,7 @@ decode_bitfield_value(char *buf, const guint32 val, const guint32 mask, const in
 }
 
 /* Generate a string describing a Boolean bitfield (a one-bit field that
-   says something is either true of false). */
+   says something is either true or false). */
 const char *
 decode_boolean_bitfield(const guint32 val, const guint32 mask, const int width,
     const char *truedesc, const char *falsedesc)
@@ -1097,4 +1097,3 @@ gchar* guid_to_str_buf(const e_guid_t *guid, gchar *buf, int buf_len) {
   *tempptr   = '\0';
   return buf;
 }
-

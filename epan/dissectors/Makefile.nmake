@@ -7,8 +7,6 @@ include ..\..\config.nmake
 
 ############### no need to modify below this line #########
 
-include Custom.nmake
-
 include Makefile.common
 
 CFLAGS= $(WARNINGS_ARE_ERRORS) $(STANDARD_CFLAGS) \
@@ -115,6 +113,6 @@ maintainer-clean: distclean
 	rm -f $(GENERATED_FILES)
 
 checkapi:
-	$(PERL) ../../tools/checkAPIs.pl -g abort -g termoutput \
+	$(PERL) ../../tools/checkAPIs.pl -g abort -g termoutput -build \
 		$(ALL_DISSECTORS_SRC) $(DISSECTOR_INCLUDES) \
 		packet-dcerpc-nt.c

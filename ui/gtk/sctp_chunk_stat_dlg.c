@@ -580,12 +580,16 @@ on_close_dlg (GtkButton *button _U_, gpointer user_data)
 static void
 path_window_set_title(struct sctp_udata *u_data, unsigned int direction)
 {
+    char *display_name;
     char *title;
+
     if(!u_data->io->window){
         return;
     }
+    display_name = cf_get_display_name(&cfile);
     title = g_strdup_printf("SCTP Path Chunk Statistics for Endpoint %u: %s Port1 %u  Port2 %u",direction,
-                            cf_get_display_name(&cfile), u_data->assoc->port1, u_data->assoc->port2);
+                            display_name, u_data->assoc->port1, u_data->assoc->port2);
+    g_free(display_name);
     gtk_window_set_title(GTK_WINDOW(u_data->io->window), title);
     g_free(title);
 }
@@ -609,7 +613,7 @@ gtk_sctpstat_dlg(struct sctp_udata *u_data, unsigned int direction)
     g_signal_connect(u_data->io->window, "destroy", G_CALLBACK(chunk_dlg_destroy), u_data);
 
     /* Container for each row of widgets */
-    vbox1 = gtk_vbox_new(FALSE, 2);
+    vbox1 = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 2, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(vbox1), 8);
     gtk_container_add(GTK_CONTAINER(u_data->io->window), vbox1);
     gtk_widget_show(vbox1);
@@ -625,7 +629,7 @@ gtk_sctpstat_dlg(struct sctp_udata *u_data, unsigned int direction)
     gtk_widget_show(u_data->io->window);
 
 
-    hbuttonbox2 = gtk_hbutton_box_new();
+    hbuttonbox2 = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox1), hbuttonbox2, FALSE, FALSE, 0);
     gtk_container_set_border_width(GTK_CONTAINER(hbuttonbox2), 10);
     gtk_button_box_set_layout(GTK_BUTTON_BOX (hbuttonbox2), GTK_BUTTONBOX_SPREAD);
@@ -646,12 +650,16 @@ gtk_sctpstat_dlg(struct sctp_udata *u_data, unsigned int direction)
 static void
 chunk_window_set_title(struct sctp_udata *u_data)
 {
+    char *display_name;
     char *title;
+
     if(!u_data->io->window){
         return;
     }
+    display_name = cf_get_display_name(&cfile);
     title = g_strdup_printf("SCTP Association Chunk Statistics: %s Port1 %u  Port2 %u",
-                            cf_get_display_name(&cfile), u_data->assoc->port1, u_data->assoc->port2);
+                            display_name, u_data->assoc->port1, u_data->assoc->port2);
+    g_free(display_name);
     gtk_window_set_title(GTK_WINDOW(u_data->io->window), title);
     g_free(title);
 }
@@ -674,7 +682,7 @@ sctp_chunk_dlg(struct sctp_udata *u_data)
     g_signal_connect(u_data->io->window, "destroy", G_CALLBACK(on_destroy), u_data);
 
     /* Container for each row of widgets */
-    main_vb = gtk_vbox_new(FALSE, 12);
+    main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 12, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(main_vb), 12);
     gtk_container_add(GTK_CONTAINER(u_data->io->window), main_vb);
 
@@ -747,7 +755,7 @@ sctp_chunk_dlg(struct sctp_udata *u_data)
     gtk_misc_set_alignment(GTK_MISC(label), 0.0f, 0.5f);
     gtk_table_attach_defaults(GTK_TABLE(table), label, 3, 4, row, row+1);
 
-    h_button_box=gtk_hbutton_box_new();
+    h_button_box=gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(main_vb), h_button_box, FALSE, FALSE, 0);
     gtk_container_set_border_width(GTK_CONTAINER(h_button_box), 10);
     gtk_button_box_set_layout(GTK_BUTTON_BOX (h_button_box), GTK_BUTTONBOX_SPREAD);

@@ -115,6 +115,8 @@ static int hf_scsi_sbc_verify_flags		= -1;
 static int hf_scsi_sbc_wrprotect		= -1;
 static int hf_scsi_sbc_wrverify_flags		= -1;
 static int hf_scsi_sbc_writesame_flags		= -1;
+static int hf_scsi_sbc_anchor			= -1;
+static int hf_scsi_sbc_unmap			= -1;
 static int hf_scsi_sbc_pbdata			= -1;
 static int hf_scsi_sbc_lbdata			= -1;
 static int hf_scsi_sbc_xdread_flags		= -1;
@@ -123,6 +125,23 @@ static int hf_scsi_sbc_disable_write		= -1;
 static int hf_scsi_sbc_xdwrite_flags		= -1;
 static int hf_scsi_sbc_xdwriteread_flags	= -1;
 static int hf_scsi_sbc_xpwrite_flags		= -1;
+static int hf_scsi_sbc_unmap_flags		= -1;
+static int hf_scsi_sbc_unmap_anchor	       	= -1;
+static int hf_scsi_sbc_unmap_data_length       	= -1;
+static int hf_scsi_sbc_unmap_block_descriptor_data_length = -1;
+static int hf_scsi_sbc_unmap_lba		= -1;
+static int hf_scsi_sbc_unmap_num_blocks		= -1;
+static int hf_scsi_sbc_ptype			= -1;
+static int hf_scsi_sbc_prot_en			= -1;
+static int hf_scsi_sbc_p_i_exponent		= -1;
+static int hf_scsi_sbc_lbppbe			= -1;
+static int hf_scsi_sbc_lbpme			= -1;
+static int hf_scsi_sbc_lbprz			= -1;
+static int hf_scsi_sbc_lalba			= -1;
+static int hf_scsi_sbc_get_lba_status_lba	= -1;
+static int hf_scsi_sbc_get_lba_status_data_length = -1;
+static int hf_scsi_sbc_get_lba_status_num_blocks = -1;
+static int hf_scsi_sbc_get_lba_status_provisioning_status = -1;
 
 static gint ett_scsi_format_unit		= -1;
 static gint ett_scsi_prefetch			= -1;
@@ -141,7 +160,9 @@ static gint ett_scsi_synccache			= -1;
 static gint ett_scsi_verify			= -1;
 static gint ett_scsi_wrverify			= -1;
 static gint ett_scsi_writesame			= -1;
-
+static gint ett_scsi_unmap			= -1;
+static gint ett_scsi_unmap_block_descriptor	= -1;
+static gint ett_scsi_lba_status_descriptor      = -1;
 
 
 static const true_false_string dpo_tfs = {
@@ -679,6 +700,20 @@ static const value_string scsi_ssu_pwrcnd_val[] = {
     {0, NULL},
 };
 
+static const value_string scsi_ptype_val[] = {
+    {0x0, "Type 1 protection" },
+    {0x1, "Type 2 protection" },
+    {0x2, "Type 3 protection" },
+    {0, NULL},
+};
+
+static const value_string scsi_provisioning_type_val[] = {
+    {0x0, "The LBA is MAPPED" },
+    {0x1, "The LBA is DEALLOCATED" },
+    {0x2, "The LBA is ANCHORED" },
+    {0, NULL},
+};
+
 void
 dissect_sbc_startstopunit (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
                             guint offset, gboolean isreq _U_, gboolean iscdb,
@@ -1009,6 +1044,8 @@ dissect_sbc_writesame10 (tvbuff_t *tvb, packet_info *pinfo _U_,
 {
     static const int *writesame10_fields[] = {
 	&hf_scsi_sbc_wrprotect,
+	&hf_scsi_sbc_anchor,
+	&hf_scsi_sbc_unmap,
 	&hf_scsi_sbc_pbdata,
 	&hf_scsi_sbc_lbdata,
 	NULL
@@ -1036,6 +1073,8 @@ dissect_sbc_writesame16 (tvbuff_t *tvb, packet_info *pinfo _U_,
 {
     static const int *writesame16_fields[] = {
 	&hf_scsi_sbc_wrprotect,
+	&hf_scsi_sbc_anchor,
+	&hf_scsi_sbc_unmap,
 	&hf_scsi_sbc_pbdata,
 	&hf_scsi_sbc_lbdata,
 	NULL
@@ -1052,6 +1091,59 @@ dissect_sbc_writesame16 (tvbuff_t *tvb, packet_info *pinfo _U_,
         proto_tree_add_item (tree, hf_scsi_sbc_group, tvb, offset+13, 1, ENC_BIG_ENDIAN);
         proto_tree_add_bitmask(tree, tvb, offset+14, hf_scsi_control,
             ett_scsi_control, cdb_control_fields, ENC_BIG_ENDIAN);
+    }
+}
+
+static void
+dissect_sbc_unmap (tvbuff_t *tvb, packet_info *pinfo _U_,
+                            proto_tree *tree, guint offset, gboolean isreq,
+                            gboolean iscdb,
+                            guint payload_len _U_, scsi_task_data_t *cdata _U_)
+{
+    static const int *unmap_fields[] = {
+	&hf_scsi_sbc_unmap_anchor,
+	NULL
+    };
+
+    if (!tree)
+        return;
+
+    if (isreq && iscdb) {
+        proto_tree_add_bitmask(tree, tvb, offset, hf_scsi_sbc_unmap_flags,
+            ett_scsi_unmap, unmap_fields, ENC_BIG_ENDIAN);
+        proto_tree_add_item (tree, hf_scsi_sbc_group, tvb, offset+5, 1, ENC_BIG_ENDIAN);
+
+        proto_tree_add_item (tree, hf_scsi_sbc_alloclen16, tvb, offset+6, 2, ENC_BIG_ENDIAN);
+
+        proto_tree_add_bitmask(tree, tvb, offset+8, hf_scsi_control,
+            ett_scsi_control, cdb_control_fields, ENC_BIG_ENDIAN);
+    } else if (isreq) {
+        proto_tree_add_item (tree, hf_scsi_sbc_unmap_data_length, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item (tree, hf_scsi_sbc_unmap_block_descriptor_data_length, tvb, offset+2, 2, ENC_BIG_ENDIAN);
+	offset += 8;
+	while (tvb_reported_length_remaining(tvb, offset) >=16) {
+	    proto_tree *tr;
+	    proto_item *it;
+	    gint64 lba;
+	    gint32 num_blocks;
+
+	    it = proto_tree_add_text(tree, tvb, offset, 16, "UNMAP Block Descriptor: LBA ");
+	    tr = proto_item_add_subtree(it, ett_scsi_unmap_block_descriptor);
+
+	    proto_tree_add_item (tr, hf_scsi_sbc_unmap_lba, tvb, offset, 8, ENC_BIG_ENDIAN);
+	    lba = tvb_get_ntoh64 (tvb, offset);
+
+	    proto_tree_add_item (tr, hf_scsi_sbc_unmap_num_blocks, tvb, offset+8, 4, ENC_BIG_ENDIAN);
+	    num_blocks = tvb_get_ntohl(tvb, offset+8);
+
+	    if (num_blocks > 1) {
+                proto_item_append_text (it, "%" G_GINT64_MODIFIER "u-%" G_GINT64_MODIFIER "u  ", lba, lba+num_blocks-1);
+	    } else {
+                proto_item_append_text (it, "%" G_GINT64_MODIFIER "u  ", lba);
+	    }
+
+	    offset += 16;
+	}
     }
 }
 
@@ -1114,6 +1206,7 @@ const value_string service_action_vals[] = {
 	{EXTENDED_FORM,              "Extended Form"},
 	{SERVICE_READ_CAPACITY16,    "Read Capacity(16)"},
 	{SERVICE_READ_LONG16,	     "Read Long(16)"},
+	{SERVICE_GET_LBA_STATUS,     "Get LBA Status"},
 	{0, NULL}
 };
 
@@ -1129,7 +1222,7 @@ dissect_sbc_serviceactionin16 (tvbuff_t *tvb, packet_info *pinfo _U_,
     guint8 service_action;
     guint32 block_len;
     guint64 len, tot_len;
-    char *un;
+    const char *un;
     static const int *pmi_fields[] = {
         &hf_scsi_sbc_pmi,
 	NULL
@@ -1196,6 +1289,28 @@ dissect_sbc_serviceactionin16 (tvbuff_t *tvb, packet_info *pinfo _U_,
 		offset++;
 
 		break;
+	case SERVICE_GET_LBA_STATUS:
+        	proto_tree_add_text (tree, tvb, offset, 1,
+                             "Service Action: %s",
+                             val_to_str (service_action,
+                                         service_action_vals,
+                                         "Unknown (0x%02x)"));
+		offset++;
+
+		proto_tree_add_item (tree, hf_scsi_sbc_get_lba_status_lba, tvb, offset, 8, ENC_BIG_ENDIAN);
+		offset += 8;
+
+	        proto_tree_add_item (tree, hf_scsi_sbc_alloclen32, tvb, offset, 4, ENC_BIG_ENDIAN);
+		offset += 4;
+
+		/* reserved */
+		offset++;
+
+		proto_tree_add_bitmask(tree, tvb, offset, hf_scsi_control,
+			ett_scsi_control, cdb_control_fields, ENC_BIG_ENDIAN);
+		offset++;
+
+		break;
 	};
     } else if (!iscdb) {
         if(cdata && cdata->itlq){
@@ -1212,7 +1327,62 @@ dissect_sbc_serviceactionin16 (tvbuff_t *tvb, packet_info *pinfo _U_,
                 proto_tree_add_text (tree, tvb, offset, 8, "LBA: %" G_GINT64_MODIFIER "u (%" G_GINT64_MODIFIER "u %s)",
                              len, tot_len, un);
                 proto_tree_add_item (tree, hf_scsi_sbc_blocksize, tvb, offset+8, 4, ENC_BIG_ENDIAN);
+
+
+                proto_tree_add_item (tree, hf_scsi_sbc_prot_en, tvb, offset+12, 1, ENC_BIG_ENDIAN);
+		if (tvb_get_guint8(tvb, offset+12) & 0x01) {
+			/* only decode the protection type if protection is enabled */
+        	        proto_tree_add_item (tree, hf_scsi_sbc_ptype, tvb, offset+12, 1, ENC_BIG_ENDIAN);
+		}
+
+                proto_tree_add_item (tree, hf_scsi_sbc_p_i_exponent, tvb, offset+13, 1, ENC_BIG_ENDIAN);
+                proto_tree_add_item (tree, hf_scsi_sbc_lbppbe, tvb, offset+13, 1, ENC_BIG_ENDIAN);
+
+                proto_tree_add_item (tree, hf_scsi_sbc_lbpme, tvb, offset+14, 1, ENC_BIG_ENDIAN);
+                proto_tree_add_item (tree, hf_scsi_sbc_lbprz, tvb, offset+14, 1, ENC_BIG_ENDIAN);
+                proto_tree_add_item (tree, hf_scsi_sbc_lalba, tvb, offset+14, 2, ENC_BIG_ENDIAN);
+
                 break;
+	    case SERVICE_GET_LBA_STATUS:
+		proto_tree_add_item (tree, hf_scsi_sbc_get_lba_status_data_length, tvb, offset, 4, ENC_BIG_ENDIAN);
+                block_len = tvb_get_ntohl (tvb, offset);
+		offset += 4;
+
+		/* reserved */
+		offset += 4;
+
+		while (tvb_length_remaining(tvb, offset) >= 16) {
+			proto_tree *tr;
+			proto_item *it;
+			guint64 lba;
+			guint32 num_blocks;
+			guint8  type;
+
+			it = proto_tree_add_text(tree, tvb, offset, 16, "LBA Status Descriptor:  ");
+			tr = proto_item_add_subtree(it, ett_scsi_lba_status_descriptor);
+
+			proto_tree_add_item (tr, hf_scsi_sbc_get_lba_status_lba, tvb, offset, 8, ENC_BIG_ENDIAN);
+			lba = tvb_get_ntoh64(tvb, offset);
+			offset += 8;
+
+			proto_tree_add_item (tr, hf_scsi_sbc_get_lba_status_num_blocks, tvb, offset, 4, ENC_BIG_ENDIAN);
+			num_blocks = tvb_get_ntohl(tvb, offset);
+			offset += 4;
+
+			proto_tree_add_item (tr, hf_scsi_sbc_get_lba_status_provisioning_status, tvb, offset, 1, ENC_BIG_ENDIAN);
+			type = tvb_get_guint8(tvb, offset) & 0x07;
+			offset++;
+
+			/* reserved */
+			offset += 3;
+
+			proto_item_append_text (it, "%" G_GINT64_MODIFIER "u-%" G_GINT64_MODIFIER "u  %s",
+				lba,
+				lba + num_blocks - 1,
+				val_to_str(type, scsi_provisioning_type_val, "Unknown (0x%02x)")
+				);
+		}
+	        break;
             }
         }
     }
@@ -1265,6 +1435,7 @@ const value_string scsi_sbc_vals[] = {
     {SCSI_SBC_SYNCCACHE10       , "Synchronize Cache(10)"},
     {SCSI_SBC_SYNCCACHE16       , "Synchronize Cache(16)"},
     {SCSI_SPC_TESTUNITRDY       , "Test Unit Ready"},
+    {SCSI_SBC_UNMAP             , "Unmap"},
     {SCSI_SBC_VERIFY10          , "Verify(10)"},
     {SCSI_SBC_VERIFY12          , "Verify(12)"},
     {SCSI_SBC_VERIFY16          , "Verify(16)"},
@@ -1359,7 +1530,7 @@ scsi_cdb_table_t scsi_sbc_table[256] = {
 /*SBC 0x3f*/{dissect_sbc_writelong10},
 /*SBC 0x40*/{NULL},
 /*SBC 0x41*/{dissect_sbc_writesame10},
-/*SBC 0x42*/{NULL},
+/*SBC 0x42*/{dissect_sbc_unmap}, 
 /*SBC 0x43*/{NULL},
 /*SBC 0x44*/{NULL},
 /*SBC 0x45*/{NULL},
@@ -1748,6 +1919,12 @@ proto_register_scsi_sbc(void)
         { &hf_scsi_sbc_writesame_flags,
           {"Flags", "scsi.sbc.writesame_flags", FT_UINT8, BASE_HEX,
            NULL, 0, NULL, HFILL}},
+        { &hf_scsi_sbc_anchor,
+          {"ANCHOR", "scsi.sbc.anchor", FT_BOOLEAN, 8, NULL,
+           0x10, NULL, HFILL}},
+        { &hf_scsi_sbc_unmap,
+          {"UNMAP", "scsi.sbc.unmap", FT_BOOLEAN, 8, NULL,
+           0x08, NULL, HFILL}},
         { &hf_scsi_sbc_pbdata,
           {"PBDATA", "scsi.sbc.pbdata", FT_BOOLEAN, 8, NULL,
            0x04, NULL, HFILL}},
@@ -1772,6 +1949,57 @@ proto_register_scsi_sbc(void)
         { &hf_scsi_sbc_xpwrite_flags,
           {"Flags", "scsi.sbc.xpwrite.flags", FT_UINT8, BASE_HEX, NULL, 0x0, NULL,
            HFILL}},
+        { &hf_scsi_sbc_unmap_anchor,
+          {"ANCHOR", "scsi.sbc.unmap.anchor", FT_BOOLEAN, 8, NULL,
+           0x01, NULL, HFILL}},
+        { &hf_scsi_sbc_unmap_flags,
+          {"Flags", "scsi.sbc.unmap_flags", FT_UINT8, BASE_HEX,
+           NULL, 0, NULL, HFILL}},
+        { &hf_scsi_sbc_unmap_data_length,
+          {"Data Length", "scsi.sbc.unmap.data_length", FT_UINT16, BASE_DEC,
+           NULL, 0, NULL, HFILL}},
+        { &hf_scsi_sbc_unmap_block_descriptor_data_length,
+          {"Block Descriptor Data Length", "scsi.sbc.unmap.block_descriptor_data_length", FT_UINT16, BASE_DEC,
+           NULL, 0, NULL, HFILL}},
+        { &hf_scsi_sbc_unmap_lba,
+          {"LBA", "scsi.sbc.unmap.lba", FT_UINT64, BASE_DEC,
+           NULL, 0, NULL, HFILL}},
+        { &hf_scsi_sbc_unmap_num_blocks,
+          {"Num Blocks", "scsi.sbc.unmap.num_blocks", FT_UINT32, BASE_DEC,
+           NULL, 0, NULL, HFILL}},
+        { &hf_scsi_sbc_ptype,
+          {"PTYPE", "scsi.sbc.ptype", FT_UINT8, BASE_DEC,
+           VALS(scsi_ptype_val), 0x0e, NULL, HFILL}},
+        { &hf_scsi_sbc_prot_en,
+          {"PROT_EN", "scsi.sbc.prot_en", FT_BOOLEAN, 8,
+           NULL, 0x01, NULL, HFILL}},
+        { &hf_scsi_sbc_p_i_exponent,
+          {"P_I_EXPONENT", "scsi.sbc.p_i_exponent", FT_UINT8, BASE_DEC,
+           NULL, 0xf0, NULL, HFILL}},
+        { &hf_scsi_sbc_lbppbe,
+          {"LOGICAL_BLOCKS_PER_PHYSICAL_BLOCK_EXPONENT", "scsi.sbc.lbppbe", FT_UINT8, BASE_DEC,
+           NULL, 0x0f, NULL, HFILL}},
+        { &hf_scsi_sbc_lbpme,
+          {"LBPME", "scsi.sbc.lbpme", FT_BOOLEAN, 8,
+           NULL, 0x80, NULL, HFILL}},
+        { &hf_scsi_sbc_lbprz,
+          {"LBPRZ", "scsi.sbc.lbprz", FT_BOOLEAN, 8,
+           NULL, 0x40, NULL, HFILL}},
+        { &hf_scsi_sbc_lalba,
+          {"LOWEST_ALIGNED_LBA", "scsi.sbc.lalba", FT_UINT16, BASE_DEC,
+           NULL, 0x3fff, NULL, HFILL}},
+        { &hf_scsi_sbc_get_lba_status_lba,
+          {"LBA", "scsi.sbc.get_lba_status.start_lba", FT_UINT64, BASE_DEC,
+           NULL, 0, NULL, HFILL}},
+        { &hf_scsi_sbc_get_lba_status_data_length,
+          {"Data Length", "scsi.sbc.get_lba_status.data_length", FT_UINT32, BASE_DEC,
+           NULL, 0, NULL, HFILL}},
+        { &hf_scsi_sbc_get_lba_status_num_blocks,
+          {"Num Blocks", "scsi.sbc.get_lba_status.num_blocks", FT_UINT32, BASE_DEC,
+           NULL, 0, NULL, HFILL}},
+	{ &hf_scsi_sbc_get_lba_status_provisioning_status,
+          {"Provisioning Type", "scsi.sbc.get_lba_status.provisioning_type", FT_UINT8, BASE_DEC,
+           VALS(scsi_provisioning_type_val), 0x07, NULL, HFILL}},
 	};
 
 
@@ -1793,7 +2021,10 @@ proto_register_scsi_sbc(void)
 		&ett_scsi_synccache,
 		&ett_scsi_verify,
 		&ett_scsi_wrverify,
-		&ett_scsi_writesame
+		&ett_scsi_writesame,
+		&ett_scsi_unmap,
+		&ett_scsi_unmap_block_descriptor,
+		&ett_scsi_lba_status_descriptor
 	};
 
 	/* Register the protocol name and description */

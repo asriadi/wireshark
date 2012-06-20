@@ -74,8 +74,8 @@ set(WIRESHARK_GTK_SRC
 	main_airpcap_toolbar.c
 	main_filter_toolbar.c
 	main_menubar.c
-	main_proto_draw.c
 	main_statusbar.c
+	main_titlebar.c
 	main_toolbar.c
 	main_welcome.c
 	manual_addr_resolv.c
@@ -83,6 +83,7 @@ set(WIRESHARK_GTK_SRC
 	new_packet_list.c
 	packet_history.c
 	packet_list_store.c
+	packet_panes.c
 	packet_win.c
 	pixmap_save.c
 	plugins_dlg.c
@@ -103,6 +104,8 @@ set(WIRESHARK_GTK_SRC
 	proto_dlg.c
 	proto_help.c
 	proto_hier_stats_dlg.c
+	proto_hier_tree_model.c
+	proto_tree_model.c
 	range_utils.c
 	rtp_player.c
 	rtp_stream.c
@@ -246,8 +249,6 @@ if (WANT_PACKET_EDITOR)
 		-DWANT_PACKET_EDITOR
 	)
 endif()
-
-# add_definitions(-DNEW_MENU_CODE)
 
 if(WIN32)
 	set(PLATFORM_UI_SRC

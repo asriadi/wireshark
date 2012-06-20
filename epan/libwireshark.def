@@ -122,6 +122,10 @@ crc32_ccitt_tvb
 crc32_ccitt_tvb_offset
 crc32_ccitt_tvb_seed
 crc32_ccitt_tvb_offset_seed
+crc32_mpeg2_tvb
+crc32_mpeg2_tvb_offset
+crc32_mpeg2_tvb_seed
+crc32_mpeg2_tvb_offset_seed
 create_dissector_handle
 create_persconffile_dir
 create_persconffile_profile
@@ -158,6 +162,7 @@ de_lai
 de_mid
 de_ms_cm_1
 de_ms_cm_2
+de_ms_cm_3
 de_sm_apn
 de_sm_qos
 de_sm_pflow_id
@@ -728,6 +733,7 @@ prefs_modules_foreach_submodules
 prefs_pref_foreach
 prefs_register_bool_preference
 prefs_register_enum_preference
+prefs_register_filename_preference
 prefs_register_modules
 prefs_register_obsolete_preference
 prefs_register_protocol
@@ -755,6 +761,7 @@ proto_field_is_referenced
 proto_find_field_from_offset
 proto_find_finfo
 proto_frame                     DATA
+proto_get_data_protocol
 proto_get_finfo_ptr_array
 proto_get_first_protocol_field
 proto_get_first_protocol
@@ -1177,6 +1184,7 @@ tvb_strncaseeql
 tvb_strneql
 tvb_strnlen
 tvb_strsize
+tvb_unicode_strsize
 tvb_uncompress
 tvbparse_casestring
 tvbparse_char

@@ -180,6 +180,8 @@ extern int hf_gsm_a_call_prio;
 extern int hf_gsm_a_b8spare;
 extern int hf_gsm_a_skip_ind;
 extern int hf_gsm_a_rr_chnl_needed_ch1;
+extern int hf_gsm_a_rr_t3212;
+extern int hf_gsm_a_gm_rac;
 extern int hf_gsm_a_spare_bits;
 extern int hf_gsm_a_lac;
 
@@ -673,6 +675,9 @@ guint16 be_emlpp_prio(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint
 guint16 be_ganss_loc_type(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
 guint16 be_ganss_pos_dta(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
 guint16 be_ganss_ass_dta(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
+guint16 de_cn_common_gsm_map_nas_sys_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
+guint16 de_cs_domain_spec_sys_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
+guint16 de_ps_domain_spec_sys_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
 guint16 de_plmn_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
 guint16 de_ms_cm_1(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
 guint16 de_ms_cm_2(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len);
@@ -721,6 +726,8 @@ void bssmap_perf_loc_abort(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, 
 void bssmap_reset(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len);
 void bssmap_conn_oriented(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len);
 
+void rp_data_n_ms(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len);
+
 /*
  * the following allows TAP code access to the messages
  * without having to duplicate it. With MSVC and a
@@ -748,26 +755,31 @@ extern const value_string gsm_a_qos_traff_hdl_pri_vals[];
 extern const value_string gsm_a_type_of_number_values[];
 extern const value_string gsm_a_numbering_plan_id_values[];
 extern const value_string gsm_a_sms_vals[];
+extern const value_string tighter_cap_level_vals[];
 extern value_string_ext gsm_a_rr_rxlev_vals_ext;
 extern const value_string gsm_a_gm_type_of_ciph_alg_vals[];
 
 typedef enum
 {
     /* Common Information Elements [3] 10.5.1 */
-    DE_CELL_ID,             /* Cell Identity */
-    DE_CIPH_KEY_SEQ_NUM,    /* Ciphering Key Sequence Number */
-    DE_LAI,                 /* Location Area Identification */
-    DE_MID,                 /* Mobile Identity */
-    DE_MS_CM_1,             /* Mobile Station Classmark 1 */
-    DE_MS_CM_2,             /* Mobile Station Classmark 2 */
-    DE_MS_CM_3,             /* Mobile Station Classmark 3 */
-    DE_SPARE_NIBBLE,        /* Spare Half Octet */
-    DE_D_GB_CALL_REF,       /* Descriptive group or broadcast call reference */
-    DE_G_CIPH_KEY_NUM,      /* Group Cipher Key Number */
-    DE_PD_SAPI,             /* PD and SAPI $(CCBS)$ */
-    DE_PRIO,                /* Priority Level */
-    DE_PLMN_LIST,           /* PLMN List */
-    DE_NAS_CONT_FOR_PS_HO,  /* 10.5.1.14 NAS container for PS HO */
+    DE_CELL_ID,                        /* Cell Identity */
+    DE_CIPH_KEY_SEQ_NUM,               /* Ciphering Key Sequence Number */
+    DE_LAI,                            /* Location Area Identification */
+    DE_MID,                            /* Mobile Identity */
+    DE_MS_CM_1,                        /* Mobile Station Classmark 1 */
+    DE_MS_CM_2,                        /* Mobile Station Classmark 2 */
+    DE_MS_CM_3,                        /* Mobile Station Classmark 3 */
+    DE_SPARE_NIBBLE,                   /* Spare Half Octet */
+    DE_D_GB_CALL_REF,                  /* Descriptive group or broadcast call reference */
+    DE_G_CIPH_KEY_NUM,                 /* Group Cipher Key Number */
+    DE_PD_SAPI,                        /* PD and SAPI $(CCBS)$ */
+    DE_PRIO,                           /* Priority Level */
+    DE_CN_COMMON_GSM_MAP_NAS_SYS_INFO, /* CN Common GSM-MAP NAS system information */
+    DE_CS_DOMAIN_SPEC_SYS_INFO,        /* CS domain specific system information */
+    DE_PS_DOMAIN_SPEC_SYS_INFO,        /* PS domain specific system information */
+    DE_PLMN_LIST,                      /* PLMN List */
+    DE_NAS_CONT_FOR_PS_HO,             /* 10.5.1.14 NAS container for PS HO */
+    DE_MS_NET_FEAT_SUP,                /* 10.5.1.15 MS network feature support */
 
     DE_COMMON_NONE          /* NONE */
 }
@@ -855,7 +867,7 @@ typedef enum
     BE_SRC_RNC_TO_TAR_RNC_UMTS,         /* Source RNC to target RNC transparent information (UMTS) */
     BE_SRC_RNC_TO_TAR_RNC_CDMA,         /* Source RNC to target RNC transparent information (cdma2000) */
     BE_GERAN_CLS_M,                     /* GERAN Classmark */
-    BE_GRAN_BSC_CONT,                   /* GERAN BSC Container */
+    BE_GERAN_BSC_CONT,                  /* GERAN BSC Container */
     BE_NEW_BSS_TO_OLD_BSS_INF,          /* New BSS to Old BSS Information */
     BE_INTER_SYS_INF,                   /* Inter-System Information */
     BE_SNA_ACC_INF,                     /* SNA Access Information */
@@ -888,6 +900,9 @@ typedef enum
     BE_SPEECH_CODEC,                    /* Speech Codec */
     BE_CALL_ID,                         /* Call Identifier */
     BE_CALL_ID_LST,                     /* Call Identifier List */
+    BE_A_ITF_SEL_FOR_RESET,             /* A-Interface Selector for RESET */
+    BE_KC128,                           /* Kc128 */
+    BE_CSG_ID,                          /* CSG Identifier */
     BE_NONE /* NONE */
 }
 bssmap_elem_idx_t;
@@ -988,6 +1003,7 @@ typedef enum
     DE_DAY_SAVING_TIME,             /* Daylight Saving Time */
     DE_EMERGENCY_NUM_LIST,          /* Emergency Number List */
     DE_ADD_UPD_PARAMS,              /* Additional update parameters */
+    DE_MM_TIMER,                    /* MM Timer */
     /* Call Control Information Elements 10.5.4 */
     DE_AUX_STATES,                  /* Auxiliary States */
     DE_BEARER_CAP,                  /* Bearer Capability */
@@ -1087,7 +1103,9 @@ typedef enum
     DE_REQ_MS_INFO,                 /* [7] 10.5.5.25 Requested MS information */
     DE_UE_NETWORK_CAP,              /* [7] 10.5.5.26 UE network capability */
     DE_EUTRAN_IRAT_INFO_CONTAINER,  /* [7] 10.5.5.27 E-UTRAN inter RAT information container */
-	DE_VOICE_DOMAIN_PREF,           /* [7] 10.5.5.28 Voice domain preference and UE's usage setting */
+    DE_VOICE_DOMAIN_PREF,           /* [7] 10.5.5.28 Voice domain preference and UE's usage setting */
+    DE_PTMSI_TYPE,                  /* [10] 10.5.5.29 P-TMSI type */
+    DE_LAI_2,                       /* [10] 10.5.5.30 Location Area Identification 2 */
     /* Session Management Information Elements [3] 10.5.6 */
     DE_ACC_POINT_NAME,              /* Access Point Name */
     DE_NET_SAPI,                    /* Network Service Access Point Identifier */
@@ -1107,14 +1125,17 @@ typedef enum
     DE_ENH_NSAPI,                   /* Enhanced network service access point identifier */
     DE_REQ_TYPE,                    /* Request type */
     DE_SM_NOTIF_IND,                /* Notification indicator */
+    DE_SM_CONNECTIVITY_TYPE,        /* Connectivity type */
     /* GPRS Common Information Elements [8] 10.5.7 */
     DE_PDP_CONTEXT_STAT,            /* [8] 10.5.7.1     PDP Context Status */
     DE_RAD_PRIO,                    /* [8] 10.5.7.2     Radio Priority */
     DE_GPRS_TIMER,                  /* [8] 10.5.7.3     GPRS Timer */
     DE_GPRS_TIMER_2,                /* [8] 10.5.7.4     GPRS Timer 2 */
+    DE_GPRS_TIMER_3,                /* [10] 10.5.7.4a   GPRS Timer 3 */
     DE_RAD_PRIO_2,                  /* [8] 10.5.7.5     Radio Priority 2 */
     DE_MBMS_CTX_STATUS,             /* [8] 10.5.7.6     MBMS context status */
     DE_UPLINK_DATA_STATUS,          /* [8] 10.5.7.7     Uplink data status */
+    DE_DEVICE_PROPERTIES,           /* [10] 10.5.7.8    Device properties */
     DE_GM_NONE                          /* NONE */
 }
 gm_elem_idx_t;
@@ -1285,10 +1306,13 @@ typedef enum
     DE_EMM_EPS_UPD_TYPE,        /* 9.9.3.14 EPS update type */
     DE_EMM_ESM_MSG_CONT,        /* 9.9.3.15 ESM message conta */
     DE_EMM_GPRS_TIMER,          /* 9.9.3.16 GPRS timer ,See subclause 10.5.7.3 in 3GPP TS 24.008 [6]. */
+    DE_EMM_GPRS_TIMER_2,        /* 9.9.3.16A GPRS timer 2, See subclause 10.5.7.4 in 3GPP TS 24.008. */
+    DE_EMM_GPRS_TIMER_3,        /* 9.9.3.16B GPRS timer 3, See subclause 10.5.7.4a in 3GPP TS 24.008. */
     DE_EMM_ID_TYPE_2,           /* 9.9.3.17 Identity type 2 ,See subclause 10.5.5.9 in 3GPP TS 24.008 [6]. */
     DE_EMM_IMEISV_REQ,          /* 9.9.3.18 IMEISV request ,See subclause 10.5.5.10 in 3GPP TS 24.008 [6]. */
     DE_EMM_KSI_AND_SEQ_NO,      /* 9.9.3.19 KSI and sequence number */
     DE_EMM_MS_NET_CAP,          /* 9.9.3.20 MS network capability ,See subclause 10.5.5.12 in 3GPP TS 24.008 [6]. */
+    DE_EMM_MS_NET_FEAT_SUP,     /* 9.9.3.20A MS network feature support, See subclause 10.5.1.15 in 3GPP TS 24.008. */
     DE_EMM_NAS_KEY_SET_ID,      /* 9.9.3.21 NAS key set identifier (coded inline)*/
     DE_EMM_NAS_MSG_CONT,        /* 9.9.3.22 NAS message container */
     DE_EMM_NAS_SEC_ALGS,        /* 9.9.3.23 NAS security algorithms */
@@ -1314,6 +1338,7 @@ typedef enum
     DE_EMM_GEN_MSG_CONT_TYPE,   /* 9.9.3.42 Generic message container type */
     DE_EMM_GEN_MSG_CONT,        /* 9.9.3.43 Generic message container */
     DE_EMM_VOICE_DMN_PREF,      /* 9.9.3.44 Voice domain preference and UE's usage setting */
+    DE_EMM_GUTI_TYPE,           /* 9.9.3.45 GUTI type */
     DE_EMM_NONE                 /* NONE */
 
 }

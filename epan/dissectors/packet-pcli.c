@@ -1,7 +1,7 @@
 /* packet-pcli.c
  * Routines for Packet Cable Lawful Intercept packet disassembly
  * Packet Cable Lawful Intercept is detailed at
- * http://www.packetcable.com/downloads/specs/pkt-sp-esp-I01-991229.pdf
+ * http://www.cablelabs.com/specifications/archives/PKT-SP-ESP-I01-991229.pdf
  * Chapter 4 ( Call Content Connection Interface )
  *
  * $Id$
@@ -33,11 +33,8 @@
 #include "config.h"
 #endif
 
-#include <stdlib.h>
-#include <ctype.h>
-#include <time.h>
-
 #include <glib.h>
+
 #include <epan/packet.h>
 #include <epan/addr_resolv.h>
 #include <epan/prefs.h>

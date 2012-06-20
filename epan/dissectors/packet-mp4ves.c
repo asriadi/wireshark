@@ -361,7 +361,6 @@ dissect_mp4ves_visual_object_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_t
  */
 
 static const value_string mp4ves_aspect_ratio_info_vals[] = {
-	{ 0x0,	"reserved" },
 	{ 0x0,	"Forbidden" },
 	{ 0x1,	"1:1 (Square)" },
 	{ 0x2,	"12:11 (625-type for 4:3 picture)" },
@@ -903,7 +902,7 @@ proto_register_mp4ves(void)
 		},
 		{ &hf_mp4ves_start_code,
 		  { "Start code",		"mp4ves.start_code",
-		    FT_UINT8, BASE_RANGE_STRING|BASE_HEX, RVALS(&mp4ves_startcode_vals), 0x0,
+		    FT_UINT8, BASE_RANGE_STRING|BASE_HEX, RVALS(mp4ves_startcode_vals), 0x0,
 		    NULL, HFILL }
 		},
 		{ &hf_mp4ves_vop_coding_type,

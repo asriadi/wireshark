@@ -59,6 +59,7 @@
 #include "ui/gtk/keys.h"
 #include "ui/gtk/uat_gui.h"
 #include "ui/gtk/old-gtk-compat.h"
+#include "ui/gtk/file_dlg.h"
 
 #ifdef HAVE_LIBPCAP
 #ifdef _WIN32
@@ -79,6 +80,8 @@ static gboolean prefs_main_delete_event_cb(GtkWidget *, GdkEvent *, gpointer);
 static void     prefs_main_destroy_cb(GtkWidget *, gpointer);
 static void     prefs_tree_select_cb(GtkTreeSelection *, gpointer);
 
+static GtkWidget *create_preference_filename_entry(GtkWidget *, int,
+   const gchar *, const gchar *, char *);
 
 #define E_PREFSW_SCROLLW_KEY          "prefsw_scrollw"
 #define E_PREFSW_TREE_KEY             "prefsw_tree"
@@ -219,6 +222,15 @@ pref_show(pref_t *pref, gpointer user_data)
                                             pref->saved_val.string);
     break;
 
+  case PREF_FILENAME:
+    g_free(pref->saved_val.string);
+    pref->saved_val.string = g_strdup(*pref->varp.string);
+    pref->control = create_preference_filename_entry(main_tb, pref->ordinal,
+                                                     label_string,
+                                                     pref->description,
+                                                     pref->saved_val.string);
+    break;
+
   case PREF_RANGE:
   {
     char *range_str_p;
@@ -336,7 +348,7 @@ module_prefs_show(module_t *module, gpointer user_data)
     g_object_set_data(G_OBJECT(main_sw), E_PAGESW_FRAME_KEY, frame);
 
     /* Main vertical box */
-    main_vb = gtk_vbox_new(FALSE, 5);
+    main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(main_vb), 5);
     gtk_container_add(GTK_CONTAINER(frame), main_vb);
 
@@ -450,13 +462,13 @@ prefs_page_cb(GtkWidget *w _U_, gpointer dummy _U_, PREFS_PAGE_E prefs_page)
    */
 
   /* Container for each row of widgets */
-  cts.main_vb = gtk_vbox_new(FALSE, 5);
+  cts.main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(cts.main_vb), 5);
   gtk_container_add(GTK_CONTAINER(prefs_w), cts.main_vb);
   gtk_widget_show(cts.main_vb);
 
   /* Top row: Preferences tree and notebook */
-  top_hb = gtk_hbox_new(FALSE, 10);
+  top_hb = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10, FALSE);
   gtk_container_add(GTK_CONTAINER(cts.main_vb), top_hb);
   gtk_widget_show(top_hb);
 
@@ -538,10 +550,12 @@ prefs_page_cb(GtkWidget *w _U_, gpointer dummy _U_, PREFS_PAGE_E prefs_page)
 
   /* We set the current font now, because setting it appears not to work
      when run before appending the frame to the notebook. */
-
+#if GTK_CHECK_VERSION(3,2,0)
+  gtk_font_chooser_set_font(GTK_FONT_CHOOSER(gui_font_pg), prefs.gui_font_name);
+#else
   gtk_font_selection_set_font_name(
     GTK_FONT_SELECTION(gui_font_pg), prefs.gui_font_name);
-
+#endif /* GTK_CHECK_VERSION(3,2,0) */
   /* GUI Colors prefs */
   g_strlcpy(label_str, "Colors", MAX_TREE_NODE_NAME_LEN);
   prefs_nb_page_add(prefs_nb, label_str, stream_prefs_show(), E_GUI_COLORS_PAGE_KEY);
@@ -703,7 +717,7 @@ create_preference_radio_buttons(GtkWidget *main_tb, int table_position,
 
   set_option_label(main_tb, table_position, label_text, tooltip_text);
 
-  radio_button_hbox = gtk_hbox_new(FALSE, 0);
+  radio_button_hbox = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
   rb_group = NULL;
   for (enum_valp = enumvals, idx = 0; enum_valp->name != NULL;
        enum_valp++, idx++) {
@@ -813,7 +827,7 @@ create_preference_option_menu(GtkWidget *main_tb, int table_position,
    * as the widest entry, rather than being as wide as the table
    * space.
    */
-  menu_box = gtk_hbox_new(FALSE, 0);
+  menu_box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
   gtk_box_pack_start(GTK_BOX(menu_box), combo_box, FALSE, FALSE, 0);
 
   event_box = gtk_event_box_new();
@@ -861,6 +875,45 @@ create_preference_entry(GtkWidget *main_tb, int table_position,
   return entry;
 }
 
+static void
+preference_filename_entry_cb(GtkWidget *button, GtkWidget *filename_te)
+{
+    /* XXX - use a better browser dialog title */
+    file_selection_browse(button, filename_te, "Wireshark: file preference",
+                          FILE_SELECTION_READ_BROWSE);
+}
+
+static GtkWidget *
+create_preference_filename_entry(GtkWidget *main_tb, int table_position,
+    const gchar *label_text, const gchar *tooltip_text, char *value)
+{
+  GtkWidget *entry;
+  GtkWidget *button, *file_bt_hb;
+
+  set_option_label(main_tb, table_position, label_text, tooltip_text);
+  file_bt_hb = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
+  gtk_table_attach_defaults(GTK_TABLE(main_tb), file_bt_hb, 1, 2,
+                            table_position, table_position + 1);
+  gtk_widget_show(file_bt_hb);
+
+  button = gtk_button_new_from_stock(WIRESHARK_STOCK_BROWSE);
+  gtk_box_pack_end(GTK_BOX(file_bt_hb), button, FALSE, FALSE, 0);
+  gtk_widget_show(button);
+
+  entry = gtk_entry_new();
+  gtk_box_pack_start(GTK_BOX(file_bt_hb), entry, TRUE, TRUE, 0);
+  if (value != NULL)
+    gtk_entry_set_text(GTK_ENTRY(entry), value);
+  if (tooltip_text != NULL)
+    gtk_widget_set_tooltip_text(entry, tooltip_text);
+  gtk_widget_show(entry);
+
+  g_signal_connect(button, "clicked", G_CALLBACK(preference_filename_entry_cb), entry);
+
+
+  return entry;
+}
+
 GtkWidget *
 create_preference_static_text(GtkWidget *main_tb, int table_position,
     const gchar *label_text, const gchar *tooltip_text)
@@ -884,7 +937,7 @@ GtkWidget *
 create_preference_uat(GtkWidget *main_tb, int table_position,
     const gchar *label_text, const gchar *tooltip_text, void* uat)
 {
-  GtkWidget *button = NULL;
+  GtkWidget *button;
 
   set_option_label(main_tb, table_position, label_text, tooltip_text);
 
@@ -945,6 +998,7 @@ pref_check(pref_t *pref, gpointer user_data)
     break;
 
   case PREF_STRING:
+  case PREF_FILENAME:
     /* Value can't be bad. */
     break;
 
@@ -1033,6 +1087,7 @@ pref_fetch(pref_t *pref, gpointer user_data)
     break;
 
   case PREF_STRING:
+  case PREF_FILENAME:
     str_val = gtk_entry_get_text(GTK_ENTRY(pref->control));
     if (strcmp(*pref->varp.string, str_val) != 0) {
       *pref_changed_p = TRUE;
@@ -1109,7 +1164,7 @@ prefs_airpcap_update(void)
   gboolean airpcap_decryption_was_enabled = FALSE;
   gboolean wireshark_decryption_is_now_enabled = FALSE;
 
-  decryption_cm = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_tb),AIRPCAP_TOOLBAR_DECRYPTION_KEY));
+  decryption_cm = GTK_WIDGET(g_object_get_data(G_OBJECT(wireless_tb),AIRPCAP_TOOLBAR_DECRYPTION_KEY));
 
   if (decryption_cm == NULL) {
     return;
@@ -1180,6 +1235,7 @@ pref_clean(pref_t *pref, gpointer user_data _U_)
     break;
 
   case PREF_STRING:
+  case PREF_FILENAME:
     if (pref->saved_val.string != NULL) {
       g_free(pref->saved_val.string);
       pref->saved_val.string = NULL;
@@ -1375,6 +1431,7 @@ pref_copy(pref_t *pref, gpointer user_data _U_)
     break;
 
   case PREF_STRING:
+  case PREF_FILENAME:
     g_free(pref->saved_val.string);
     pref->saved_val.string = g_strdup(*pref->varp.string);
     break;
@@ -1574,6 +1631,7 @@ pref_revert(pref_t *pref, gpointer user_data)
     break;
 
   case PREF_STRING:
+  case PREF_FILENAME:
     if (strcmp(*pref->varp.string, pref->saved_val.string) != 0) {
       *pref_changed_p = TRUE;
       g_free((void *)*pref->varp.string);

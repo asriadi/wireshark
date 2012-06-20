@@ -52,7 +52,7 @@
 #include <epan/dissectors/packet-sll.h>
 #include <epan/dissectors/packet-tr.h>
 #include <epan/dissectors/packet-ieee80211.h>
-#include <epan/dissectors/packet-radiotap.h>
+#include <epan/dissectors/packet-ieee80211-radiotap.h>
 #include <epan/dissectors/packet-chdlc.h>
 #include <epan/dissectors/packet-ipfc.h>
 #include <epan/dissectors/packet-arcnet.h>
@@ -286,7 +286,7 @@ capture_info_packet(packet_counts *counts, gint wtap_linktype, const guchar *pd,
     case WTAP_ENCAP_FDDI_BITSWAPPED:
         capture_fddi(pd, caplen, counts);
         break;
-    case WTAP_ENCAP_PRISM_HEADER:
+    case WTAP_ENCAP_IEEE_802_11_PRISM:
         capture_prism(pd, 0, caplen, counts);
         break;
     case WTAP_ENCAP_TOKEN_RING:
@@ -311,10 +311,10 @@ capture_info_packet(packet_counts *counts, gint wtap_linktype, const guchar *pd,
     case WTAP_ENCAP_IEEE_802_11_WITH_RADIO:
         capture_ieee80211(pd, 0, caplen, counts);
         break;
-    case WTAP_ENCAP_IEEE_802_11_WLAN_RADIOTAP:
+    case WTAP_ENCAP_IEEE_802_11_RADIOTAP:
         capture_radiotap(pd, 0, caplen, counts);
         break;
-    case WTAP_ENCAP_IEEE_802_11_WLAN_AVS:
+    case WTAP_ENCAP_IEEE_802_11_AVS:
         capture_wlancap(pd, 0, caplen, counts);
         break;
     case WTAP_ENCAP_CHDLC:

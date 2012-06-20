@@ -46,6 +46,11 @@ static int hf_h248_CHP_mgcon_reduction = -1;
 static gint ett_h248_CHP = -1;
 static gint ett_h248_CHP_mgcon = -1;
 
+static const value_string h248_CHP_prop_vals[] = {
+	{ 0, "chp (MG Congestion Handling)" },
+	{ 0, NULL }
+};
+
 static const value_string h248_CHP_events_vals[] = {
 	{1, "MGCon"},
 	{ 0, NULL }
@@ -73,7 +78,7 @@ static const h248_package_t h248_pkg_CHP = {
 	&proto_h248_CHP,
 	&ett_h248_CHP,
 	
-	NULL,
+	h248_CHP_prop_vals,
 	NULL,
 	h248_CHP_events_vals,
 	NULL,
@@ -102,7 +107,7 @@ void proto_register_h248_dot10(void) {
 
 	proto_register_subtree_array(ett, array_length(ett));
 	
-	h248_register_package(&h248_pkg_CHP);
+	h248_register_package(&h248_pkg_CHP,REPLACE_PKG);
 }
 
 

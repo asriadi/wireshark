@@ -167,6 +167,7 @@ extern gboolean window_delete_event_cb(GtkWidget *win, GdkEvent *event _U_, gpoi
  * @todo if main uses the window_new_with_geom() to save size and such, make this function static
  */
 extern void window_get_geometry(GtkWidget *win, window_geometry_t *geom);
+
 /** Set the geometry of a window.
  *
  * @param win the window from window_new()
@@ -186,6 +187,15 @@ extern void window_set_geometry(GtkWidget *win, window_geometry_t *geom);
 extern void reactivate_window(GtkWidget *win);
 
 /** @} */
+
+/** Alert box for an invalid display filter expression.
+ * Assumes "dfilter_error_msg" has been set by "dfilter_compile()" to the
+ * error message for the filter.
+ *
+ * @param parent parent window from which the display filter came
+ * @param dftext text of the display filter
+ */
+extern void bad_dfilter_alert_box(GtkWidget *parent, const char *dftext);
 
 /** Create a GtkScrolledWindow, set its scrollbar placement appropriately,
  *  and remember it.
@@ -297,11 +307,13 @@ extern void copy_binary_to_clipboard(const guint8* data_p, int len);
  */
 extern gchar *create_user_window_title(const gchar *caption);
 
-/** Construct the main window's title with the current main_window_name optionally appended
- *  with the user-specified title and/or wireshark version. 
- *  Display the result in the main window's title bar and in its icon title
+/** Set the title of a window based on a supplied caption and the
+ * display name for the capture file.
+ *
+ * @param win the window whose title is to be set
+ * @param caption caption string for the window
  */
-extern void update_main_window_title(void);
+extern void set_window_title(GtkWidget *win, const gchar *caption);
 
 /** Renders a float with two decimals precission, called from gtk_tree_view_column_set_cell_data_func().
  * the user data must be the colum number.
@@ -506,6 +518,22 @@ GdkPixbuf *gdk_pixbuf_get_from_surface (cairo_surface_t *surface,
                                         gint             src_y,
                                         gint             width,
                                         gint             height);
-#endif
-#endif
-#endif /* __GUI_UTIL__H__ */
+#endif /* GTK_CHECK_VERSION(3,0,0) */
+#endif /* GTK_CHECK_VERSION(2,22,0) */
+
+/**
+ * ws_gtk_box_new:
+ * @param GtkOrientation the box's orientation
+ * @param spacing the number of pixels to put between children
+ * @param homogeneous a boolean value, TRUE to create equal allotments, FALSE for variable allotments
+ */
+GtkWidget * ws_gtk_box_new(GtkOrientation orientation, gint spacing, gboolean homogeneous);
+
+#if !GTK_CHECK_VERSION(3,0,0)
+GtkWidget * gtk_button_box_new(GtkOrientation orientation);
+GtkWidget * gtk_scrollbar_new(GtkOrientation orientation, GtkAdjustment *adjustment);
+GtkWidget * gtk_paned_new(GtkOrientation orientation);
+GtkWidget * gtk_separator_new (GtkOrientation orientation);
+#endif /* GTK_CHECK_VERSION(3,0,0) */
+
+#endif /* __GUI_UTIL_H__ */

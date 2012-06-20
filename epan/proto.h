@@ -135,6 +135,18 @@ typedef struct _protocol protocol_t;
    __DISSECTOR_ASSERT (expression, __FILE__, __LINE__))) \
    __DISSECTOR_ASSERT_STATIC_ANALYSIS_HINT(expression)
 
+/**
+ * Same as DISSECTOR_ASSERT(), but takes an extra 'hint' parameter that
+ * can be used to provide information as to why the assertion might fail.
+ *
+ * @param expression expression to test in the assertion
+ * @param hint message providing extra information
+ */
+#define DISSECTOR_ASSERT_HINT(expression, hint)  \
+  ((void) ((expression) ? (void)0 : \
+   __DISSECTOR_ASSERT_HINT (expression, __FILE__, __LINE__, hint))) \
+   __DISSECTOR_ASSERT_STATIC_ANALYSIS_HINT(expression)
+
 #if 0
 /* win32: using a debug breakpoint (int 3) can be very handy while debugging,
  * as the assert handling of GTK/GLib is currently not very helpful */
@@ -161,6 +173,11 @@ typedef struct _protocol protocol_t;
   (REPORT_DISSECTOR_BUG( \
     ep_strdup_printf("%s:%u: failed assertion \"%s\"", \
      file, lineno, __DISSECTOR_ASSERT_STRINGIFY(expression))))
+
+#define __DISSECTOR_ASSERT_HINT(expression, file, lineno, hint)  \
+  (REPORT_DISSECTOR_BUG( \
+    ep_strdup_printf("%s:%u: failed assertion \"%s\" (%s)", \
+     file, lineno, __DISSECTOR_ASSERT_STRINGIFY(expression), hint)))
 
 /*
  * The encoding of a field of a particular type may involve more
@@ -220,49 +237,53 @@ typedef struct _protocol protocol_t;
  * For backwards compatibility, we interpret an encoding of 1 as meaning
  * "little-endian timespec", so that passing TRUE is interpreted as that.
  */
-#define ENC_TIME_TIMESPEC	0
-#define ENC_TIME_NTP		2
+#define ENC_TIME_TIMESPEC	0x00000000
+#define ENC_TIME_NTP		0x00000002
 
 /*
  * Historically, the only place the representation mattered for strings
  * was with FT_UINT_STRINGs, where we had FALSE for the string length
  * being big-endian and TRUE for it being little-endian.
  *
- * This is a quick and dirty hack for bug 6084, which doesn't require
- * support for multiple character encodings in FT_UINT_STRING.  We
- * introduce ENC_UTF_8 and ENC_EBCDIC, with ENC_UTF_8 being 0 and
- * ENC_EBCDIC being the unlikely value 0x0EBCD000, and treat all values
- * other than ENC_EBCDIC as UTF-8.  That way, no matter how a dissector
- * not converted to use ENC_ values calculates the last argument to
- * proto_tree_add_item(), it's unlikely to get EBCDIC.
+ * We now have encoding values for the character encoding.  The encoding
+ * values are encoded in all but the top bit (which is the byte-order
+ * bit, required for FT_UINT_STRING and for UCS-2 and UTF-16 strings)
+ * and the bottom bit (which we ignore for now so that programs that
+ * pass TRUE for the encoding just do ASCII).  (The encodings are given
+ * directly as even numbers in hex, so that make-init-lua.pl can just
+ * turn them into numbers for use in init.lua.)
  *
- * The value for ENC_EBCDIC is subject to change in a future release (or
- * to replacement with multiple values for different flavors of EBCDIC).
+ * We don't yet process ASCII and UTF-8 differently.  Ultimately, for
+ * ASCII, all bytes with the 8th bit set should be mapped to some "this
+ * is not a valid character" code point, as ENC_ASCII should mean "this
+ * is ASCII, not some extended variant thereof".  We should also map
+ * 0x00 to that as well - null-terminated and null-padded strings
+ * never have NULs in them, but counted strings might.  (Either that,
+ * or the values for strings should be counted, not null-terminated.)
+ * For UTF-8, invalid UTF-8 sequences should be mapped to the same
+ * code point.
  *
- * We currently add some additional encodings, for various ASCII-based
- * encodings, but use the same value as ENC_UTF_8, for now, so that we
- * can mark the appropriate encoding.  Ultimately, we should handle
- * those encodings by mapping them to UTF-8 for display; for ASCII,
- * all bytes with the 8th bit set should be mapped to some "this is
- * not a valid character" glyph, as ENC_ASCII should mean "this is
- * ASCII, not some extended variant thereof".  Perhaps we should also
- * map control characters to the Unicode glyphs showing the name of
- * the control character in small caps, diagonally.  (Unfortunately,
- * those only exist for C0, not C1.)
+ * We also don't process UTF-16 or UCS-2 differently - we don't
+ * handle surrogate pairs, and don't handle 2-byte values that
+ * aren't valid in UTF-16 or UCS-2 strings.
+ *
+ * For display, perhaps we should also map control characters to the
+ * Unicode glyphs showing the name of the control character in small
+ * caps, diagonally.  (Unfortunately, those only exist for C0, not C1.)
  */
 #define ENC_CHARENCODING_MASK	0x7FFFFFFE	/* mask out byte-order bits */
-#define ENC_UTF_8		0x00000000
 #define ENC_ASCII		0x00000000
-#define ENC_EBCDIC		0x0EBCD1C0
+#define ENC_UTF_8		0x00000002
+#define ENC_UTF_16		0x00000004
+#define ENC_UCS_2		0x00000006
+#define ENC_EBCDIC		0x00000008
 
 /*
  * TODO:
  *
  * These could probably be used by existing code:
  *
- *	ENC_UTF_16 - UTF-16
  *	ENC_UCS_4 - UCS-4
- *	ENC_UCS_2 - UCS-2 (not the same as UTF-16!)
  *	ENC_ISO_8859_1 - ISO 8859/1
  *	ENC_ISO_8859_8 - ISO 8859/8
  *	 - "IBM MS DBCS"
@@ -385,7 +406,7 @@ typedef struct field_info {
 
 /*
  * This structure describes one segment of a split-bits item
- * crumb_bit_offset is the bit offset in the input tvb of the first (most significant) bit of this crumb 
+ * crumb_bit_offset is the bit offset in the input tvb of the first (most significant) bit of this crumb
  * crumb_bit_length is the number of contiguous bits of this crumb.
  * The first element of an array of bits_specs describes the most significant crumb of the output value.
  * The second element of an array of bits_specs describes the next-most significant crumb of the output value, etc.
@@ -1194,6 +1215,10 @@ extern proto_item *
 proto_tree_add_string_format(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
 	gint length, const char* value, const char *format, ...) G_GNUC_PRINTF(7,8);
 
+extern proto_item *
+proto_tree_add_unicode_string(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint start,
+		      gint length, const char* value);
+
 /** Add a FT_BOOLEAN to a proto_tree.
  @param tree the tree to append this item to
  @param hfindex field index
@@ -1668,7 +1693,7 @@ extern header_field_info* proto_registrar_get_byname(const char *field_name);
 /** Get enum ftenum FT_ of registered header_field number n.
  @param n item # n (0-indexed)
  @return the registered item */
-extern int proto_registrar_get_ftype(const int n);
+extern enum ftenum proto_registrar_get_ftype(const int n);
 
 /** Get parent protocol of registered header_field number n.
  @param n item # n (0-indexed)
@@ -1690,6 +1715,7 @@ extern gint proto_registrar_get_length(const int n);
  * they return the item number of the protocol in question or the
  * appropriate hfinfo pointer, and keep state in "*cookie". */
 extern int proto_get_first_protocol(void **cookie);
+extern int proto_get_data_protocol(void *cookie);
 extern int proto_get_next_protocol(void **cookie);
 extern header_field_info *proto_get_first_protocol_field(const int proto_id, void **cookle);
 extern header_field_info *proto_get_next_protocol_field(void **cookle);
@@ -1899,7 +1925,7 @@ proto_tree_add_bitmask_text(proto_tree *tree, tvbuff_t *tvb, const guint offset,
  @param encoding data encoding
  @return the newly created item */
 extern proto_item *
-proto_tree_add_bits_item(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const gint bit_offset, const gint no_of_bits, const guint encoding);
+proto_tree_add_bits_item(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const guint bit_offset, const gint no_of_bits, const guint encoding);
 
 /** Add bits to a proto_tree, using the text label registered to that item.
 *  The item is extracted from the tvbuff handed to it as a set
@@ -1912,13 +1938,13 @@ proto_tree_add_bits_item(proto_tree *tree, const int hf_index, tvbuff_t *tvb, co
  @param tree the tree to append this item to
  @param hf_index field index. Fields for use with this function should have bitmask==0.
  @param tvb the tv buffer of the current data
- @param bit_offset of the first crumb in tvb expressed in bits 
+ @param bit_offset of the first crumb in tvb expressed in bits
  @param pointer to crumb_spec array
  @param return_value if a pointer is passed here the value is returned.
  @return the newly created item */
 extern proto_item *
 proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hf_index, tvbuff_t *tvb,
-			    const gint bit_offset, const crumb_spec_t *crumb_spec,
+			    const guint bit_offset, const crumb_spec_t *crumb_spec,
 			    guint64 *return_value);
 
 
@@ -1932,11 +1958,11 @@ proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hf_index, tvb
  @param tree the tree to append this item to
  @param hf_index field index. Fields for use with this function should have bitmask==0.
  @param tvb the tv buffer of the current data
- @param bit_offset of the first crumb in tvb expressed in bits 
+ @param bit_offset of the first crumb in tvb expressed in bits
  @param pointer to crumb_spec array
  @param index into the crumb_spec array for this crumb */
-void 
-proto_tree_add_split_bits_crumb(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const gint bit_offset, 
+void
+proto_tree_add_split_bits_crumb(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const guint bit_offset,
                                 const crumb_spec_t *crumb_spec, guint16 crumb_index);
 
 /** Add bits to a proto_tree, using the text label registered to that item.
@@ -1950,7 +1976,7 @@ proto_tree_add_split_bits_crumb(proto_tree *tree, const int hf_index, tvbuff_t *
  @param encoding data encoding
  @return the newly created item */
 extern proto_item *
-proto_tree_add_bits_ret_val(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const gint bit_offset, const gint no_of_bits, guint64 *return_value, const guint encoding);
+proto_tree_add_bits_ret_val(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const guint bit_offset, const gint no_of_bits, guint64 *return_value, const guint encoding);
 
 /** Add bits for a FT_UINT8, FT_UINT16, FT_UINT24 or FT_UINT32
     header field to a proto_tree, with the format generating the
@@ -1964,7 +1990,7 @@ proto_tree_add_bits_ret_val(proto_tree *tree, const int hf_index, tvbuff_t *tvb,
  @param format printf like format string
  @return the newly created item */
 extern proto_item *
-proto_tree_add_uint_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const gint bit_offset, const gint no_of_bits,
+proto_tree_add_uint_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const guint bit_offset, const gint no_of_bits,
 	guint32 value, const char *format, ...) G_GNUC_PRINTF(7,8);
 
 /** Add bits for a FT_BOOLEAN header field to a proto_tree, with
@@ -1980,7 +2006,7 @@ proto_tree_add_uint_bits_format_value(proto_tree *tree, const int hf_index, tvbu
  @param ... printf like parameters
  @return the newly created item */
 extern proto_item *
-proto_tree_add_boolean_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const gint bit_offset, const gint no_of_bits,
+proto_tree_add_boolean_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const guint bit_offset, const gint no_of_bits,
 	guint32 value, const char *format, ...) G_GNUC_PRINTF(7,8);
 
 /** Add bits for a FT_INT8, FT_INT16, FT_INT24 or FT_INT32
@@ -1996,7 +2022,7 @@ proto_tree_add_boolean_bits_format_value(proto_tree *tree, const int hf_index, t
  @param ... printf like parameters
  @return the newly created item */
 extern proto_item *
-proto_tree_add_int_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const gint bit_offset, const gint no_of_bits,
+proto_tree_add_int_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const guint bit_offset, const gint no_of_bits,
 	gint32 value, const char *format, ...) G_GNUC_PRINTF(7,8);
 
 /** Add bits for a FT_FLOAT header field to a proto_tree, with
@@ -2012,7 +2038,7 @@ proto_tree_add_int_bits_format_value(proto_tree *tree, const int hf_index, tvbuf
  @param ... printf like parameters
  @return the newly created item */
 extern proto_item *
-proto_tree_add_float_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const gint bit_offset, const gint no_of_bits,
+proto_tree_add_float_bits_format_value(proto_tree *tree, const int hf_index, tvbuff_t *tvb, const guint bit_offset, const gint no_of_bits,
 	float value, const char *format, ...) G_GNUC_PRINTF(7,8);
 
 /** Check if given string is a valid field name

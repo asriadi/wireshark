@@ -30,7 +30,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  *
- * Ref 3GPP TS 44.031 version 6.8.0 Release 6
+ * Ref 3GPP TS 44.031 version 9.2.0 Release 9
  * http://www.3gpp.org
  */
 
@@ -7009,9 +7009,9 @@ static int
 dissect_rrlp_PDU(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
 #line 26 "../../asn1/rrlp/rrlp.cnf"
 	
-	proto_tree_add_item(tree, proto_rrlp, tvb, 0, -1, FALSE);
+	proto_tree_add_item(tree, proto_rrlp, tvb, 0, -1, ENC_NA);
 
-	col_append_str(actx->pinfo->cinfo, COL_PROTOCOL, "/RRLP");
+	col_append_sep_str(actx->pinfo->cinfo, COL_PROTOCOL, "/", "RRLP");
 
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_rrlp_PDU, PDU_sequence);

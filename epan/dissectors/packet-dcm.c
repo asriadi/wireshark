@@ -206,14 +206,12 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 #include <glib.h>
 
-#include <epan/prefs.h>
 #include <epan/packet.h>
+#include <epan/prefs.h>
 #include <epan/emem.h>
 #include <epan/strutil.h>
 #include <epan/conversation.h>
@@ -5813,7 +5811,6 @@ dissect_dcm_tag(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 	if (len_decoded_remaing >= 2) {
 	    vl_2 = pdv->prev->open_tag.vl_2;
-	    len_decoded_remaing -= 2;
 	}
 	else {
 
@@ -6131,7 +6128,6 @@ dissect_dcm_pdv_body(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	proto_tree_add_bytes_format(tree, hf_dcm_data_tag, tvb,
 	    offset, pdv_body_len, NULL,
 	    "(%04x,%04x) %-8x Unparsed data", 0, 0, pdv_body_len);
-	offset = endpos;
     }
     else {
 

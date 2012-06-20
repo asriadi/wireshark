@@ -1,4 +1,4 @@
-/* Routines for LTE PDCP/ROHC
+/* Routines for LTE PDCP
  *
  * Martin Mathieson
  *
@@ -42,16 +42,14 @@
 /* Described in:
  * 3GPP TS 36.323 Evolved Universal Terrestrial Radio Access (E-UTRA)
  *                Packet Data Convergence Protocol (PDCP) specification
- *
- * RFC 3095       RObust Header Compression (ROHC):
- *                Framework and four profiles: RTP, UDP, ESP, and uncompressed
  */
 
 
 /* TODO:
-   - Complete ROHC support for RTP and extend to other profiles (including ROHCv2)
    - Support for deciphering
    - Verify MAC authentication bytes
+   - Delete old ROHC support from here once sure everything useful useful has
+     been merged into packet-rohc.c
 */
 
 
@@ -66,12 +64,14 @@ static int hf_pdcp_lte_direction = -1;
 static int hf_pdcp_lte_ueid = -1;
 static int hf_pdcp_lte_channel_type = -1;
 static int hf_pdcp_lte_channel_id = -1;
-static int hf_pdcp_lte_rohc = -1;
+
+/* static int hf_pdcp_lte_rohc = -1; */
 static int hf_pdcp_lte_rohc_compression = -1;
 static int hf_pdcp_lte_rohc_mode = -1;
 static int hf_pdcp_lte_rohc_rnd = -1;
 static int hf_pdcp_lte_rohc_udp_checksum_present = -1;
 static int hf_pdcp_lte_rohc_profile = -1;
+
 static int hf_pdcp_lte_no_header_pdu = -1;
 static int hf_pdcp_lte_plane = -1;
 static int hf_pdcp_lte_seqnum_length = -1;
@@ -94,6 +94,7 @@ static int hf_pdcp_lte_bitmap = -1;
 static int hf_pdcp_lte_bitmap_not_received = -1;
 
 /* Robust Header Compression Fields */
+#if 0
 static int hf_pdcp_lte_rohc_padding = -1;
 static int hf_pdcp_lte_rohc_r_0_crc = -1;
 static int hf_pdcp_lte_rohc_feedback = -1;
@@ -173,6 +174,7 @@ static int hf_pdcp_lte_rohc_feedback_option_clock = -1;
 static int hf_pdcp_lte_rohc_ip_id = -1;
 static int hf_pdcp_lte_rohc_udp_checksum = -1;
 static int hf_pdcp_lte_rohc_payload = -1;
+#endif
 
 /* Sequence Analysis */
 static int hf_pdcp_lte_sequence_analysis = -1;
@@ -235,23 +237,23 @@ static const value_string rohc_mode_vals[] = {
 /* Values taken from:
    http://www.iana.org/assignments/rohc-pro-ids/rohc-pro-ids.txt */
 static const value_string rohc_profile_vals[] = {
-         { 0x0000,   "ROHC uncompressed" },      /* [RFC5795] */
-         { 0x0001,   "ROHC RTP" },               /* [RFC3095] */
-         { 0x0101,   "ROHCv2 RTP" },             /* [RFC5225] */
-         { 0x0002,   "ROHC UDP" },               /* [RFC3095] */
-         { 0x0102,   "ROHCv2 UDP" },             /* [RFC5225] */
-         { 0x0003,   "ROHC ESP" },               /* [RFC3095] */
-         { 0x0103,   "ROHCv2 ESP" },             /* [RFC5225] */
-         { 0x0004,   "ROHC IP" },                /* [RFC3843] */
-         { 0x0104,   "ROHCv2 IP" },              /* [RFC5225] */
-         { 0x0005,   "ROHC LLA" },               /* [RFC4362] */
-         { 0x0105,   "ROHC LLA with R-mode" },   /* [RFC3408] */
-         { 0x0006,   "ROHC TCP" },               /* [RFC4996] */
-         { 0x0007,   "ROHC RTP/UDP-Lite" },      /* [RFC4019] */
-         { 0x0107,   "ROHCv2 RTP/UDP-Lite" },    /* [RFC5225] */
-         { 0x0008,   "ROHC UDP-Lite" },          /* [RFC4019] */
-         { 0x0108,   "ROHCv2 UDP-Lite" },        /* [RFC5225] */
-         { 0,   NULL }
+    { 0x0000,   "ROHC uncompressed" },      /* [RFC5795] */
+    { 0x0001,   "ROHC RTP" },               /* [RFC3095] */
+    { 0x0101,   "ROHCv2 RTP" },             /* [RFC5225] */
+    { 0x0002,   "ROHC UDP" },               /* [RFC3095] */
+    { 0x0102,   "ROHCv2 UDP" },             /* [RFC5225] */
+    { 0x0003,   "ROHC ESP" },               /* [RFC3095] */
+    { 0x0103,   "ROHCv2 ESP" },             /* [RFC5225] */
+    { 0x0004,   "ROHC IP" },                /* [RFC3843] */
+    { 0x0104,   "ROHCv2 IP" },              /* [RFC5225] */
+    { 0x0005,   "ROHC LLA" },               /* [RFC4362] */
+    { 0x0105,   "ROHC LLA with R-mode" },   /* [RFC3408] */
+    { 0x0006,   "ROHC TCP" },               /* [RFC4996] */
+    { 0x0007,   "ROHC RTP/UDP-Lite" },      /* [RFC4019] */
+    { 0x0107,   "ROHCv2 RTP/UDP-Lite" },    /* [RFC5225] */
+    { 0x0008,   "ROHC UDP-Lite" },          /* [RFC4019] */
+    { 0x0108,   "ROHCv2 UDP-Lite" },        /* [RFC5225] */
+    { 0,   NULL }
 };
 
 static const value_string pdu_type_vals[] = {
@@ -307,7 +309,6 @@ static dissector_handle_t data_handle;
 #define SEQUENCE_ANALYSIS_PDCP_ONLY 2
 
 /* Preference variables */
-static gboolean global_pdcp_show_feedback_option_tag_length = FALSE;
 static gboolean global_pdcp_dissect_user_plane_as_ip = FALSE;
 static gboolean global_pdcp_dissect_signalling_plane_as_rrc = FALSE;
 static gint     global_pdcp_check_sequence_numbers = FALSE;
@@ -348,8 +349,8 @@ static GHashTable *pdcp_sequence_analysis_channel_hash = NULL;
 /* Equal keys */
 static gint pdcp_channel_equal(gconstpointer v, gconstpointer v2)
 {
-    const pdcp_channel_hash_key* val1 = (pdcp_channel_hash_key *)v;
-    const pdcp_channel_hash_key* val2 = (pdcp_channel_hash_key *)v2;
+    const pdcp_channel_hash_key* val1 = (const pdcp_channel_hash_key *)v;
+    const pdcp_channel_hash_key* val2 = (const pdcp_channel_hash_key *)v2;
 
     /* All fields must match */
     return (memcmp(val1, val2, sizeof(pdcp_channel_hash_key)) == 0);
@@ -358,7 +359,7 @@ static gint pdcp_channel_equal(gconstpointer v, gconstpointer v2)
 /* Compute a hash value for a given key. */
 static guint pdcp_channel_hash_func(gconstpointer v)
 {
-    const pdcp_channel_hash_key* val1 = (pdcp_channel_hash_key *)v;
+    const pdcp_channel_hash_key* val1 = (const pdcp_channel_hash_key *)v;
 
     /* TODO: use multipliers */
     return val1->ueId + val1->plane + val1->channelId + val1->direction;
@@ -377,8 +378,8 @@ typedef struct {
 
 static gint pdcp_result_hash_equal(gconstpointer v, gconstpointer v2)
 {
-    const pdcp_result_hash_key* val1 = (pdcp_result_hash_key *)v;
-    const pdcp_result_hash_key* val2 = (pdcp_result_hash_key *)v2;
+    const pdcp_result_hash_key* val1 = (const pdcp_result_hash_key *)v;
+    const pdcp_result_hash_key* val2 = (const pdcp_result_hash_key *)v2;
 
     /* All fields must match */
     return (memcmp(val1, val2, sizeof(pdcp_result_hash_key)) == 0);
@@ -387,7 +388,7 @@ static gint pdcp_result_hash_equal(gconstpointer v, gconstpointer v2)
 /* Compute a hash value for a given key. */
 static guint pdcp_result_hash_func(gconstpointer v)
 {
-    const pdcp_result_hash_key* val1 = (pdcp_result_hash_key *)v;
+    const pdcp_result_hash_key* val1 = (const pdcp_result_hash_key *)v;
 
     /* TODO: check collision-rate / execution-time of these multipliers?  */
     return val1->frameNumber + (val1->channelId<<13) +
@@ -401,8 +402,8 @@ static gpointer get_report_hash_key(guint16 SN, guint32 frameNumber,
                                     pdcp_lte_info *p_pdcp_lte_info,
                                     gboolean do_persist)
 {
-    static pdcp_result_hash_key key;
-    pdcp_result_hash_key *p_key;
+    static pdcp_result_hash_key  key;
+    pdcp_result_hash_key        *p_key;
 
     /* Only allocate a struct when will be adding entry */
     if (do_persist) {
@@ -427,13 +428,13 @@ static gpointer get_report_hash_key(guint16 SN, guint32 frameNumber,
 /* Info to attach to frame when first read, recording what to show about sequence */
 typedef struct
 {
-    gboolean  sequenceExpectedCorrect;
-    guint16   sequenceExpected;
-    guint32   previousFrameNum;
-    guint32   nextFrameNum;
+    gboolean sequenceExpectedCorrect;
+    guint16  sequenceExpected;
+    guint32  previousFrameNum;
+    guint32  nextFrameNum;
 
-    guint16   firstSN;
-    guint16   lastSN;
+    guint16  firstSN;
+    guint16  lastSN;
 
     enum { SN_OK, SN_Repeated, SN_MAC_Retx, SN_Retx, SN_Missing} state;
 } pdcp_sequence_report_in_frame;
@@ -562,12 +563,12 @@ static void checkChannelSequenceInfo(packet_info *pinfo, tvbuff_t *tvb,
                                      proto_tree *tree)
 {
     pdcp_channel_hash_key          channel_key;
-    pdcp_channel_hash_key          *p_channel_key;
-    pdcp_channel_status            *p_channel_status;
-    pdcp_sequence_report_in_frame  *p_report_in_frame = NULL;
-    gboolean               createdChannel = FALSE;
-    guint16                expectedSequenceNumber = 0;
-    guint16                snLimit = 0;
+    pdcp_channel_hash_key         *p_channel_key;
+    pdcp_channel_status           *p_channel_status;
+    pdcp_sequence_report_in_frame *p_report_in_frame      = NULL;
+    gboolean                       createdChannel         = FALSE;
+    guint16                        expectedSequenceNumber = 0;
+    guint16                        snLimit                = 0;
 
     /* If find stat_report_in_frame already, use that and get out */
     if (pinfo->fd->flags.visited) {
@@ -634,6 +635,9 @@ static void checkChannelSequenceInfo(packet_info *pinfo, tvbuff_t *tvb,
     /* Work out expected sequence number */
     if (!createdChannel) {
         expectedSequenceNumber = (p_channel_status->previousSequenceNumber + 1) % snLimit;
+    }
+    else {
+        expectedSequenceNumber = sequenceNumber;
     }
 
     /* Set report for this frame */
@@ -764,9 +768,9 @@ static int dissect_pdcp_dynamic_chain(proto_tree *tree,
     if (p_pdcp_info->rohc_ip_version == 4) {
         proto_tree *dynamic_ipv4_tree;
         proto_item *root_ti;
-        int tree_start_offset = offset;
-        guint8 tos, ttl, rnd, nbo;
-        guint16 id;
+        int         tree_start_offset = offset;
+        guint8      tos, ttl, rnd, nbo;
+        guint16     id;
 
         /* Create dynamic IPv4 subtree */
         root_ti = proto_tree_add_item(tree, hf_pdcp_lte_rohc_dynamic_ipv4, tvb, offset, -1, ENC_NA);
@@ -971,8 +975,8 @@ static int dissect_pdcp_ir_packet(proto_tree *tree,
                                   struct pdcp_lte_info *p_pdcp_info,
                                   packet_info *pinfo)
 {
-    unsigned char dynamic_chain_present;
-	rohc_info *p_rohc_info;
+    unsigned char  dynamic_chain_present;
+    rohc_info     *p_rohc_info;
 
     col_append_str(pinfo->cinfo, COL_INFO, " IR");
     proto_item_append_text(root_item, " (IR)");
@@ -1032,8 +1036,8 @@ static int dissect_pdcp_ir_packet(proto_tree *tree,
         /* Add summary to root item */
         proto_item_append_text(root_ti, " (prot=%s: %s -> %s)",
                                val_to_str_const(protocol, ip_protocol_vals, "Unknown"),
-                               (char*)get_hostname(source),
-                               (char*)get_hostname(dest));
+                               get_hostname(source),
+                               get_hostname(dest));
     }
 
     /* UDP static part. TODO: also check protocol from last part!? */
@@ -1131,12 +1135,12 @@ static int dissect_pdcp_feedback_feedback2(proto_tree *tree,
                                            packet_info *pinfo)
 {
     proto_item *ti;
-    guint8  ack_type;
-    guint8  mode;
-    guint8  first_octet;
-    guint16 sn;
-    const char * full_mode_name;
-    int size_remaining;
+    guint8      ack_type;
+    guint8      mode;
+    guint8      first_octet;
+    guint16     sn;
+    const char *full_mode_name;
+    int         size_remaining;
 
     proto_item_append_text(item, " (type 2)");
 
@@ -1246,8 +1250,8 @@ static int dissect_pdcp_feedback_packet(proto_tree *tree,
                                         struct pdcp_lte_info *p_pdcp_info,
                                         packet_info *pinfo)
 {
-    guint8 code;
-    guint8 size;
+    guint8      code;
+    guint8      size;
     proto_item *ti;
     proto_item *feedback_ti;
     proto_tree *feedback_tree;
@@ -1859,12 +1863,12 @@ static gboolean global_pdcp_lte_heur = FALSE;
 static gboolean dissect_pdcp_lte_heur(tvbuff_t *tvb, packet_info *pinfo,
                                      proto_tree *tree)
 {
-    gint                 offset = 0;
+    gint                  offset                 = 0;
     struct pdcp_lte_info *p_pdcp_lte_info;
     tvbuff_t             *pdcp_tvb;
-    guint8               tag = 0;
-    gboolean             infoAlreadySet = FALSE;
-    gboolean             seqnumLengthTagPresent = FALSE;
+    guint8                tag                    = 0;
+    gboolean              infoAlreadySet         = FALSE;
+    gboolean              seqnumLengthTagPresent = FALSE;
 
     /* This is a heuristic dissector, which means we get all the UDP
      * traffic not sent to a known dissector and not claimed by
@@ -1995,20 +1999,20 @@ static gboolean dissect_pdcp_lte_heur(tvbuff_t *tvb, packet_info *pinfo,
 /* Main dissection function.  */
 static void dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-    const char         *mode;
-    proto_tree         *pdcp_tree = NULL;
-    proto_item         *root_ti = NULL;
-    gint               offset = 0;
-    gint               rohc_offset;
-    struct pdcp_lte_info  *p_pdcp_info;
-    rohc_info          *p_rohc_info = NULL;	
-    tvbuff_t           *rohc_tvb = NULL;
+    const char           *mode;
+    proto_tree           *pdcp_tree           = NULL;
+    proto_item           *root_ti             = NULL;
+    gint                  offset              = 0;
+    gint                  rohc_offset;
+    struct pdcp_lte_info *p_pdcp_info;
+    rohc_info            *p_rohc_info         = NULL;
+    tvbuff_t             *rohc_tvb            = NULL;
 #if 0
-    proto_tree         *rohc_tree = NULL;*/
-    proto_item         *rohc_ti = NULL;
-    guint8             base_header_byte;
-    gboolean           udp_checksum_needed = TRUE;
-    gboolean           ip_id_needed = TRUE;
+    proto_tree           *rohc_tree           = NULL;
+    proto_item           *rohc_ti             = NULL;
+    guint8                base_header_byte;
+    gboolean              udp_checksum_needed = TRUE;
+    gboolean              ip_id_needed        = TRUE;
 #endif
 
 
@@ -2022,7 +2026,7 @@ static void dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         col_set_writable(pinfo->cinfo, FALSE);
     }
     else {
-        /* TODO: won't help with multiple PDCP PDUs / frame */
+        /* TODO: won't help with multiple PDCP-or-traffic PDUs / frame... */
         col_clear(pinfo->cinfo, COL_INFO);
         col_set_writable(pinfo->cinfo, TRUE);
     }
@@ -2213,8 +2217,8 @@ static void dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
                                     /* .. look for error (0) in each bit */
                                     for ( ; bit_offset < 8; bit_offset++) {
                                         if ((tvb_get_guint8(tvb, offset) >> (7-bit_offset) & 0x1) == 0) {
-                                            proto_tree_add_boolean_format_value(bitmap_tree, hf_pdcp_lte_bitmap_not_received, tvb, offset, 1, TRUE,
-                                                                                " (SN=%u)", sn);
+                                            proto_tree_add_boolean_bits_format_value(bitmap_tree, hf_pdcp_lte_bitmap_not_received, tvb, offset*8 + bit_offset,
+                                                                                     1, 0, " (SN=%u)", sn);
                                             not_received++;
                                         }
                                         sn = (sn + 1) % 4096;
@@ -2223,7 +2227,7 @@ static void dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
                             }
 
                             if (bitmap_ti != NULL) {
-                                proto_item_append_text(bitmap_ti, " (not-received=%u)", not_received);
+                                proto_item_append_text(bitmap_ti, " (%u SNs not received)", not_received);
                             }
                             write_pdu_label_and_info(root_ti, pinfo, " Status Report (fms=%u) not-received=%u",
                                                     fms, not_received);
@@ -2265,7 +2269,7 @@ static void dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
                     }
                     break;
             }
-                
+
             if (do_analysis) {
                 checkChannelSequenceInfo(pinfo, tvb, p_pdcp_info,
                                          (guint16)seqnum, pdcp_tree);
@@ -2385,6 +2389,9 @@ static void dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     /* Only enable writing to column if configured to show ROHC */
     if (global_pdcp_lte_layer_to_show != ShowTrafficLayer) {
         col_set_writable(pinfo->cinfo, FALSE);
+    }
+    else {
+        col_clear(pinfo->cinfo, COL_INFO);
     }
 
     call_dissector(rohc_handle, rohc_tvb, pinfo, tree);
@@ -2583,8 +2590,7 @@ static void dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 
 /* Initializes the hash tables each time a new
  * file is loaded or re-loaded in wireshark */
-static void
-pdcp_lte_init_protocol(void)
+static void pdcp_lte_init_protocol(void)
 {
     /* Destroy any existing hashes. */
     if (pdcp_sequence_analysis_channel_hash) {
@@ -2823,6 +2829,7 @@ void proto_register_pdcp(void)
             }
         },
 
+#if 0
         { &hf_pdcp_lte_rohc,
             { "ROHC Message",
               "pdcp-lte.rohc", FT_NONE, BASE_NONE, NULL, 0,
@@ -3229,6 +3236,7 @@ void proto_register_pdcp(void)
               NULL, HFILL
             }
         },
+#endif  /* rohc fields that aren't used anymore */
 
     };
 
@@ -3275,6 +3283,9 @@ void proto_register_pdcp(void)
 
     pdcp_lte_module = prefs_register_protocol(proto_pdcp_lte, NULL);
 
+    /* Obsolete preferences */
+    prefs_register_obsolete_preference(pdcp_lte_module, "show_feedback_option_tag_length");
+
     /* Dissect uncompressed user-plane data as IP */
     prefs_register_bool_preference(pdcp_lte_module, "show_user_plane_as_ip",
         "Show uncompressed User-Plane data as IP",
@@ -3299,11 +3310,6 @@ void proto_register_pdcp(void)
         "Attempt to decode ROHC data",
         &global_pdcp_dissect_rohc);
 
-    prefs_register_bool_preference(pdcp_lte_module, "show_feedback_option_tag_length",
-        "Show ROHC feedback option tag & length",
-        "Show ROHC feedback option tag & length",
-        &global_pdcp_show_feedback_option_tag_length);
-
     prefs_register_bool_preference(pdcp_lte_module, "heuristic_pdcp_lte_over_udp",
         "Try Heuristic LTE-PDCP over UDP framing",
         "When enabled, use heuristic dissector to find PDCP-LTE frames sent with "
@@ -3315,7 +3321,6 @@ void proto_register_pdcp(void)
         "Can show RLC, PDCP or Traffic layer info in Info column",
         &global_pdcp_lte_layer_to_show, show_info_col_vals, FALSE);
 
-
     register_init_routine(&pdcp_lte_init_protocol);
 }
 
@@ -3324,7 +3329,7 @@ void proto_reg_handoff_pdcp_lte(void)
     /* Add as a heuristic UDP dissector */
     heur_dissector_add("udp", dissect_pdcp_lte_heur, proto_pdcp_lte);
 
-    ip_handle = find_dissector("ip");
+    ip_handle   = find_dissector("ip");
     ipv6_handle = find_dissector("ipv6");
     rohc_handle = find_dissector("rohc");
     data_handle = find_dissector("data");

@@ -431,17 +431,17 @@ update_saved_invokedata(packet_info *pinfo, proto_tree *tree _U_, tvbuff_t *tvb 
         if ((!pinfo->fd->flags.visited)&&(p_private_tcap->TransactionID_str)){
             /* Only do this once XXX I hope its the right thing to do */
             /* The hash string needs to contain src and dest to distiguish differnt flows */
-			switch(ansi_map_response_matching_type){
-				case ANSI_MAP_TID_ONLY:
-					g_snprintf(buf,1024,"%s",p_private_tcap->TransactionID_str);
-					break;
-				case 1:
-					g_snprintf(buf,1024,"%s%s",p_private_tcap->TransactionID_str,src_str);
-					break;
-				default:
-					g_snprintf(buf,1024,"%s%s%s",p_private_tcap->TransactionID_str,src_str,dst_str);
-					break;
-			}
+            switch(ansi_map_response_matching_type){
+                case ANSI_MAP_TID_ONLY:
+                    g_snprintf(buf,1024,"%s",p_private_tcap->TransactionID_str);
+                    break;
+                case 1:
+                    g_snprintf(buf,1024,"%s%s",p_private_tcap->TransactionID_str,src_str);
+                    break;
+                default:
+                    g_snprintf(buf,1024,"%s%s%s",p_private_tcap->TransactionID_str,src_str,dst_str);
+                    break;
+            }
             /* If the entry allready exists don't owervrite it */
             ansi_map_saved_invokedata = (struct ansi_map_invokedata_t *)g_hash_table_lookup(TransactionId_table,buf);
             if(ansi_map_saved_invokedata)
@@ -582,29 +582,12 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
 static int dissect_returnData(proto_tree *tree, tvbuff_t *tvb, int offset,  asn1_ctx_t *actx);
 static int dissect_ansi_map_SystemMyTypeCode(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index _U_);
 
-#if 0
-/* Moved to tvbuff.h
- * XXX remove after trial period.
- */
-typedef struct dgt_set_t
-{
-    unsigned char out[15];
-}
-dgt_set_t;
-#endif
 static dgt_set_t Dgt_tbcd = {
     {
   /*  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e */
      '0','1','2','3','4','5','6','7','8','9','?','B','C','*','#'
     }
 };
-static dgt_set_t Dgt1_9_bcd = {
-    {
-  /*  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e */
-     '0','1','2','3','4','5','6','7','8','9','?','?','?','?','?'
-    }
-};
-
 
 /* Type of Digits (octet 1, bits A-H) */
 static const value_string ansi_map_type_of_digits_vals[] = {
@@ -677,7 +660,7 @@ dissect_ansi_map_min_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
 
     subtree = proto_item_add_subtree(actx->created_item, ett_mintype);
 
-	digit_str = tvb_bcd_dig_to_ep_str(tvb, offset, tvb_length_remaining(tvb,offset), &Dgt1_9_bcd, FALSE);
+    digit_str = tvb_bcd_dig_to_ep_str(tvb, offset, tvb_length_remaining(tvb,offset), NULL, FALSE);
     proto_tree_add_string(subtree, hf_ansi_map_bcd_digits, tvb, offset, -1, digit_str);
     proto_item_append_text(actx->created_item, " - %s", digit_str);
 }
@@ -760,7 +743,7 @@ dissect_ansi_map_digits_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
         switch ((octet&0xf)){
         case 1:
             /* BCD Coding */
-			digit_str = tvb_bcd_dig_to_ep_str(tvb, offset, tvb_length_remaining(tvb,offset), &Dgt_tbcd, FALSE);
+            digit_str = tvb_bcd_dig_to_ep_str(tvb, offset, tvb_length_remaining(tvb,offset), &Dgt_tbcd, FALSE);
             proto_tree_add_string(subtree, hf_ansi_map_bcd_digits, tvb, offset, -1, digit_str);
             proto_item_append_text(actx->created_item, " - %s", digit_str);
             break;
@@ -3850,7 +3833,6 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
         break;
         /*End N.S0011-0 v 1.0 */
     case  57: /*Information Backward*/
-        offset = offset;
         break;
         /*  N.S0008-0 v 1.0 */
     case  58: /*Change Facilities*/
@@ -3915,7 +3897,6 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
         break;
         /*END N.S0013 */
     case  77: /*Release*/
-        offset = offset;
         break;
     case  78: /*SMS Delivery Point to Point Ack*/
         offset = dissect_ansi_map_SMSDeliveryPointToPointAck(TRUE, tvb, offset, actx, tree, hf_ansi_map_smsDeliveryPointToPointAck);
@@ -3969,7 +3950,6 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
         offset = dissect_ansi_map_CallTerminationReport(TRUE, tvb, offset, actx, tree, hf_ansi_map_callTerminationReport);
         break;
     case  93: /*Geo Position Directive*/
-        offset = offset;
         break;
     case  94: /*Geo Position Request*/
         offset = dissect_ansi_map_GeoPositionRequest(TRUE, tvb, offset, actx, tree, hf_ansi_map_interSystemPositionRequest);
@@ -3998,9 +3978,9 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
         /*End N.S0029 X.S0001-A v1.0*/
         /* X.S0002-0 v1.0 */
         /* LCSParameterRequest */
-	case 101:	/* InterSystemSMSPage 101 */
-		offset = dissect_ansi_map_InterSystemSMSPage(TRUE, tvb, offset, actx, tree, hf_ansi_map_interSystemSMSPage);
-		break;
+    case 101:    /* InterSystemSMSPage 101 */
+        offset = dissect_ansi_map_InterSystemSMSPage(TRUE, tvb, offset, actx, tree, hf_ansi_map_interSystemSMSPage);
+        break;
     case 102:
         offset = dissect_ansi_map_LCSParameterRequest(TRUE, tvb, offset, actx, tree, hf_ansi_map_lcsParameterRequest);
         break;
@@ -4016,27 +3996,27 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
         /* StatusRequest X.S0008-0 v1.0*/
         offset = dissect_ansi_map_StatusRequest(TRUE, tvb, offset, actx, tree, hf_ansi_map_statusRequest);
         break;
-		/* InterSystemSMSDelivery-PointToPoint 111 X.S0004-540-E v2.0*/
-	case 111:
-		/* InterSystemSMSDeliveryPointToPoint X.S0004-540-E v2.0 */
-		offset = dissect_ansi_map_InterSystemSMSDeliveryPointToPoint(TRUE, tvb, offset, actx, tree, hf_ansi_map_interSystemSMSDeliveryPointToPoint);
-		break;
-	case 112:
-		/* QualificationRequest2 112 X.S0004-540-E v2.0*/
-		offset = dissect_ansi_map_QualificationRequest2(TRUE, tvb, offset, actx, tree, hf_ansi_map_qualificationRequest2);
-		break;
+        /* InterSystemSMSDelivery-PointToPoint 111 X.S0004-540-E v2.0*/
+    case 111:
+        /* InterSystemSMSDeliveryPointToPoint X.S0004-540-E v2.0 */
+        offset = dissect_ansi_map_InterSystemSMSDeliveryPointToPoint(TRUE, tvb, offset, actx, tree, hf_ansi_map_interSystemSMSDeliveryPointToPoint);
+        break;
+    case 112:
+        /* QualificationRequest2 112 X.S0004-540-E v2.0*/
+        offset = dissect_ansi_map_QualificationRequest2(TRUE, tvb, offset, actx, tree, hf_ansi_map_qualificationRequest2);
+        break;
     default:
         proto_tree_add_text(tree, tvb, offset, -1, "Unknown invokeData blob");
-	opCodeKnown = FALSE;
+        opCodeKnown = FALSE;
         break;
     }
 
     if (opCodeKnown)
     {
-	tap_p->message_type = OperationCode;
-	tap_p->size = 0;	/* should be number of octets in message */
+        tap_p->message_type = OperationCode;
+        tap_p->size = 0;    /* should be number of octets in message */
 
-	tap_queue_packet(ansi_map_tap, g_pinfo, tap_p);
+        tap_queue_packet(ansi_map_tap, g_pinfo, tap_p);
     }
 
     return offset;
@@ -4185,7 +4165,7 @@ static int dissect_returnData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
     case  56: /*OTASP Request 6.4.2.CC*/
         offset = dissect_ansi_map_OTASPRequestRes(TRUE, tvb, offset, actx, tree, hf_ansi_map_oTASPRequestRes);
         break;
-	/* 57 Information Backward*/
+    /* 57 Information Backward*/
     case  58: /*Change Facilities*/
         offset = dissect_ansi_map_ChangeFacilitiesRes(TRUE, tvb, offset, actx, tree, hf_ansi_map_changeFacilitiesRes);
         break;
@@ -4200,7 +4180,7 @@ static int dissect_returnData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
         break;
     case  62: /*NumberPortabilityRequest */
         offset = dissect_ansi_map_NumberPortabilityRequestRes(TRUE, tvb, offset, actx, tree, hf_ansi_map_numberPortabilityRequestRes);
-		break;
+        break;
     case  63: /*Service Request*/
         offset = dissect_ansi_map_ServiceRequestRes(TRUE, tvb, offset, actx, tree, hf_ansi_map_serviceRequestRes);
         break;
@@ -4214,7 +4194,7 @@ static int dissect_returnData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
     case  68: /*Facility Selected and Available*/
         offset = dissect_ansi_map_FacilitySelectedAndAvailableRes(TRUE, tvb, offset, actx, tree, hf_ansi_map_facilitySelectedAndAvailableRes);
         break;
-	/* 69 Instruction Request*/
+    /* 69 Instruction Request*/
     case  70: /*Modify*/
         offset = dissect_ansi_map_ModifyRes(TRUE, tvb, offset, actx, tree, hf_ansi_map_modifyRes);
         break;
@@ -4288,26 +4268,26 @@ static int dissect_returnData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
         /* StatusRequest X.S0008-0 v1.0*/
         offset = dissect_ansi_map_StatusRequestRes(TRUE, tvb, offset, actx, tree, hf_ansi_map_statusRequestRes);
         break;
-	case 111:
-		/* InterSystemSMSDeliveryPointToPointRes X.S0004-540-E v2.0 */
-		offset = dissect_ansi_map_InterSystemSMSDeliveryPointToPointRes(TRUE, tvb, offset, actx, tree, hf_ansi_map_interSystemSMSDeliveryPointToPointRes);
-		break;
-	case 112:
-		/* QualificationRequest2Res 112 X.S0004-540-E v2.0*/
-		offset = dissect_ansi_map_QualificationRequest2Res(TRUE, tvb, offset, actx, tree, hf_ansi_map_qualificationRequest2Res);
-		break;
+    case 111:
+        /* InterSystemSMSDeliveryPointToPointRes X.S0004-540-E v2.0 */
+        offset = dissect_ansi_map_InterSystemSMSDeliveryPointToPointRes(TRUE, tvb, offset, actx, tree, hf_ansi_map_interSystemSMSDeliveryPointToPointRes);
+        break;
+    case 112:
+        /* QualificationRequest2Res 112 X.S0004-540-E v2.0*/
+        offset = dissect_ansi_map_QualificationRequest2Res(TRUE, tvb, offset, actx, tree, hf_ansi_map_qualificationRequest2Res);
+        break;
     default:
         proto_tree_add_text(tree, tvb, offset, -1, "Unknown invokeData blob");
-	opCodeKnown = FALSE;
+        opCodeKnown = FALSE;
         break;
     }
 
     if (opCodeKnown)
     {
-	tap_p->message_type = OperationCode;
-	tap_p->size = 0;	/* should be number of octets in message */
+        tap_p->message_type = OperationCode;
+        tap_p->size = 0;    /* should be number of octets in message */
 
-	tap_queue_packet(ansi_map_tap, g_pinfo, tap_p);
+        tap_queue_packet(ansi_map_tap, g_pinfo, tap_p);
     }
 
     return offset;
@@ -4332,19 +4312,19 @@ find_saved_invokedata(asn1_ctx_t *actx){
         src_str = ep_address_to_str(src);
         dst_str = ep_address_to_str(dst);
         /* Reverse order to invoke */
-		switch(ansi_map_response_matching_type){
-			case ANSI_MAP_TID_ONLY:
-				g_snprintf(buf,1024,"%s",p_private_tcap->TransactionID_str);
-				break;
-			case 1:
-				g_snprintf(buf,1024,"%s%s",p_private_tcap->TransactionID_str,dst_str);
-				break;
-			default:
-				g_snprintf(buf,1024,"%s%s%s",p_private_tcap->TransactionID_str,dst_str,src_str);
-				break;
-		}
+        switch(ansi_map_response_matching_type){
+            case ANSI_MAP_TID_ONLY:
+                g_snprintf(buf,1024,"%s",p_private_tcap->TransactionID_str);
+                break;
+            case 1:
+                g_snprintf(buf,1024,"%s%s",p_private_tcap->TransactionID_str,dst_str);
+                break;
+            default:
+                g_snprintf(buf,1024,"%s%s%s",p_private_tcap->TransactionID_str,dst_str,src_str);
+                break;
+        }
 
-		/*g_warning("Find Hash string %s pkt: %u",buf,actx->pinfo->fd->num);*/
+        /*g_warning("Find Hash string %s pkt: %u",buf,actx->pinfo->fd->num);*/
         ansi_map_saved_invokedata = (struct ansi_map_invokedata_t *)g_hash_table_lookup(TransactionId_table, buf);
         if(ansi_map_saved_invokedata){
             OperationCode = ansi_map_saved_invokedata->opcode & 0xff;
@@ -4353,7 +4333,7 @@ find_saved_invokedata(asn1_ctx_t *actx){
             OperationCode = OperationCode & 0x00ff;
         }
     }else{
-		/*g_warning("No private data pkt: %u",actx->pinfo->fd->num);*/
+        /*g_warning("No private data pkt: %u",actx->pinfo->fd->num);*/
         OperationCode = OperationCode & 0x00ff;
     }
     return OperationCode;
@@ -4364,7 +4344,6 @@ dissect_ansi_map(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
     proto_item *ansi_map_item;
     proto_tree *ansi_map_tree = NULL;
-    int        offset = 0;
     struct ansi_tcap_private_t *p_private_tcap;
     asn1_ctx_t asn1_ctx;
     asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
@@ -4690,7 +4669,7 @@ void proto_register_ansi_map(void) {
             NULL, HFILL }},
         { &hf_ansi_map_cdmaserviceoption,
           { "CDMAServiceOption", "ansi_map.cdmaserviceoption",
-            FT_UINT16, BASE_RANGE_STRING | BASE_DEC, RVALS(&cdmaserviceoption_vals), 0x0,
+            FT_UINT16, BASE_RANGE_STRING | BASE_DEC, RVALS(cdmaserviceoption_vals), 0x0,
             NULL, HFILL }},
         { &hf_ansi_trans_cap_waddr,
           { "WIN Addressing (WADDR)", "ansi_map.trans_cap_waddr",
@@ -5307,12 +5286,12 @@ void proto_register_ansi_map(void) {
 #include "packet-ansi_map-ettarr.c"
     };
 
-	static enum_val_t ansi_map_response_matching_type_values[] = {
-		{"Only Transaction ID will be used in Invoke/response matching",					"Transaction ID only", 0},
-		{"Transaction ID and Source will be used in Invoke/response matching",				"Transaction ID and Source", 1},
-		{"Transaction ID Source and Destination will be used in Invoke/response matching",	"Transaction ID Source and Destination", 2},
-		{NULL, NULL, -1}
-	};
+    static enum_val_t ansi_map_response_matching_type_values[] = {
+        {"Only Transaction ID will be used in Invoke/response matching",                    "Transaction ID only", 0},
+        {"Transaction ID and Source will be used in Invoke/response matching",                "Transaction ID and Source", 1},
+        {"Transaction ID Source and Destination will be used in Invoke/response matching",    "Transaction ID Source and Destination", 2},
+        {NULL, NULL, -1}
+    };
 
     /* Register protocol */
     proto_ansi_map = proto_register_protocol(PNAME, PSNAME, PFNAME);
@@ -5346,10 +5325,10 @@ void proto_register_ansi_map(void) {
                                     "ANSI MAP SSNs to decode as ANSI MAP",
                                     &global_ssn_range, MAX_SSN);
 
-	prefs_register_enum_preference(ansi_map_module, "transaction.matchtype",
-				       "Type of matching invoke/response",
-				       "Type of matching invoke/response, risk of missmatch if loose matching choosen",
-				       &ansi_map_response_matching_type, ansi_map_response_matching_type_values, FALSE);
+    prefs_register_enum_preference(ansi_map_module, "transaction.matchtype",
+                                  "Type of matching invoke/response",
+                                  "Type of matching invoke/response, risk of missmatch if loose matching choosen",
+                                  &ansi_map_response_matching_type, ansi_map_response_matching_type_values, FALSE);
 
     register_init_routine(&ansi_map_init_protocol);
 }

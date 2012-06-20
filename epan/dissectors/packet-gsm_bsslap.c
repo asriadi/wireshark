@@ -29,8 +29,6 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
-
 #include <glib.h>
 
 #include <epan/packet.h>
@@ -875,7 +873,7 @@ proto_register_gsm_bsslap(void)
 		},
 		{ &hf_gsm_a_bsslap_elem_id,
 			{ "Element ID",	"gsm_bsslap.elem_id",
-			FT_UINT8, BASE_DEC, NULL, 0,
+			FT_UINT8, BASE_HEX, NULL, 0,
 			NULL, HFILL }
 		},
 		{ &hf_gsm_bsslap_ta,

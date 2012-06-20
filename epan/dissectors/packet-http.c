@@ -90,6 +90,7 @@ static int hf_http_content_length_header = -1;
 static int hf_http_content_length = -1;
 static int hf_http_content_encoding = -1;
 static int hf_http_transfer_encoding = -1;
+static int hf_http_upgrade = -1;
 static int hf_http_user_agent = -1;
 static int hf_http_host = -1;
 static int hf_http_connection = -1;
@@ -102,6 +103,11 @@ static int hf_http_date = -1;
 static int hf_http_cache_control = -1;
 static int hf_http_server = -1;
 static int hf_http_location = -1;
+static int hf_http_sec_websocket_accept = -1;
+static int hf_http_sec_websocket_extensions = -1;
+static int hf_http_sec_websocket_key = -1;
+static int hf_http_sec_websocket_protocol = -1;
+static int hf_http_sec_websocket_version = -1;
 static int hf_http_set_cookie = -1;
 static int hf_http_last_modified = -1;
 static int hf_http_x_forwarded_for = -1;
@@ -117,6 +123,7 @@ static gint ett_http_header_item = -1;
 
 static dissector_handle_t data_handle;
 static dissector_handle_t media_handle;
+static dissector_handle_t websocket_handle;
 static dissector_handle_t http_handle;
 
 /* Stuff for generation/handling of fields for custom HTTP headers */
@@ -131,20 +138,32 @@ static guint num_header_fields = 0;
 static GHashTable* header_fields_hash = NULL;
 
 static void
-header_fields_update_cb(void* r, const char** err)
+header_fields_update_cb(void *r, const char **err)
 {
-	header_field_t* rec = r;
+	header_field_t *rec = r;
+	char c;
 
 	if (rec->header_name == NULL) {
 		*err = ep_strdup_printf("Header name can't be empty");
-	} else {
-		g_strstrip(rec->header_name);
-		if (rec->header_name[0] != 0) {
-			*err = NULL;
-		} else {
-			*err = ep_strdup_printf("Header name can't be empty");
-		}
+		return;
 	}
+
+	g_strstrip(rec->header_name);
+	if (rec->header_name[0] == 0) {
+		*err = ep_strdup_printf("Header name can't be empty");
+		return;
+	}
+
+	/* Check for invalid characters (to avoid asserting out when
+	 * registering the field).
+	 */
+	c = proto_check_field_name(rec->header_name);
+	if (c) {
+		*err = ep_strdup_printf("Header name can't contain '%c'", c);
+		return;
+	}
+
+	*err = NULL;
 }
 
 static void *
@@ -272,10 +291,12 @@ static heur_dissector_list_t heur_subdissector_list;
 static dissector_handle_t ntlmssp_handle;
 static dissector_handle_t gssapi_handle;
 
+/* --- HTTP Status Codes */
+/* Note: The reference for uncommented entries is RFC 2616 */
 static const value_string vals_status_code[] = {
 	{ 100, "Continue" },
 	{ 101, "Switching Protocols" },
-	{ 102, "Processing" },
+	{ 102, "Processing" },                     /* RFC 2518 */
 	{ 199, "Informational - Others" },
 
 	{ 200, "OK"},
@@ -285,7 +306,8 @@ static const value_string vals_status_code[] = {
 	{ 204, "No Content"},
 	{ 205, "Reset Content"},
 	{ 206, "Partial Content"},
-	{ 207, "Multi-Status"},
+	{ 207, "Multi-Status"},                    /* RFC 4918 */
+        { 226, "IM Used"},                         /* RFC 3229 */
 	{ 299, "Success - Others"},
 
 	{ 300, "Multiple Choices"},
@@ -315,10 +337,14 @@ static const value_string vals_status_code[] = {
 	{ 415, "Unsupported Media Type"},
 	{ 416, "Requested Range Not Satisfiable"},
 	{ 417, "Expectation Failed"},
-	{ 418, "I'm a teapot"},		/* RFC 2324 */
-	{ 422, "Unprocessable Entity"},
-	{ 423, "Locked"},
-	{ 424, "Failed Dependency"},
+	{ 418, "I'm a teapot"},                    /* RFC 2324 */
+	{ 422, "Unprocessable Entity"},            /* RFC 4918 */
+	{ 423, "Locked"},                          /* RFC 4918 */
+	{ 424, "Failed Dependency"},               /* RFC 4918 */
+        { 426, "Upgrade Required"},                /* RFC 2817 */
+        { 428, "Precondition Required"},           /* RFC 6585 */
+        { 429, "Too Many Requests"},               /* RFC 6585 */
+        { 431, "Request Header Fields Too Large"}, /* RFC 6585 */
 	{ 499, "Client Error - Others"},
 
 	{ 500, "Internal Server Error"},
@@ -327,7 +353,8 @@ static const value_string vals_status_code[] = {
 	{ 503, "Service Unavailable"},
 	{ 504, "Gateway Time-out"},
 	{ 505, "HTTP Version not supported"},
-	{ 507, "Insufficient Storage"},
+	{ 507, "Insufficient Storage"},            /* RFC 4918 */
+        { 511, "Network Authentication Required"}, /* RFC 6585 */
 	{ 599, "Server Error - Others"},
 
 	{ 0, 	NULL}
@@ -947,6 +974,10 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	 * processed as HTTP payload is the minimum of the content
 	 * length and the amount of data remaining in the frame.
 	 *
+	 * If a message is received with both a Transfer-Encoding
+	 * header field and a Content-Length header field, the latter
+	 * MUST be ignored.
+	 *
 	 * If no content length was supplied (or if a bad content length
 	 * was supplied), the amount of data to be processed is the amount
 	 * of data remaining in the frame.
@@ -970,7 +1001,9 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	 * the response in order to handle that.
 	 */
 	datalen = tvb_length_remaining(tvb, offset);
-	if (headers.have_content_length && headers.content_length != -1) {
+	if (headers.have_content_length &&
+	    headers.content_length != -1 &&
+	    headers.transfer_encoding == NULL) {
 		if (datalen > headers.content_length)
 			datalen = (int)headers.content_length;
 
@@ -1057,6 +1090,14 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		next_tvb = tvb_new_subset(tvb, offset, datalen,
 		    reported_datalen);
 
+		/*
+		 *	Check if Websocket 
+		 */
+		if (conv_data->upgrade != NULL &&
+		    g_ascii_strcasecmp(conv_data->upgrade, "WebSocket") == 0) {
+			call_dissector_only(websocket_handle, next_tvb, pinfo, tree);
+			goto body_dissected;
+		}
 		/*
 		 * Handle *transfer* encodings other than "identity".
 		 */
@@ -2011,7 +2052,8 @@ typedef struct {
 #define HDR_CONTENT_LENGTH	4
 #define HDR_CONTENT_ENCODING	5
 #define HDR_TRANSFER_ENCODING	6
-#define HDR_HOST  7
+#define HDR_HOST		7
+#define HDR_UPGRADE		8
 
 static const header_info headers[] = {
 	{ "Authorization", &hf_http_authorization, HDR_AUTHORIZATION },
@@ -2022,6 +2064,7 @@ static const header_info headers[] = {
 	{ "Content-Length", &hf_http_content_length_header, HDR_CONTENT_LENGTH },
 	{ "Content-Encoding", &hf_http_content_encoding, HDR_CONTENT_ENCODING },
 	{ "Transfer-Encoding", &hf_http_transfer_encoding, HDR_TRANSFER_ENCODING },
+	{ "Upgrade", &hf_http_upgrade, HDR_UPGRADE },
 	{ "User-Agent",	&hf_http_user_agent, HDR_NO_SPECIAL },
 	{ "Host", &hf_http_host, HDR_HOST },
 	{ "Connection", &hf_http_connection, HDR_NO_SPECIAL },
@@ -2034,6 +2077,11 @@ static const header_info headers[] = {
 	{ "Cache-Control", &hf_http_cache_control, HDR_NO_SPECIAL },
 	{ "Server", &hf_http_server, HDR_NO_SPECIAL },
 	{ "Location", &hf_http_location, HDR_NO_SPECIAL },
+	{ "Sec-WebSocket-Accept", &hf_http_sec_websocket_accept, HDR_NO_SPECIAL },
+	{ "Sec-WebSocket-Extensions", &hf_http_sec_websocket_extensions, HDR_NO_SPECIAL },
+	{ "Sec-WebSocket-Key", &hf_http_sec_websocket_key, HDR_NO_SPECIAL },
+	{ "Sec-WebSocket-Protocol", &hf_http_sec_websocket_protocol, HDR_NO_SPECIAL },
+	{ "Sec-WebSocket-Version", &hf_http_sec_websocket_version, HDR_NO_SPECIAL },
 	{ "Set-Cookie", &hf_http_set_cookie, HDR_NO_SPECIAL },
 	{ "Last-Modified", &hf_http_last_modified, HDR_NO_SPECIAL },
 	{ "X-Forwarded-For", &hf_http_x_forwarded_for, HDR_NO_SPECIAL },
@@ -2067,7 +2115,7 @@ header_fields_initialize_cb(void)
 	guint i;
 	gchar* header_name;
 
-	if (header_fields_hash) {
+	if (header_fields_hash && hf) {
 		guint hf_size = g_hash_table_size (header_fields_hash);
 		/* Unregister all fields */
 		for (i = 0; i < hf_size; i++) {
@@ -2299,6 +2347,9 @@ process_header(tvbuff_t *tvb, int offset, int next_offset,
 			conv_data->http_host = se_strndup(value, value_len);
 			break;
 
+		case HDR_UPGRADE:
+			conv_data->upgrade = se_strndup(value, value_len);
+			break;
 		}
 	}
 }
@@ -2368,7 +2419,6 @@ check_auth_basic(proto_item *hdr_item, tvbuff_t *tvb, gchar *value)
 	const char **header;
 	size_t hdrlen;
 	proto_tree *hdr_tree;
-	size_t len;
 
 	for (header = &basic_headers[0]; *header != NULL; header++) {
 		hdrlen = strlen(*header);
@@ -2380,8 +2430,7 @@ check_auth_basic(proto_item *hdr_item, tvbuff_t *tvb, gchar *value)
 				hdr_tree = NULL;
 			value += hdrlen;
 
-			len = epan_base64_decode(value);
-			value[len] = '\0';
+			epan_base64_decode(value);
 			proto_tree_add_string(hdr_tree, hf_http_basic, tvb,
 			    0, 0, value);
 
@@ -2575,6 +2624,10 @@ proto_register_http(void)
 	      { "Transfer-Encoding",	"http.transfer_encoding",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Transfer-Encoding header", HFILL }},
+	    { &hf_http_upgrade,
+	      { "Upgrade",	"http.upgrade",
+		FT_STRING, BASE_NONE, NULL, 0x0,
+		"HTTP Upgrade header", HFILL }},
 	    { &hf_http_user_agent,
 	      { "User-Agent",	"http.user_agent",
 		FT_STRING, BASE_NONE, NULL, 0x0,
@@ -2623,6 +2676,26 @@ proto_register_http(void)
 	      { "Location",	"http.location",
 		FT_STRING, BASE_NONE, NULL, 0x0,
 		"HTTP Location", HFILL }},
+	    { &hf_http_sec_websocket_accept,
+	      { "Sec-WebSocket-Accept",	"http.sec_websocket_accept",
+		FT_STRING, BASE_NONE, NULL, 0x0,
+		NULL, HFILL }},
+	    { &hf_http_sec_websocket_extensions,
+	      { "Sec-WebSocket-Extensions",	"http.sec_websocket_extensions",
+		FT_STRING, BASE_NONE, NULL, 0x0,
+		NULL, HFILL }},
+	    { &hf_http_sec_websocket_key,
+	      { "Sec-WebSocket-Key",	"http.sec_websocket_key",
+		FT_STRING, BASE_NONE, NULL, 0x0,
+		NULL, HFILL }},
+	    { &hf_http_sec_websocket_protocol,
+	      { "Sec-WebSocket-Protocol",	"http.sec_websocket_protocol",
+		FT_STRING, BASE_NONE, NULL, 0x0,
+		NULL, HFILL }},
+	    { &hf_http_sec_websocket_version,
+	      { "Sec-WebSocket-Version",	"http.sec_websocket_version",
+		FT_STRING, BASE_NONE, NULL, 0x0,
+		NULL, HFILL }},
 	    { &hf_http_set_cookie,
 	      { "Set-Cookie",	"http.set_cookie",
 		FT_STRING, BASE_NONE, NULL, 0x0,
@@ -2710,7 +2783,7 @@ proto_register_http(void)
 			      TRUE,
 			      (void*) &header_fields,
 			      &num_header_fields,
-			      UAT_CAT_GENERAL,
+			      UAT_CAT_FIELDS,
 			      NULL,
 			      header_fields_copy_cb,
 			      header_fields_update_cb,
@@ -2785,7 +2858,7 @@ proto_reg_handoff_http(void)
 
 	data_handle = find_dissector("data");
 	media_handle = find_dissector("media");
-
+	websocket_handle = find_dissector("websocket");
 	/*
 	 * XXX - is there anything to dissect in the body of an SSDP
 	 * request or reply?  I.e., should there be an SSDP dissector?

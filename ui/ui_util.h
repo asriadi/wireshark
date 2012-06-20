@@ -47,11 +47,6 @@ typedef struct window_geometry_s {
     gboolean    maximized;      /**< the windows maximized state (GTK2 only) */
 } window_geometry_t;
 
-/* Set the name of the top-level window and its icon. */
-void set_main_window_name(const gchar *);
-/* Update the name of the main window if the user-specified decoration
-   changed. */
-void update_main_window_title(void);
 /* update the main window */
 extern void main_window_update(void);
 /* exit the main window */

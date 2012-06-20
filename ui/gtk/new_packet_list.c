@@ -335,7 +335,7 @@ col_details_edit_dlg (gint col_id, GtkTreeViewColumn *col)
 	gtk_window_set_resizable(GTK_WINDOW(win),FALSE);
 	gtk_window_resize(GTK_WINDOW(win), 400, 100);
 
-	main_vb = gtk_vbox_new(FALSE, 6);
+	main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 6, FALSE);
 	gtk_container_add(GTK_CONTAINER(win), main_vb);
 	gtk_container_set_border_width(GTK_CONTAINER(main_vb), 6);
 
@@ -1118,7 +1118,7 @@ new_packet_list_check_end(void)
 	}
 #ifdef HAVE_LIBPCAP
 	if (gtk_adjustment_get_value(adj) > 0 && at_end != last_at_end && at_end != auto_scroll_live) {
-		menu_auto_scroll_live_changed(at_end);
+		main_auto_scroll_live_changed(at_end);
 	}
 #endif
 	last_at_end = at_end;
@@ -1450,7 +1450,6 @@ new_packet_list_set_font(PangoFontDescription *font)
 static void
 mark_frames_ready(void)
 {
-	file_save_update_dynamics();
 	packets_bar_update();
 	new_packet_list_queue_draw();
 }
@@ -1733,11 +1732,26 @@ new_packet_list_update_packet_comment(gchar *new_packet_comment)
 		return;
 
 	record = new_packet_list_get_record(model, &iter);
-	g_free(record->fdata->opt_comment);
-	record->fdata->opt_comment = new_packet_comment;
-	/* Mark the file as unsaved, caues a popup asking to save the file if we quit the file */
-	cfile.user_saved = FALSE;
-	set_menus_for_capture_file(&cfile);
+
+	/* Check if the comment has changed */
+	if (record->fdata->opt_comment) {
+		if (strcmp(record->fdata->opt_comment, new_packet_comment) == 0) {
+			g_free(new_packet_comment);
+			return;
+		}
+	}
+
+	/* Check if we are clearing the comment */
+	if(strlen(new_packet_comment) == 0) {
+		g_free(new_packet_comment);
+		new_packet_comment = NULL;
+	}
+
+	/* The comment has changed, let's update it */
+	cf_update_packet_comment(&cfile, record->fdata, new_packet_comment);
+
+	/* Update the main window, as we now have unsaved changes. */
+	main_update_for_unsaved_changes(&cfile);
 
 	new_packet_list_queue_draw();
 

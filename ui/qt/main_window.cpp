@@ -148,8 +148,7 @@ void MainWindow::captureFileReadStarted(const capture_file *cf) {
 //    main_set_for_capture_file(TRUE);
 
     ui->statusBar->popFileStatus();
-    //TODO:i18n
-    QString msg = QString().sprintf("Loading: %s", get_basename(cf->filename));
+    QString msg = QString(tr("Loading: %1")).arg(get_basename(cf->filename));
     ui->statusBar->pushFileStatus(msg);
 }
 
@@ -211,7 +210,7 @@ append_file_type(QStringList &filters, int ft)
 
     filter = wtap_file_type_string(ft);
     filter += " (";
-    extensions_list = wtap_get_file_extensions_list(ft);
+    extensions_list = wtap_get_file_extensions_list(ft, TRUE);
     if (extensions_list == NULL) {
         /* This file type doesn't have any particular extension
            conventionally used for it, so we'll just use "*.*"

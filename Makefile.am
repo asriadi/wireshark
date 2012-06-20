@@ -50,7 +50,6 @@ bin_PROGRAMS = \
 
 EXTRA_PROGRAMS = wireshark tshark capinfos editcap mergecap dftest \
 	randpkt text2pcap dumpcap rawshark
-bin_SCRIPTS = tools/idl2wrs
 
 #
 # Wireshark configuration files are put in $(pkgdatadir).
@@ -80,6 +79,7 @@ diameter_DATA = \
 	diameter/sunping.xml \
 	diameter/TGPPGmb.xml \
 	diameter/TGPPRx.xml \
+	diameter/TGPPS9.xml \
 	diameter/TGPPSh.xml	\
 	diameter/Vodafone.xml
 
@@ -119,6 +119,7 @@ radius_DATA = \
 	radius/dictionary.alcatel  \
 	radius/dictionary.alcatel.esam \
 	radius/dictionary.alcatel.sr \
+	radius/dictionary.alcatel-lucent.xylan \
 	radius/dictionary.alteon  \
 	radius/dictionary.altiga  \
 	radius/dictionary.alvarion \
@@ -247,7 +248,6 @@ radius_DATA = \
 	radius/dictionary.wimax.wichorus \
 	radius/dictionary.wispr  \
 	radius/dictionary.xedia \
-	radius/dictionary.xylan \
 	radius/dictionary.zyxel
 
 #
@@ -257,77 +257,6 @@ radius_DATA = \
 tpncpdir = $(pkgdatadir)/tpncp
 tpncp_DATA = \
 	tpncp/tpncp.dat
-
-#
-# Install the ui directory files in the "ui" subdirectory
-# of that directory
-#
-uidir = $(pkgdatadir)/ui
-ui_DATA = \
-	ui/gtk/ui/main-menubar-ui.xml
-
-#
-# Install the ui/gt directory files in the "ui/qt" subdirectory
-# of that directory
-#
-uiqtdir = $(pkgdatadir)/ui/qt
-uiqt_DATA = \
-	ui/qt/byte_view_tab.cpp	\
-	ui/qt/byte_view_tab.h \
-	ui/qt/byte_view_text.cpp	\
-	ui/qt/byte_view_text.h	\
-	ui/qt/capture_file_dialog.cpp	\
-	ui/qt/capture_file_dialog.h	\
-	ui/qt/capture_info_dialog.cpp	\
-	ui/qt/capture_info_dialog.h	\
-	ui/qt/capture_interface_dialog.cpp	\
-	ui/qt/capture_interface_dialog.h	\
-	ui/qt/capture_start_24.png	\
-	ui/qt/capture_start_active_24.png	\
-	ui/qt/capture_stop_24.png	\
-	ui/qt/color_dialog.cpp	\
-	ui/qt/color_dialog.h	\
-	ui/qt/color_utils.cpp	\
-	ui/qt/color_utils.h	\
-	ui/qt/dfilter_apply_hover.png	\
-	ui/qt/dfilter_apply_normal.png	\
-	ui/qt/dfilter_apply_pressed.png	\
-	ui/qt/dfilter_bookmark_hover.png	\
-	ui/qt/dfilter_bookmark_normal.png	\
-	ui/qt/dfilter_bookmark_pressed.png	\
-	ui/qt/dfilter_dropdown.png	\
-	ui/qt/dfilter_erase_active.png	\
-	ui/qt/dfilter_erase_normal.png	\
-	ui/qt/dfilter_erase_selected.png	\
-	ui/qt/dfilter_refresh_active.png	\
-	ui/qt/dfilter_refresh_normal.png	\
-	ui/qt/display_filter_16.svg	\
-	ui/qt/display_filter_combo.cpp	\
-	ui/qt/display_filter_combo.h	\
-	ui/qt/display_filter_edit.cpp	\
-	ui/qt/display_filter_edit.h	\
-	ui/qt/display_filter.qrc	\
-	ui/qt/fileset_dialog.cpp	\
-	ui/qt/fileset_dialog.h	\
-	ui/qt/gpl-template.txt	\
-	ui/qt/interface_tree.cpp	\
-	ui/qt/interface_tree.h	\
-	ui/qt/label_stack.cpp	\
-	ui/qt/label_stack.h	\
-	ui/qt/main.cpp	\
-	ui/qt/main_status_bar.cpp	\
-	ui/qt/main_status_bar.h	\
-	ui/qt/main_welcome.cpp	\
-	ui/qt/main_welcome.h	\
-	ui/qt/main_window.cpp	\
-	ui/qt/main_window.h	\
-	ui/qt/main_window.ui	\
-	ui/qt/monospace_font.cpp	\
-	ui/qt/monospace_font.h	\
-	ui/qt/packet_list.cpp	\
-	ui/qt/packet_list.h	\
-	ui/qt/packet_list_model.cpp	\
-	ui/qt/packet_list_model.h
 
 #
 # Install the wimaxasncp directory files in the "wimaxasncp" subdirectory
@@ -346,8 +275,6 @@ plugin_ldadd = $(_CUSTOM_plugin_ldadd_) \
 	-dlopen plugins/asn1/asn1.la \
 	-dlopen plugins/docsis/docsis.la \
 	-dlopen plugins/ethercat/ethercat.la \
-	-dlopen plugins/giop/cosnaming.la \
-	-dlopen plugins/giop/coseventcomm.la \
 	-dlopen plugins/gryphon/gryphon.la \
 	-dlopen plugins/irda/irda.la \
 	-dlopen plugins/m2m/m2m.la \
@@ -396,7 +323,6 @@ wireshark_LDADD = \
 	@SSL_LIBS@			\
 	$(plugin_ldadd)			\
 	@PCAP_LIBS@			\
-	@GTK_LIBS@ -lm			\
 	@C_ARES_LIBS@			\
 	@ADNS_LIBS@			\
 	@KRB5_LIBS@			\
@@ -406,7 +332,9 @@ wireshark_LDADD = \
 	@LIBGCRYPT_LIBS@		\
 	@LIBGNUTLS_LIBS@		\
 	@LIBSMI_LDFLAGS@		\
-	@PORTAUDIO_LIBS@
+	@PORTAUDIO_LIBS@		\
+	@GTK_LIBS@ -lm
+
 wireshark_CFLAGS = $(AM_CLEAN_CFLAGS) $(py_dissectors_dir)
 
 if ENABLE_STATIC
@@ -570,7 +498,7 @@ SUFFIXES = .sh
 ps.c: print.ps $(srcdir)/tools/rdps.py
 	$(PYTHON) $(srcdir)/tools/rdps.py $(srcdir)/print.ps ps.c
 
-services: tools/make-services.pl
+services:
 	$(PERL) $(srcdir)/tools/make-services.pl
 
 CLEANFILES =		\
@@ -857,7 +785,6 @@ EXTRA_DIST = \
 	image/wssplash.xpm	\
 	ipmap.html		\
 	macosx-setup.sh		\
-	macosx-support-lib-patches/glib-gconvert.patch \
 	macosx-support-lib-patches/glib-pkgconfig.patch \
 	macosx-support-lib-patches/gnutls-pkgconfig.patch \
 	make-version.pl		\
@@ -871,7 +798,6 @@ EXTRA_DIST = \
 	$(radius_DATA)		\
 	$(tpncp_DATA)		\
 	$(ui_DATA)		\
-	$(uiqt_DATA)		\
 	$(wimaxasncp_DATA)	\
 	randpkt.c		\
 	smi_modules		\
@@ -954,7 +880,7 @@ endif
 endif
 
 
-DIST_SUBDIRS = asn1 codecs doc epan ui ui/cli ui/gtk help packaging plugins tools wiretap wsutil docbook
+DIST_SUBDIRS = asn1 codecs doc epan ui ui/cli ui/gtk ui/qt help packaging plugins tools wiretap wsutil docbook
 
 if HAVE_PLUGINS
 SUBDIRS = tools wsutil wiretap epan plugins packaging help ui @wireshark_SUBDIRS@ ui/cli . doc
@@ -1068,7 +994,7 @@ dumpabi:
 	$(MAKE) -C wsutil dumpabi
 
 checkapi_local:
-	$(PERL) tools/checkAPIs.pl \
+	$(PERL) tools/checkAPIs.pl -build \
 	$(TSHARK_TAP_SRC) \
 	$(wireshark_SOURCES)
 #	$(EXTRA_wireshark_SOURCES)

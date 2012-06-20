@@ -321,7 +321,7 @@ raw_pipe_open(const char *pipe_name)
 
             err = GetLastError();
             if (err != ERROR_PIPE_BUSY) {
-                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
+                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS,
                               NULL, err, 0, (LPTSTR) &err_str, 0, NULL);
                 fprintf(stderr, "rawshark: \"%s\" could not be opened: %s (error %d)\n",
                         pipe_name, utf_16to8(err_str), err);
@@ -331,7 +331,7 @@ raw_pipe_open(const char *pipe_name)
 
             if (!WaitNamedPipe(utf_8to16(pipe_name), 30 * 1000)) {
                 err = GetLastError();
-                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
+                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS,
                               NULL, err, 0, (LPTSTR) &err_str, 0, NULL);
                 fprintf(stderr, "rawshark: \"%s\" could not be waited for: %s (error %d)\n",
                         pipe_name, utf_16to8(err_str), err);
@@ -1330,7 +1330,7 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
                                 if (hfinfo->display & BASE_RANGE_STRING) {
                                     g_string_append(label_s, rval_to_str(svalue, RVALS(hfinfo->strings), "Unknown"));
                                 } else if (hfinfo->display & BASE_EXT_STRING) {
-                                    g_string_append(label_s, val_to_str_ext(svalue, (value_string_ext *) hfinfo->strings, "Unknown"));
+                                    g_string_append(label_s, val_to_str_ext(svalue, (const value_string_ext *) hfinfo->strings, "Unknown"));
                                 } else {
                                     g_string_append(label_s, val_to_str(svalue, cVALS(hfinfo->strings), "Unknown"));
                                 }
@@ -1343,7 +1343,7 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
                                 if (!hfinfo->bitmask && hfinfo->display & BASE_RANGE_STRING) {
                                     g_string_append(label_s, rval_to_str(uvalue, RVALS(hfinfo->strings), "Unknown"));
                                 } else if (hfinfo->display & BASE_EXT_STRING) {
-                                    g_string_append(label_s, val_to_str_ext(uvalue, (value_string_ext *) hfinfo->strings, "Unknown"));
+                                    g_string_append(label_s, val_to_str_ext(uvalue, (const value_string_ext *) hfinfo->strings, "Unknown"));
                                 } else {
                                     g_string_append(label_s, val_to_str(uvalue, cVALS(hfinfo->strings), "Unknown"));
                                 }
@@ -1424,7 +1424,6 @@ protocolinfo_init(char *field)
                    g_cmd_line_index,
                    ftenum_to_string(hfi),
                    absolute_time_display_e_to_string(hfi->display));
-            break;
             break;
 
         default:
@@ -1585,8 +1584,8 @@ raw_cf_open(capture_file *cf, const char *fname)
     /* Indicate whether it's a permanent or temporary file. */
     cf->is_tempfile = FALSE;
 
-    /* If it's a temporary capture buffer file, mark it as not saved. */
-    cf->user_saved = FALSE;
+    /* No user changes yet. */
+    cf->unsaved_changes = FALSE;
 
     cf->cd_t      = WTAP_FILE_UNKNOWN;
     cf->count     = 0;

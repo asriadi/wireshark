@@ -30,29 +30,18 @@
  *  @ingroup dialog_group
  */
 
-/** the action to take, after save has been done */
-typedef enum {
-    after_save_no_action,           /**< no action to take */
-    after_save_close_file,          /**< close the file */
-    after_save_open_dialog,         /**< open the file open dialog */
-    after_save_open_recent_file,    /**< open the specified recent file */
-    after_save_open_dnd_file,       /**< open the specified file from drag and drop */
-    after_save_merge_dialog,        /**< open the file merge dialog */
-    after_save_capture_dialog,      /**< open the capture dialog */
-    after_save_exit                 /**< exit program */
-} action_after_save_e;
-
-/** Open the "Save As" dialog box.
+/** If there are unsaved changes, ask the user whether to save them,
+ * discard them, or cancel the operation that would cause the changes
+ * to be lost if not saved.
  *
- * @param action_after_save the action to take, when save completed
- * @param action_after_save_data data for action_after_save
- * @param save_only_displayed Save only the displayed packets
+ * @param cf the capture_file structure for the file to be closed
+ * @param from_quit TRUE if this is from a quit operation
+ * @param before_what description of the operation, or a null string
+ * for an explicit close operation
+ *
+ * @return TRUE if the user didn't cancel the operation, FALSE if they did
  */
-void file_save_as_cmd(action_after_save_e action_after_save, gpointer action_after_save_data, gboolean save_only_displayed);
-
-/** Destroy the save as dialog.
- */
-void file_save_as_destroy(void);
+gboolean do_file_close(capture_file *cf, gboolean from_quit, const char *before_what);
 
 /** User requested the "Open" dialog box.
  *
@@ -89,6 +78,13 @@ void file_save_as_cmd_cb(GtkWidget *widget, gpointer data);
  */
 void file_close_cmd_cb(GtkWidget *widget, gpointer data);
 
+/** User requested the "Export Specified Packets" dialog box.
+ *
+ * @param widget parent widget
+ * @param data unused
+ */
+void file_export_specified_packets_cmd_cb(GtkWidget *widget, gpointer data);
+
 /** User requested "Reload".
  *
  * @param widget parent widget
@@ -109,13 +105,5 @@ void file_color_import_cmd_cb(GtkWidget *widget, gpointer data);
  * @param data unused
  */
 void file_color_export_cmd_cb(GtkWidget *widget, gpointer data);
-
-/*
- * Set the "Save only marked packets" toggle button as appropriate for
- * the current output file type and count of marked packets.
- * Called when the "Save As..." dialog box is created and when either
- * the file type or the marked count changes.
- */
-void file_save_update_dynamics(void);
 
 #endif /* capture_file_dlg.h */

@@ -1338,7 +1338,6 @@ main(int argc, char *argv[])
       g_string_free(comp_info_str, TRUE);
       g_string_free(runtime_info_str, TRUE);
       return 0;
-      break;
     }
     case 'O':        /* Only output these protocols */
       output_only = g_strdup(optarg);
@@ -2054,6 +2053,7 @@ capture(void)
      the capture child to finish; it will report that it finished,
      or will exit abnormally, so  we'll stop reading from the sync
      pipe, pick up the exit status, and quit. */
+  memset(&action, 0, sizeof(action));
   action.sa_handler = capture_cleanup;
   action.sa_flags = SA_RESTART;
   sigemptyset(&action.sa_mask);
@@ -2419,15 +2419,17 @@ capture_input_drops(capture_options *capture_opts _U_, guint32 dropped)
 void
 capture_input_closed(capture_options *capture_opts, gchar *msg)
 {
+  capture_file *cf = (capture_file *) capture_opts->cf;
+
   if (msg != NULL)
     fprintf(stderr, "tshark: %s\n", msg);
 
   report_counts();
 
-  if(capture_opts->cf != NULL && ((capture_file *) capture_opts->cf)->wth != NULL) {
-    wtap_close(((capture_file *) capture_opts->cf)->wth);
-    if(((capture_file *) capture_opts->cf)->user_saved == FALSE) {
-      ws_unlink(((capture_file *) capture_opts->cf)->filename);
+  if(cf != NULL && cf->wth != NULL) {
+    wtap_close(cf->wth);
+    if(cf->is_tempfile) {
+      ws_unlink(cf->filename);
     }
   }
 #ifdef USE_BROKEN_G_MAIN_LOOP
@@ -2679,6 +2681,7 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
   guint        tap_flags;
   wtapng_section_t *shb_hdr;
   wtapng_iface_descriptions_t *idb_inf;
+  char         appname[100];
 
   shb_hdr = wtap_file_get_shb_info(cf->wth);
   idb_inf = wtap_file_get_idb_info(cf->wth);
@@ -2701,8 +2704,17 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
       /* Snapshot length of input file not known. */
       snapshot_length = WTAP_MAX_PACKET_SIZE;
     }
+    /* If we don't have an application name add Tshark */
+    if(shb_hdr->shb_user_appl == NULL) {
+        g_snprintf(appname, sizeof(appname), "TShark " VERSION "%s", wireshark_svnversion);
+        shb_hdr->shb_user_appl = appname;
+    }
+
     pdh = wtap_dump_open_ng(save_file, out_file_type, linktype, snapshot_length,
         FALSE /* compressed */, shb_hdr, idb_inf, &err);
+
+    g_free(idb_inf);
+    idb_inf = NULL;
 
     if (pdh == NULL) {
       /* We couldn't set up to write to the capture file. */
@@ -2826,6 +2838,7 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
                 break;
               }
               wtap_dump_close(pdh, &err);
+              g_free(shb_hdr);
               exit(2);
             }
           }
@@ -2876,6 +2889,7 @@ load_cap_file(capture_file *cf, char *save_file, int out_file_type,
               break;
             }
             wtap_dump_close(pdh, &err);
+            g_free(shb_hdr);
             exit(2);
           }
         }
@@ -2982,6 +2996,7 @@ out:
   cf->wth = NULL;
 
   g_free(save_file_string);
+  g_free(shb_hdr);
 
   return err;
 }
@@ -3513,8 +3528,8 @@ cf_open(capture_file *cf, const char *fname, gboolean is_tempfile, int *err)
   /* Indicate whether it's a permanent or temporary file. */
   cf->is_tempfile = is_tempfile;
 
-  /* If it's a temporary capture buffer file, mark it as not saved. */
-  cf->user_saved = !is_tempfile;
+  /* No user changes yet. */
+  cf->unsaved_changes = FALSE;
 
   cf->cd_t      = wtap_file_type(cf->wth);
   cf->count     = 0;

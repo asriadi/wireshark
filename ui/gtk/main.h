@@ -59,7 +59,7 @@ extern GString *comp_info_str;
 /** Global runtime version string */
 extern GString *runtime_info_str;
 
-extern GtkWidget* airpcap_tb;
+extern GtkWidget* wireless_tb;
 
 extern void protect_thread_critical_region(void);
 extern void unprotect_thread_critical_region(void);
@@ -307,6 +307,25 @@ extern void find_prev_mark_cb(GtkWidget *widget, gpointer data, int action);
 extern void dfilter_combo_add_empty(void);
 #endif
 
+/** Update various parts of the main window for a capture file "unsaved
+ *  changes" change.
+ *
+ * @param cf capture_file structure for the capture file.
+ */
+extern void main_update_for_unsaved_changes(capture_file *cf);
+
+#ifdef HAVE_LIBPCAP
+/** Update various parts of the main window for a change in whether
+ * "auto scroll in live capture" is on or off.
+ *
+ * @param auto_scroll_live_in new state of "auto scroll in live capture"
+ */
+void main_auto_scroll_live_changed(gboolean auto_scroll_live_in);
+#endif
+
+/** Update parts of the main window for a change in colorization. */
+extern void main_colorize_changed(gboolean packet_list_colorize);
+
 /** Quit the program.
  *
  * @return TRUE, if a file read is in progress
@@ -318,6 +337,9 @@ extern void main_widgets_rearrange(void);
 
 /** Show or hide the main window widgets, user changed it's preferences. */
 extern void main_widgets_show_or_hide(void);
+
+/* Update main window items based on whether we have a packet history. */
+extern void main_set_for_packet_history(gboolean back_history, gboolean forward_history);
 
 /** Apply a new filter string.
  *  Call cf_filter_packets() and add this filter string to the recent filter list.
@@ -354,5 +376,12 @@ extern GtkWidget *pkt_scrollw;
 
 void hide_interface(gchar* new_hide);
 
+/*
+ * Fetch the list of local interfaces with capture_interface_list()
+ * and set the list of "all interfaces" in *capture_opts to include
+ * those interfaces.  On failure, we just set the list to an empty
+ * list.
+ */
+extern void scan_local_interfaces(capture_options* capture_opts);
 
 #endif /* __MAIN_H__ */

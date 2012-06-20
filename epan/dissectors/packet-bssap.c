@@ -37,14 +37,6 @@
 
 #include <glib.h>
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
-#ifdef HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/emem.h>
@@ -531,7 +523,7 @@ dissect_bssap_var_parameter(tvbuff_t *tvb, packet_info *pinfo,
     return(parameter_length + length_length);
 }
 
-static void
+static int
 dissect_bssap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bssap_tree,
              proto_tree *tree)
 {
@@ -586,6 +578,7 @@ dissect_bssap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bssap_tree,
         dissect_bssap_unknown_message(tvb, bssap_tree);
         break;
     }
+    return offset;
 }
 
 static void

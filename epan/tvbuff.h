@@ -69,24 +69,29 @@ typedef struct tvbuff tvbuff_t;
  *
  *  Consider a collection of tvbs as being a chain or stack of tvbs.
  *
- *  The top-level dissector (packet.c) pushes the initial tvb onto the stack
- *  (starts the chain) and then calls a sub-dissector which in turn calls the next
- *  sub-dissector and so on. Each sub-dissector may chain additional tvbs to
- *  the tvb handed to that dissector. After dissection is complete and control has
- *  returned to the top-level dissector, the chain of tvbs (stack) is free'd
- *  via a call to tvb_free_chain() (in epan_dissect_cleanup()).
+ *  When dissecting a frame:
+ *   The top-level dissector (packet.c) pushes the initial tvb (containing
+ *   the complete frame) onto the stack (starts the chain) and then calls
+ *   a sub-dissector which in turn calls the next sub-dissector and so on.
+ *   Each sub-dissector may chain additional tvbs (see below) to the tvb
+ *   handed to that dissector. After dissection is complete and control has
+ *   returned to the top-level dissector, the chain of tvbs (stack) is free'd
+ *   via a call to tvb_free_chain() (in epan_dissect_cleanup()).
  *
  * A dissector:
- * - Can chain new tvbs (real, subset, composite) to the tvb
- *    handed to the dissector via tvb_subset(), tvb_new_child_real_data(), etc.
- *    (Subset and Composite tvbs should reference only tvbs which are
- *    already part of the chain).
- * - Must not save a pointer to a tvb handed to the dissector for
- *    use when dissecting another frame; A higher level function
- *    may very well free the chain). This also applies to any tvbs chained
- *    by the dissector to the tvb handed to the dissector.
- * - Can create its own tvb chain (using tvb_new_real_data() which
- *    the dissector is free to manage as desired. */
+ *  - Can chain new tvbs (subset, real, composite) to the
+ *    tvb handed to the dissector using tvb_new_subset(),
+ *    tvb_new_subset_remaining(), tvb_new_child_real_data(),
+ *    tvb_set_child_real_data_tvbuff(), tvb_composite_finalize(), and
+ *    tvb_child_uncompress(). (Composite tvbs should reference
+ *    only tvbs which are already part of the chain).
+ *  - Must not save for later use (e.g., when dissecting another frame) a
+ *    pointer to a tvb handed to the dissector; (A higher level function
+ *    may very well free the chain thus leaving a dangling pointer).
+ *    This (obviously) also applies to any tvbs chained to the tvb handed
+ *    to the dissector.
+ *  - Can create its own tvb chain (using tvb_new_real_data() which the
+ *    dissector is free to manage as desired. */
 
 /** TVBUFF_REAL_DATA contains a guint8* that points to real data.
  * The data is allocated and contiguous.
@@ -296,26 +301,26 @@ extern void tvb_get_letohguid(tvbuff_t *tvb, const gint offset, e_guid_t *guid);
 extern void tvb_get_guid(tvbuff_t *tvb, const gint offset, e_guid_t *guid, const guint representation);
 
 /* Fetch a specified number of bits from bit offset in a tvb.
-   All of these functions are equivalent, except for the type of the retun value. 
+   All of these functions are equivalent, except for the type of the retun value.
    Note that the parameter encoding (where supplied) is meaningless and ignored */
 
 /* get 1 - 8 bits returned in a guint8 */
-extern guint8 tvb_get_bits8(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits);
+extern guint8 tvb_get_bits8(tvbuff_t *tvb, guint bit_offset, const gint no_of_bits);
 /* get 1 - 16 bits returned in a guint16 */
-extern guint16 tvb_get_bits16(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits, const guint encoding);
+extern guint16 tvb_get_bits16(tvbuff_t *tvb, guint bit_offset, const gint no_of_bits, const guint encoding);
 /* get 1 - 32 bits returned in a guint32 */
-extern guint32 tvb_get_bits32(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits, const guint encoding);
+extern guint32 tvb_get_bits32(tvbuff_t *tvb, guint bit_offset, const gint no_of_bits, const guint encoding);
 /* get 1 - 64 bits returned in a guint64 */
-extern guint64 tvb_get_bits64(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits, const guint encoding);
+extern guint64 tvb_get_bits64(tvbuff_t *tvb, guint bit_offset, const gint no_of_bits, const guint encoding);
 
 /**
  *  This function has EXACTLY the same behaviour as
  *  tvb_get_bits32()
  */
-extern guint32 tvb_get_bits(tvbuff_t *tvb, const gint bit_offset, const gint no_of_bits, const guint encoding);
+extern guint32 tvb_get_bits(tvbuff_t *tvb, const guint bit_offset, const gint no_of_bits, const guint encoding);
 
-void tvb_get_bits_buf(tvbuff_t *tvb, gint bit_offset, gint no_of_bits, guint8 *buf, gboolean lsb0);
-guint8 *ep_tvb_get_bits(tvbuff_t *tvb, gint bit_offset, gint no_of_bits, gboolean lsb0);
+void tvb_get_bits_buf(tvbuff_t *tvb, guint bit_offset, gint no_of_bits, guint8 *buf, gboolean lsb0);
+guint8 *ep_tvb_get_bits(tvbuff_t *tvb, guint bit_offset, gint no_of_bits, gboolean lsb0);
 
 /** Returns target for convenience. Does not suffer from possible
  * expense of tvb_get_ptr(), since this routine is smart enough
@@ -387,6 +392,14 @@ extern gint tvb_pbrk_guint8(tvbuff_t *, const gint offset, const gint maxlength,
  * If the NUL isn't found, it throws the appropriate exception.
  */
 extern guint tvb_strsize(tvbuff_t *tvb, const gint offset);
+
+/** Find size of UCS-2 or UTF-16 stringz (NUL-terminated string) by
+ * looking for terminating 16-bit NUL.  The size of the string includes
+ * the terminating NUL.
+ *
+ * If the NUL isn't found, it throws the appropriate exception.
+ */
+extern guint tvb_unicode_strsize(tvbuff_t *tvb, const gint offset);
 
 /** Find length of string by looking for end of zero terminated string, up to
  * 'maxlength' characters'; if 'maxlength' is -1, searches to end
@@ -469,7 +482,7 @@ extern guint8 *tvb_get_string(tvbuff_t *tvb, const gint offset, const gint lengt
 extern gchar  *tvb_get_unicode_string(tvbuff_t *tvb, const gint offset, gint length, const guint encoding);
 extern guint8 *tvb_get_ephemeral_string(tvbuff_t *tvb, const gint offset, const gint length);
 extern guint8 *tvb_get_ephemeral_string_enc(tvbuff_t *tvb, const gint offset,
-    const gint length, const gint encoding);
+    const gint length, const guint encoding);
 extern gchar  *tvb_get_ephemeral_unicode_string(tvbuff_t *tvb, const gint offset, gint length, const guint encoding);
 extern guint8 *tvb_get_seasonal_string(tvbuff_t *tvb, const gint offset, const gint length);
 
@@ -510,10 +523,10 @@ extern guint8 *tvb_get_seasonal_string(tvbuff_t *tvb, const gint offset, const g
  *                   or file is opened.
  */
 extern guint8 *tvb_get_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp);
-extern guint8 *tvb_get_stringz_enc(tvbuff_t *tvb, const gint offset, gint *lengthp, gint encoding);
+extern guint8 *tvb_get_stringz_enc(tvbuff_t *tvb, const gint offset, gint *lengthp, const guint encoding);
 extern const guint8 *tvb_get_const_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp);
 extern guint8 *tvb_get_ephemeral_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp);
-extern guint8 *tvb_get_ephemeral_stringz_enc(tvbuff_t *tvb, const gint offset, gint *lengthp, gint encoding);
+extern guint8 *tvb_get_ephemeral_stringz_enc(tvbuff_t *tvb, const gint offset, gint *lengthp, const guint encoding);
 extern gchar  *tvb_get_ephemeral_unicode_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp, const guint encoding);
 extern guint8 *tvb_get_seasonal_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp);
 

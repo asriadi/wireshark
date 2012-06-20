@@ -1640,7 +1640,7 @@ static void decode_@sname@(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree
     template_proto_reg_handoff_start = """
 /* register me as handler for these interfaces */
 
-void proto_register_handoff_giop_@dissector_name@(void) {
+void proto_reg_handoff_giop_@dissector_name@(void) {
 
 """
     template_proto_reg_handoff_body = """
@@ -1692,7 +1692,7 @@ static guint32  boundary = GIOP_HEADER_SIZE;  /* initial value */
     #
 
     template_plugin_register = """
-#ifndef ENABLE_STATIC
+#if 0
 
 G_MODULE_EXPORT void
 plugin_register(void)
@@ -2051,7 +2051,7 @@ for (i_@aname@=0; i_@aname@ < @aval@; i_@aname@++) {
 /*
  * Wireshark - Network traffic analyzer
  * By Gerald Combs
- * Copyright 1999 - 2006 Gerald Combs
+ * Copyright 1999 - 2012 Gerald Combs
  */
 
 static int hf_operationrequest = -1;/* Request_Operation field */
@@ -2100,10 +2100,6 @@ static int hf_operationrequest = -1;/* Request_Operation field */
 #include <epan/packet.h>
 #include <epan/proto.h>
 #include <epan/dissectors/packet-giop.h>
-
-#ifndef ENABLE_STATIC
-G_MODULE_EXPORT const gchar version[] = "0.0.1";
-#endif
 
 #ifdef _MSC_VER
 /* disable warning: "unreference local variable" */

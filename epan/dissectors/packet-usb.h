@@ -30,6 +30,11 @@ typedef struct _usb_address_t {
 } usb_address_t;
 #define USB_ADDR_LEN (sizeof(usb_address_t))
 
+/* Flag used to mark usb_address_t.endpoint as an interface
+ * address instead of the normal endpoint address.
+ */
+#define INTERFACE_PORT	0x80000000
+
 
 typedef struct _usb_conv_info_t usb_conv_info_t;
 
@@ -38,8 +43,17 @@ typedef struct _usb_trans_info_t {
     guint32 request_in;
     guint32 response_in;
     nstime_t req_time;
-    guint8 requesttype;
-    guint8 request;
+    gboolean header_len_64;
+
+    /* Valid only for SETUP transactions */
+    struct _usb_setup {
+        guint8 requesttype;
+        guint8 request;
+        guint16 wValue;
+        guint16 wIndex;
+    } setup;
+
+    /* Valid only during GET DESCRIPTOR transactions */
     union {
         struct {
             guint8 type;
@@ -53,6 +67,7 @@ typedef struct _usb_trans_info_t {
      * descriptors so that we can create a
      * conversation with the appropriate class
      * once we know the endpoint.
+     * Valid only during GET CONFIGURATION response.
      */
     usb_conv_info_t *interface_info;
 } usb_trans_info_t;
@@ -74,11 +89,11 @@ typedef struct _usb_tap_data_t {
     usb_trans_info_t *trans_info;
 } usb_tap_data_t;
 
-/* This is the endpoint number user for "no endpoint" or the fake endpoint 
+/* This is the endpoint number used for "no endpoint" or the fake endpoint
  * for the host side since we need two endpoints to manage conversations
  * properly.
  */
-#define NO_ENDPOINT 0xffff
+#define NO_ENDPOINT 0xffffffff
 
 /*
  * Values from the Linux USB pseudo-header.
@@ -133,9 +148,21 @@ typedef struct _usb_tap_data_t {
 #define RQT_SETUP_TYPE_CLASS	1
 #define RQT_SETUP_TYPE_VENDOR	2
 
+#define USB_RECIPIENT_MASK              0x1F
+#define USB_RECIPIENT(type)             ((type) & USB_RECIPIENT_MASK)
 #define RQT_SETUP_RECIPIENT_DEVICE      0
 #define RQT_SETUP_RECIPIENT_INTERFACE   1
 #define RQT_SETUP_RECIPIENT_ENDPOINT    2
 #define RQT_SETUP_RECIPIENT_OTHER       3
+
+/* Endpoint descriptor bmAttributes  */
+#define ENDPOINT_TYPE(ep_attrib)        ((ep_attrib) & 0x03)
+#define ENDPOINT_TYPE_CONTROL           0
+#define ENDPOINT_TYPE_ISOCHRONOUS       1
+#define ENDPOINT_TYPE_BULK              2
+#define ENDPOINT_TYPE_INTERRUPT         3
+
+void dissect_usb_descriptor_header(proto_tree *tree, tvbuff_t *tvb, int offset);
+void dissect_usb_endpoint_address(proto_tree *tree, tvbuff_t *tvb, int offset);
 
 #endif

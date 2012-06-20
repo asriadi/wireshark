@@ -249,7 +249,7 @@ comment #[^\n]*\n
 		ERROR(("%s",err));
 	}
 
-	colnum = 0;;
+	colnum = 0;
 	ptr = NULL;
 	len = 0;
 	memset(record,0,uat->record_size);
@@ -280,6 +280,10 @@ gboolean uat_load(uat_t* uat_in, char** err) {
 
 	if (!fname) {
 		UAT_UPDATE(uat);
+
+		if (uat->post_update_cb)
+			uat->post_update_cb();
+
 		return TRUE;
 	}
 
@@ -312,7 +316,7 @@ gboolean uat_load(uat_t* uat_in, char** err) {
 		return FALSE;
 	}
 
-	if (uat->post_update_cb) 
+	if (uat->post_update_cb)
 		uat->post_update_cb();
 
 	*err = NULL;
@@ -347,7 +351,7 @@ gboolean uat_load_str(uat_t* uat_in, char* entry, char** err) {
 		return FALSE;
 	}
 
-	if (uat->post_update_cb) 
+	if (uat->post_update_cb)
 		uat->post_update_cb();
 
 	*err = NULL;

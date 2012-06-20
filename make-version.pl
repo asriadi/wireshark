@@ -74,8 +74,8 @@ my $set_version = 0;
 my $set_release = 0;
 my %version_pref = (
 	"version_major" => 1,
-	"version_minor" => 7,
-	"version_micro" => 1,
+	"version_minor" => 9,
+	"version_micro" => 0,
 	"version_build" => 0,
 
 	"enable"        => 1,
@@ -95,7 +95,9 @@ my %version_pref = (
 my $srcdir = ".";
 my $svn_info_cmd = "";
 
-$ENV{LANG} = "C";  # Ensure we run with correct locale
+# Ensure we run with correct locale
+$ENV{LANG} = "C";
+$ENV{LC_ALL} = "C";
 
 # Run "svn info".  Parse out the most recent modification time and the
 # revision number.

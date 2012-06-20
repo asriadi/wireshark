@@ -39,7 +39,6 @@
 #include "ui/gtk/prefs_dlg.h"
 #include "ui/gtk/gui_utils.h"
 #include "ui/gtk/file_dlg.h"
-#include "ui/gtk/capture_file_dlg.h"
 #include "ui/gtk/stock_icons.h"
 #include "ui/gtk/gtkglobals.h"
 
@@ -75,7 +74,7 @@ GtkWidget * printer_prefs_show(void)
 	GtkWidget	*file_lb_hb, *file_lb, *file_bt_hb, *file_bt, *file_te;
 
 	/* Enclosing containers for each row of widgets */
-	main_vb = gtk_vbox_new(FALSE, 5);
+	main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(main_vb), 5);
 
 	main_tb = gtk_table_new(4, 2, FALSE);
@@ -103,7 +102,7 @@ GtkWidget * printer_prefs_show(void)
 #endif
 
 
-	file_lb_hb = gtk_hbox_new(FALSE, 0);
+	file_lb_hb = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
 	gtk_table_attach_defaults(GTK_TABLE(main_tb), file_lb_hb, 0, 1, 3, 4);
 	gtk_widget_show(file_lb_hb);
 
@@ -112,7 +111,7 @@ GtkWidget * printer_prefs_show(void)
 	gtk_widget_show(file_lb);
 
 	/* File button and text entry */
-	file_bt_hb = gtk_hbox_new(FALSE, 0);
+	file_bt_hb = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
 	gtk_table_attach_defaults(GTK_TABLE(main_tb), file_bt_hb, 1, 2, 3, 4);
 	gtk_widget_show(file_bt_hb);
 

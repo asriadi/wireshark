@@ -39,6 +39,12 @@
  * See also
  *
  *	http://www.iana.org/assignments/radius-types
+ *
+ * and see
+ *
+ *	http://freeradius.org/radiusd/man/dictionary.html
+ *
+ * for the dictionary file syntax.
  */
 
 
@@ -116,7 +122,11 @@ static int hf_radius_code = -1;
 static int hf_radius_length = -1;
 static int hf_radius_authenticator = -1;
 
+static int hf_radius_chap_password = -1;
+static int hf_radius_chap_ident = -1;
+static int hf_radius_chap_string = -1;
 static int hf_radius_framed_ip_address = -1;
+
 static int hf_radius_login_ip_host = -1;
 static int hf_radius_framed_ipx_network = -1;
 
@@ -128,7 +138,7 @@ static int hf_radius_ascend_data_filter = -1;
 static gint ett_radius = -1;
 static gint ett_radius_avp = -1;
 static gint ett_eap = -1;
-
+static gint ett_chap = -1;
 /*
  * Define the tap for radius
  */
@@ -257,7 +267,9 @@ static gboolean radius_call_equal(gconstpointer k1, gconstpointer k2)
 			return TRUE;
 		/* check the request and response are of the same code type */
 		if ((key1->code == RADIUS_PKT_TYPE_ACCESS_REQUEST) &&
-		    ((key2->code == RADIUS_PKT_TYPE_ACCESS_ACCEPT) || (key2->code == RADIUS_PKT_TYPE_ACCESS_REJECT)))
+		    ((key2->code == RADIUS_PKT_TYPE_ACCESS_ACCEPT) ||
+		     (key2->code == RADIUS_PKT_TYPE_ACCESS_REJECT) ||
+		     (key2->code == RADIUS_PKT_TYPE_ACCESS_CHALLENGE)))
 			return TRUE;
 
 		if ((key1->code == RADIUS_PKT_TYPE_ACCOUNTING_REQUEST) &&
@@ -303,6 +315,22 @@ static guint radius_call_hash(gconstpointer k)
 	return key->ident + /*key->code + */ key->conversation->index;
 }
 
+
+static const gchar *dissect_chap_password(proto_tree* tree, tvbuff_t* tvb, packet_info* pinfo _U_) {
+	int len;
+	proto_item *ti;
+	proto_tree *chap_tree;
+
+	len = tvb_length(tvb);
+	if (len != 17)
+		return "[wrong length for CHAP-Password]";
+
+	ti = proto_tree_add_item(tree, hf_radius_chap_password, tvb, 0, len, ENC_NA);
+		chap_tree = proto_item_add_subtree(ti, ett_chap);
+		proto_tree_add_item(chap_tree, hf_radius_chap_ident, tvb, 0, 1, ENC_NA);
+		proto_tree_add_item(chap_tree, hf_radius_chap_string, tvb, 1, 16, ENC_NA);
+	return (tvb_bytes_to_str(tvb, 0, len));
+}
 
 static const gchar *dissect_framed_ip_address(proto_tree* tree, tvbuff_t* tvb, packet_info* pinfo _U_) {
 	int len;
@@ -472,50 +500,56 @@ static const gchar* dissect_cosine_vpvc(proto_tree* tree, tvbuff_t* tvb, packet_
 static void
 radius_decrypt_avp(gchar *dest,int dest_len,tvbuff_t *tvb,int offset,int length)
 {
-	md5_state_t md_ctx;
-	md5_byte_t digest[16];
-	int i;
-	gint totlen, returned_length;
-	const guint8 *pd;
+	md5_state_t md_ctx, old_md_ctx;
+	md5_byte_t digest[AUTHENTICATOR_LENGTH];
+	int i, j;
+	gint totlen = 0, returned_length, padded_length;
+	guint8 *pd;
 	guchar c;
 
-	DISSECTOR_ASSERT(dest_len > 2);  /* \"\"\0 */
-	dest[0] = '"';
-	dest[1] = '\0';
-	totlen = 1;
-	dest_len -= 1; /* Need to add trailing \" */
+	DISSECTOR_ASSERT(dest_len > 0);
+	dest[0] = '\0';
+	if ( length <= 0 )
+		return;
+
+	/* The max avp length is 253 (255 - 2 for type & length), but only the
+	 * User-Password is marked with encrypt=1 in dictionary.rfc2865, and the
+	 * User-Password max length is only 128 (130 - 2 for type & length) per
+	 * tools.ietf.org/html/rfc2865#section-5.2, so enforce that limit here.
+	 */
+	if ( length > 128 )
+		length = 128;
 
 	md5_init(&md_ctx);
-	md5_append(&md_ctx,(const guint8*)shared_secret,(int)strlen(shared_secret));
-	md5_append(&md_ctx,authenticator, AUTHENTICATOR_LENGTH);
-	md5_finish(&md_ctx,digest);
+	md5_append(&md_ctx, (const guint8*)shared_secret, (int)strlen(shared_secret));
+	old_md_ctx = md_ctx;
+	md5_append(&md_ctx, authenticator, AUTHENTICATOR_LENGTH);
+	md5_finish(&md_ctx, digest);
 
-	pd = tvb_get_ptr(tvb,offset,length);
-	for( i = 0 ; i < AUTHENTICATOR_LENGTH && i < length ; i++ ) {
-		c = pd[i] ^ digest[i];
-		if ( isprint(c) ) {
-			returned_length = g_snprintf(&dest[totlen], dest_len-totlen,
-						     "%c",c);
-			totlen += MIN(returned_length, dest_len-totlen-1);
-		} else {
-			returned_length = g_snprintf(&dest[totlen], dest_len-totlen,
-						     "\\%03o",c);
-			totlen += MIN(returned_length, dest_len-totlen-1);
+	padded_length = length + ((length % AUTHENTICATOR_LENGTH) ?
+		(AUTHENTICATOR_LENGTH - (length % AUTHENTICATOR_LENGTH)) : 0);
+	pd = ep_alloc0(padded_length);
+	tvb_memcpy(tvb, pd, offset, length);
+
+	for ( i = 0; i < padded_length; i += AUTHENTICATOR_LENGTH ) {
+		for ( j = 0; j < AUTHENTICATOR_LENGTH; j++ ) {
+			c = pd[i + j] ^ digest[j];
+			if ( isprint(c) ) {
+				returned_length = g_snprintf(&dest[totlen], dest_len - totlen,
+					"%c", c);
+				totlen += MIN(returned_length, dest_len - totlen - 1);
+			}
+			else if ( c ) {
+				returned_length = g_snprintf(&dest[totlen], dest_len - totlen,
+					"\\%03o", c);
+				totlen += MIN(returned_length, dest_len - totlen - 1);
+			}
 		}
+
+		md_ctx = old_md_ctx;
+		md5_append(&md_ctx, &pd[i], AUTHENTICATOR_LENGTH);
+		md5_finish(&md_ctx, digest);
 	}
-	while(i<length) {
-		if ( isprint(pd[i]) ) {
-			returned_length = g_snprintf(&dest[totlen], dest_len-totlen,
-						     "%c", pd[i]);
-			totlen += MIN(returned_length, dest_len-totlen-1);
-		} else {
-			returned_length = g_snprintf(&dest[totlen], dest_len-totlen,
-						     "\\%03o", pd[i]);
-			totlen += MIN(returned_length, dest_len-totlen-1);
-		}
-		i++;
-	}
-	g_snprintf(&dest[totlen], dest_len+1-totlen, "%c", '"');
 }
 
 
@@ -537,7 +571,7 @@ void radius_integer(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo 
 			break;
 		case 8: {
 			guint64 uint64 = tvb_get_ntoh64(tvb,offset);
-			proto_tree_add_uint64(tree,a->hf64,tvb,offset,len,uint64);
+			proto_tree_add_uint64(tree,a->hf_alt,tvb,offset,len,uint64);
 			proto_item_append_text(avp_item, "%" G_GINT64_MODIFIER "u", uint64);
 			return;
 		}
@@ -545,7 +579,7 @@ void radius_integer(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo 
 			proto_item_append_text(avp_item, "[unhandled integer length(%u)]", len);
 			return;
 	}
-	proto_tree_add_item(tree,a->hf,tvb, offset, len, FALSE);
+	proto_tree_add_item(tree,a->hf,tvb, offset, len, ENC_BIG_ENDIAN);
 
 	if (a->vs) {
 		proto_item_append_text(avp_item, "%s(%u)", val_to_str(uint, a->vs, "Unknown"),uint);
@@ -572,7 +606,7 @@ void radius_signed(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _
 			break;
 		case 8: {
 			guint64 uint64 = tvb_get_ntoh64(tvb,offset);
-			proto_tree_add_int64(tree,a->hf64,tvb,offset,len,uint64);
+			proto_tree_add_int64(tree,a->hf_alt,tvb,offset,len,uint64);
 			proto_item_append_text(avp_item, "%" G_GINT64_MODIFIER "u", uint64);
 			return;
 		}
@@ -591,10 +625,17 @@ void radius_signed(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _
 }
 
 void radius_string(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _U_, tvbuff_t* tvb, int offset, int len, proto_item* avp_item) {
-	if (a->encrypt) {
+	switch (a->encrypt) {
+
+	case 0: /* not encrypted */
+		proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_UTF_8|ENC_NA);
+		proto_item_append_text(avp_item, "%s", tvb_format_text(tvb, offset, len));
+		break;
+
+	case 1: /* encrypted like User-Password as defined in RFC 2865 */
 		if (*shared_secret == '\0') {
 			proto_item_append_text(avp_item, "Encrypted");
-			proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+			proto_tree_add_item(tree, a->hf_alt, tvb, offset, len, ENC_NA);
 		} else {
 			gchar *buffer;
 			buffer=ep_alloc(1024); /* an AVP value can be at most 253 bytes */
@@ -602,14 +643,22 @@ void radius_string(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _
 			proto_item_append_text(avp_item, "Decrypted: %s", buffer);
 			proto_tree_add_string(tree, a->hf, tvb, offset, len, buffer);
 		}
-	} else {
-		proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
-		proto_item_append_text(avp_item, "%s", tvb_format_text(tvb, offset, len));
+		break;
+
+	case 2: /* encrypted like Tunnel-Password as defined in RFC 2868 */
+		proto_item_append_text(avp_item, "Encrypted");
+		proto_tree_add_item(tree, a->hf_alt, tvb, offset, len, ENC_NA);
+		break;
+
+	case 3: /* encrypted like Ascend-Send-Secret as defined by Ascend^WLucent^WAlcatel-Lucent */
+		proto_item_append_text(avp_item, "Encrypted");
+		proto_tree_add_item(tree, a->hf_alt, tvb, offset, len, ENC_NA);
+		break;
 	}
 }
 
 void radius_octets(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _U_, tvbuff_t* tvb, int offset, int len, proto_item* avp_item) {
-	proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_NA);
 	proto_item_append_text(avp_item, "%s", tvb_bytes_to_str(tvb, offset, len));
 }
 
@@ -624,7 +673,7 @@ void radius_ipaddr(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _
 
 	ip=tvb_get_ipv4(tvb,offset);
 
-	proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_BIG_ENDIAN);
 
 	ip_to_str_buf((guint8 *)&ip, buf, MAX_IP_STR_LEN);
 	proto_item_append_text(avp_item, "%s", buf);
@@ -639,7 +688,7 @@ void radius_ipv6addr(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo
 		return;
 	}
 
-	proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_NA);
 
 	tvb_get_ipv6(tvb, offset, &ipv6_buff);
 	ip6_to_str_buf(&ipv6_buff, txtbuf);
@@ -669,7 +718,7 @@ void radius_ipv6prefix(radius_attr_info_t* a, proto_tree* tree, packet_info *pin
 		return;
 	}
 
-	proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_NA);
 
 	/* cannot use tvb_get_ipv6() here, since the prefix most likely is truncated */
 	memset(&ipv6_buff, 0, sizeof ipv6_buff);
@@ -687,12 +736,12 @@ void radius_combo_ip(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo
 	if (len == 4){
 		ip=tvb_get_ipv4(tvb,offset);
 
-		proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+		proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_BIG_ENDIAN);
 
 		ip_to_str_buf((guint8 *)&ip, buf, MAX_IP_STR_LEN);
 		proto_item_append_text(avp_item, "%s", buf);
 	} else if (len == 16) {
-		proto_tree_add_item(tree, a->hf64, tvb, offset, len, FALSE);
+		proto_tree_add_item(tree, a->hf_alt, tvb, offset, len, ENC_NA);
 
 		tvb_get_ipv6(tvb, offset, &ipv6_buff);
 		ip6_to_str_buf(&ipv6_buff, buf);
@@ -713,7 +762,7 @@ void radius_ipxnet(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _
 
 	net=tvb_get_ntohl(tvb,offset);
 
-	proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_NA);
 
 	proto_item_append_text(avp_item, "0x%08X", net);
 }
@@ -736,7 +785,7 @@ void radius_date(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _U_
  * "abinary" is Ascend's binary format for filters.  See dissect_ascend_data_filter().
  */
 void radius_abinary(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _U_, tvbuff_t* tvb, int offset, int len, proto_item* avp_item) {
-	proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_NA);
 	proto_item_append_text(avp_item, "%s", tvb_bytes_to_str(tvb, offset, len));
 }
 
@@ -746,12 +795,12 @@ void radius_ether(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _U
 		return;
 	}
 
-	proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_NA);
 	proto_item_append_text(avp_item, "%s", tvb_ether_to_str(tvb, offset));
 }
 
 void radius_ifid(radius_attr_info_t* a, proto_tree* tree, packet_info *pinfo _U_, tvbuff_t* tvb, int offset, int len, proto_item* avp_item) {
-	proto_tree_add_item(tree, a->hf, tvb, offset, len, FALSE);
+	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_NA);
 	proto_item_append_text(avp_item, "%s", tvb_bytes_to_str(tvb, offset, len));
 }
 
@@ -1508,6 +1557,7 @@ dissect_radius(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 		case RADIUS_PKT_TYPE_DISCONNECT_NAK:
 		case RADIUS_PKT_TYPE_COA_ACK:
 		case RADIUS_PKT_TYPE_COA_NAK:
+		case RADIUS_PKT_TYPE_ACCESS_CHALLENGE:
 			/* Don't bother finding conversations if we're encapsulated within
 			 * an error packet, such as an ICMP destination unreachable */
 			if (pinfo->flags.in_error_pkt)
@@ -1620,7 +1670,7 @@ dissect_radius(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 		rad_info->req_time.nsecs = radius_call->req_time.nsecs;
 	}
 
-	if (tree && avplength > 0)
+	if (avplength > 0)
 	{
 		/* list the attribute value pairs */
 		avptf = proto_tree_add_text(radius_tree, tvb, HDR_LENGTH,
@@ -1667,7 +1717,7 @@ static void register_attrs(gpointer k _U_, gpointer v, gpointer p) {
 		hfri[0].hfinfo.type = FT_UINT32;
 		hfri[0].hfinfo.display = BASE_DEC;
 
-		hfri[2].p_id = &(a->hf64);
+		hfri[2].p_id = &(a->hf_alt);
 		hfri[2].hfinfo.name = g_strdup(a->name);
 		hfri[2].hfinfo.abbrev = abbrev;
 		hfri[2].hfinfo.type = FT_UINT64;
@@ -1682,7 +1732,7 @@ static void register_attrs(gpointer k _U_, gpointer v, gpointer p) {
 		hfri[0].hfinfo.type = FT_INT32;
 		hfri[0].hfinfo.display = BASE_DEC;
 
-		hfri[2].p_id = &(a->hf64);
+		hfri[2].p_id = &(a->hf_alt);
 		hfri[2].hfinfo.name = g_strdup(a->name);
 		hfri[2].hfinfo.abbrev = abbrev;
 		hfri[2].hfinfo.type = FT_INT64;
@@ -1696,6 +1746,20 @@ static void register_attrs(gpointer k _U_, gpointer v, gpointer p) {
 	} else if (a->type == radius_string) {
 		hfri[0].hfinfo.type = FT_STRING;
 		hfri[0].hfinfo.display = BASE_NONE;
+
+		if (a->encrypt != 0) {
+			/*
+			 * This attribute is encrypted, so create an
+			 * alternative field for the encrypted value.
+			 */
+			hfri[2].p_id = &(a->hf_alt);
+			hfri[2].hfinfo.name = g_strdup_printf("%s (encrypted)", a->name);
+			hfri[2].hfinfo.abbrev = g_strdup_printf("%s_encrypted", abbrev);
+			hfri[2].hfinfo.type = FT_BYTES;
+			hfri[2].hfinfo.display = BASE_NONE;
+
+			len_hf++;
+		}
 	} else if (a->type == radius_octets) {
 		hfri[0].hfinfo.type = FT_BYTES;
 		hfri[0].hfinfo.display = BASE_NONE;
@@ -1724,7 +1788,7 @@ static void register_attrs(gpointer k _U_, gpointer v, gpointer p) {
 		hfri[0].hfinfo.type = FT_IPv4;
 		hfri[0].hfinfo.display = BASE_NONE;
 
-		hfri[2].p_id = &(a->hf64);
+		hfri[2].p_id = &(a->hf_alt);
 		hfri[2].hfinfo.name = g_strdup(a->name);
 		hfri[2].hfinfo.abbrev = g_strdup(abbrev);
 		hfri[2].hfinfo.type = FT_IPv6;
@@ -1810,11 +1874,11 @@ extern void radius_register_avp_dissector(guint32 vendor_id, guint32 attribute_i
 	}
 
 	if (!dictionary_entry) {
-		dictionary_entry = g_malloc(sizeof(radius_attr_info_t));;
+		dictionary_entry = g_malloc(sizeof(radius_attr_info_t));
 
 		dictionary_entry->name = g_strdup_printf("Unknown-Attribute-%u",attribute_id);
 		dictionary_entry->code = attribute_id;
-		dictionary_entry->encrypt = FALSE;
+		dictionary_entry->encrypt = 0;
 		dictionary_entry->type = NULL;
 		dictionary_entry->vs = NULL;
 		dictionary_entry->hf = no_dictionary_entry.hf;
@@ -1879,6 +1943,15 @@ static void register_radius_fields(const char* unused _U_) {
 		 { &(no_dictionary_entry.hf_len),
 		 { "Unknown-Attribute Length","radius.Unknown_Attribute.length", FT_UINT8, BASE_DEC, NULL, 0x0,
 			 NULL, HFILL }},
+		 { &hf_radius_chap_password,
+		 { "CHAP-Password","radius.CHAP_Password", FT_BYTES, BASE_NONE, NULL, 0x0,
+			 NULL, HFILL }},
+		 { &hf_radius_chap_ident,
+		 { "CHAP Ident","radius.CHAP_Ident", FT_UINT8, BASE_HEX, NULL, 0x0,
+			 NULL, HFILL }},
+		 { &hf_radius_chap_string,
+		 { "CHAP String","radius.CHAP_String", FT_BYTES, BASE_NONE, NULL, 0x0,
+			 NULL, HFILL }},
 		 { &hf_radius_framed_ip_address,
 		 { "Framed-IP-Address","radius.Framed-IP-Address", FT_IPv4, BASE_NONE, NULL, 0x0,
 			 NULL, HFILL }},
@@ -1912,6 +1985,7 @@ static void register_radius_fields(const char* unused _U_) {
 		 &ett_radius,
 		 &ett_radius_avp,
 		 &ett_eap,
+		 &ett_chap,
 		 &(no_dictionary_entry.ett),
 		 &(no_vendor.ett),
 	 };
@@ -1967,6 +2041,7 @@ static void register_radius_fields(const char* unused _U_) {
 	/*
 	 * Handle attributes that have a special format.
 	 */
+	radius_register_avp_dissector(0,3,dissect_chap_password);
 	radius_register_avp_dissector(0,8,dissect_framed_ip_address);
 	radius_register_avp_dissector(0,14,dissect_login_ip_host);
 	radius_register_avp_dissector(0,23,dissect_framed_ipx_network);

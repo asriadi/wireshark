@@ -288,7 +288,7 @@ mcast_on_params(GtkButton *button _U_, gpointer data _U_)
 	gtk_widget_show(mcast_params_dlg);
 
 	/* Container for each row of widgets */
-	main_vb = gtk_vbox_new(FALSE, 3);
+	main_vb =ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 3, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(main_vb), 2);
 	gtk_container_add(GTK_CONTAINER(mcast_params_dlg), main_vb);
 	gtk_widget_show(main_vb);
@@ -330,7 +330,7 @@ mcast_on_params(GtkButton *button _U_, gpointer data _U_)
 	gtk_widget_show (table);
 
 	/* button row */
-	hbuttonbox = gtk_hbutton_box_new();
+	hbuttonbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_table_attach_defaults(GTK_TABLE(table), hbuttonbox, 0, 2, 5, 6);
 	ok_bt = gtk_button_new_from_stock(GTK_STOCK_OK);
 	gtk_container_add (GTK_CONTAINER(hbuttonbox), ok_bt);
@@ -649,16 +649,17 @@ mcaststream_dlg_create(void)
 	GtkWidget *bt_params;
 	GtkWidget *bt_close;
 
-	const gchar *title_name_ptr;
+	gchar *title_name_ptr;
 	gchar *win_name;
 
 	title_name_ptr = cf_get_display_name(&cfile);
 	win_name = g_strdup_printf("%s - UDP Multicast Streams", title_name_ptr);
+        g_free(title_name_ptr);
 	mcaststream_dlg_w = dlg_window_new(win_name);
 
 	gtk_window_set_default_size(GTK_WINDOW(mcaststream_dlg_w), 620, 400);
 
-	main_vb = gtk_vbox_new (FALSE, 0);
+	main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_add(GTK_CONTAINER(mcaststream_dlg_w), main_vb);
 	gtk_container_set_border_width (GTK_CONTAINER (main_vb), 12);
 
@@ -680,7 +681,7 @@ mcaststream_dlg_create(void)
 	gtk_box_pack_start (GTK_BOX (main_vb), label_par, FALSE, FALSE, 0);
 
 	/* button row */
-	hbuttonbox = gtk_hbutton_box_new ();
+	hbuttonbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_box_pack_start (GTK_BOX (main_vb), hbuttonbox, FALSE, FALSE, 0);
 	gtk_button_box_set_layout (GTK_BUTTON_BOX (hbuttonbox), GTK_BUTTONBOX_END);
 	gtk_box_set_spacing (GTK_BOX (hbuttonbox), 0);

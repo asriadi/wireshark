@@ -263,11 +263,6 @@ static const ver_value_string wimaxasncp_data_path_control_msg_vals[] =
     {0, { 14,  "MS_Attachment_Rsp"}},
     {0, { 15,  "MS_Attachment_Ack"}},
     {0, { 16,  "Key_Change_Directive"}},
-    {0, { 0,   NULL}}
-};
-
-static const ver_value_string wimaxasncp_data_path_control_msg_vals_r1v120[] =
-{
     {WIMAXASNCP_NWGVER_R10_V120, { 1,   "Path_Dereg_Req"}},
     {WIMAXASNCP_NWGVER_R10_V120, { 2,   "Path_Dereg_Rsp"}},
     {WIMAXASNCP_NWGVER_R10_V120, { 3,   "Path_Dereg_Ack"}},
@@ -1348,7 +1343,7 @@ static void wimaxasncp_dissect_tlv_value(
             /* hidden item for filtering */
             item = proto_tree_add_item(
                 protocol_list_tree, tlv_info->hf_value,
-                tvb, offset, length, FALSE);
+                tvb, offset, length, ENC_NA);
 
             PROTO_ITEM_SET_HIDDEN(item);
 
@@ -1408,7 +1403,7 @@ static void wimaxasncp_dissect_tlv_value(
             /* hidden item for filtering */
             item = proto_tree_add_item(
                 port_range_list_tree, tlv_info->hf_value,
-                tvb, offset, length, FALSE);
+                tvb, offset, length, ENC_NA);
 
             PROTO_ITEM_SET_HIDDEN(item);
 
@@ -1428,13 +1423,13 @@ static void wimaxasncp_dissect_tlv_value(
 
                 item = proto_tree_add_item(
                     port_range_list_tree, tlv_info->hf_port_low,
-                    tvb, offset, 2, FALSE);
+                    tvb, offset, 2, ENC_BIG_ENDIAN);
 
                 PROTO_ITEM_SET_HIDDEN(item);
 
                 item = proto_tree_add_item(
                     port_range_list_tree, tlv_info->hf_port_high,
-                    tvb, offset + 2, 2, FALSE);
+                    tvb, offset + 2, 2, ENC_BIG_ENDIAN);
 
                 PROTO_ITEM_SET_HIDDEN(item);
 
@@ -1493,7 +1488,7 @@ static void wimaxasncp_dissect_tlv_value(
             /* hidden item for filtering */
             item = proto_tree_add_item(
                 ip_address_mask_list_tree, tlv_info->hf_value,
-                tvb, offset, length, FALSE);
+                tvb, offset, length, ENC_NA);
 
             PROTO_ITEM_SET_HIDDEN(item);
 
@@ -1527,7 +1522,7 @@ static void wimaxasncp_dissect_tlv_value(
                     proto_tree_add_item(
                         ip_address_mask_tree,
                         tlv_info->hf_ipv6,
-                        tvb, offset, 16, FALSE);
+                        tvb, offset, 16, ENC_NA);
 
                     /* too long to display ?
                     proto_item_append_text(
@@ -1590,7 +1585,7 @@ static void wimaxasncp_dissect_tlv_value(
                     proto_tree_add_item(
                         ip_address_mask_tree,
                         tlv_info->hf_ipv4,
-                        tvb, offset, 4, FALSE);
+                        tvb, offset, 4, ENC_BIG_ENDIAN);
 
                     proto_item_append_text(
                         item, " - %s (%s)",
@@ -1662,7 +1657,7 @@ static void wimaxasncp_dissect_tlv_value(
 
             /* Create EAP subtree */
             item = proto_tree_add_item(tree, tlv_info->hf_value, tvb,
-                                       offset, length, FALSE);
+                                       offset, length, ENC_NA);
             proto_item_set_text(item, "Value");
             eap_tree = proto_item_add_subtree(item, ett_wimaxasncp_tlv_eap);
 
@@ -1735,7 +1730,7 @@ static void wimaxasncp_dissect_tlv_value(
             /* hidden item for filtering */
             item = proto_tree_add_item(
                 vsif_tree, tlv_info->hf_value,
-                tvb, offset, length, FALSE);
+                tvb, offset, length, ENC_NA);
 
             PROTO_ITEM_SET_HIDDEN(item);
 
@@ -1765,7 +1760,7 @@ static void wimaxasncp_dissect_tlv_value(
             {
                 proto_tree_add_item(
                     vsif_tree, tlv_info->hf_vendor_rest_of_info,
-                    tvb, offset, length - offset, FALSE);
+                    tvb, offset, length - offset, ENC_NA);
             }
         }
 
@@ -1884,7 +1879,7 @@ static guint dissect_wimaxasncp_tlvs(
 
             tlv_item = proto_tree_add_item(
                 tree, tlv_info->hf_root,
-                tvb, offset, tree_length, FALSE);
+                tvb, offset, tree_length, ENC_NA);
 
             /* Set label for tlv item */
             proto_item_set_text(tlv_item, "TLV: %s", tlv_info->name);

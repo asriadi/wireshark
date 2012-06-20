@@ -484,7 +484,7 @@ flow_graph_dlg_create (void)
 
 	gtk_window_set_default_size(GTK_WINDOW(flow_graph_dlg_w), 250, 150);
 
-	main_vb = gtk_vbox_new (FALSE, 0);
+	main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_add(GTK_CONTAINER(flow_graph_dlg_w), main_vb);
 	gtk_container_set_border_width (GTK_CONTAINER (main_vb), 7);
 
@@ -594,7 +594,7 @@ flow_graph_dlg_create (void)
 	gtk_widget_show(node_addr_fr);
 
 	/* button row */
-	hbuttonbox = gtk_hbutton_box_new ();
+	hbuttonbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_box_pack_start (GTK_BOX (main_vb), hbuttonbox, FALSE, FALSE, 5);
 	gtk_button_box_set_layout (GTK_BUTTON_BOX (hbuttonbox), GTK_BUTTONBOX_SPREAD);
 	gtk_box_set_spacing (GTK_BOX (hbuttonbox), 30);

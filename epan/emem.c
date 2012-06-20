@@ -640,7 +640,10 @@ emem_create_chunk(size_t size)
 
 	if (npc->buf == NULL) {
 		g_free(npc);
-		THROW(OutOfMemoryError);
+		if (getenv("WIRESHARK_ABORT_ON_OUT_OF_MEMORY"))
+			abort();
+		else
+			THROW(OutOfMemoryError);
 	}
 
 #elif defined(USE_GUARD_PAGES)
@@ -649,7 +652,10 @@ emem_create_chunk(size_t size)
 
 	if (npc->buf == MAP_FAILED) {
 		g_free(npc);
-		THROW(OutOfMemoryError);
+		if (getenv("WIRESHARK_ABORT_ON_OUT_OF_MEMORY"))
+			abort();
+		else
+			THROW(OutOfMemoryError);
 	}
 
 #else /* Is there a draft in here? */
@@ -747,13 +753,14 @@ emem_alloc_chunk(size_t size, emem_header_t *mem)
 
 	/* Allocate room for at least 8 bytes of canary plus some padding
 	 * so the canary ends on an 8-byte boundary.
-	 * Then add the room needed for the pointer to the next canary.
+	 * But first add the room needed for the pointer to the next canary
+	 * (so the entire allocation will end on an 8-byte boundary).
 	 */
 	 if (use_canary) {
-		pad = emem_canary_pad(asize);
 		asize += sizeof(void *);
+		pad = emem_canary_pad(asize);
 	} else
-		pad = (G_MEM_ALIGN - (asize & (G_MEM_ALIGN-1))) & (G_MEM_ALIGN-1);
+		pad = (WS_MEM_ALIGN - (asize & (WS_MEM_ALIGN-1))) & (WS_MEM_ALIGN-1);
 
 	asize += pad;
 

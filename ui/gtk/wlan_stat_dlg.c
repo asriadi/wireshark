@@ -27,9 +27,6 @@
 #include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
 #include <string.h>
 
 #include <gtk/gtk.h>
@@ -162,14 +159,17 @@ wlanstat_reset (void *phs)
 	wlanstat_t* wlan_stat = (wlanstat_t *)phs;
 	wlan_ep_t* list = wlan_stat->ep_list;
 	wlan_ep_t* tmp = NULL;
+	char *display_name;
 	char title[256];
 	GString *error_string;
 	GtkListStore *store;
 	const char *filter = NULL;
 
 	if (wlanstat_dlg_w != NULL) {
-            g_snprintf (title, sizeof(title), "Wireshark: WLAN Traffic Statistics: %s",
-			    cf_get_display_name(&cfile));
+		display_name = cf_get_display_name(&cfile);
+		g_snprintf (title, sizeof(title), "Wireshark: WLAN Traffic Statistics: %s",
+			    display_name);
+		g_free(display_name);
 		gtk_window_set_title(GTK_WINDOW(wlanstat_dlg_w), title);
 	}
 
@@ -458,9 +458,6 @@ wlanstat_packet (void *phs, packet_info *pinfo, epan_dissect_t *edt _U_, const v
 			}
 		}
 	}
-
-	if(!te)
-		return (0);
 
 	if (te->stats.channel == 0 && si->stats.channel != 0) {
 		te->stats.channel = si->stats.channel;
@@ -1745,6 +1742,7 @@ wlanstat_dlg_create (void)
 	GtkCellRenderer   *renderer;
 	GtkTreeViewColumn *column;
 	GtkTreeSelection  *sel;
+	char *display_name;
 	char title[256];
 	gint i;
 
@@ -1756,16 +1754,18 @@ wlanstat_dlg_create (void)
 	hs->use_dfilter = FALSE;
 	hs->show_only_existing = FALSE;
 
+	display_name = cf_get_display_name(&cfile);
 	g_snprintf (title, sizeof(title), "Wireshark: WLAN Traffic Statistics: %s",
-		    cf_get_display_name(&cfile));
+		    display_name);
+	g_free(display_name);
 	wlanstat_dlg_w = window_new_with_geom (GTK_WINDOW_TOPLEVEL, title, "WLAN Statistics");
 	gtk_window_set_default_size (GTK_WINDOW(wlanstat_dlg_w), 750, 400);
 
-	vbox=gtk_vbox_new (FALSE, 3);
+	vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 3, FALSE);
 	gtk_container_add(GTK_CONTAINER(wlanstat_dlg_w), vbox);
 	gtk_container_set_border_width (GTK_CONTAINER(vbox), 6);
 
-	wlanstat_pane = gtk_vpaned_new();
+	wlanstat_pane = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
 	gtk_box_pack_start (GTK_BOX (vbox), wlanstat_pane, TRUE, TRUE, 0);
 	gtk_paned_set_position(GTK_PANED(wlanstat_pane), recent.gui_geometry_wlan_stats_pane);
 	gtk_widget_show(wlanstat_pane);
@@ -1773,7 +1773,7 @@ wlanstat_dlg_create (void)
 	/* init a scrolled window for overview */
 	wlanstat_name_lb = gtk_frame_new("Network Overview");
 	gtk_paned_pack1(GTK_PANED(wlanstat_pane), wlanstat_name_lb, FALSE, TRUE);
-	selected_vb = gtk_vbox_new(FALSE, 0);
+	selected_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_add(GTK_CONTAINER(wlanstat_name_lb), selected_vb);
 	gtk_container_set_border_width(GTK_CONTAINER(selected_vb), 5);
 
@@ -1832,7 +1832,7 @@ wlanstat_dlg_create (void)
 	/* init a scrolled window for details */
 	frame = gtk_frame_new("Selected Network");
 	gtk_paned_pack2(GTK_PANED(wlanstat_pane), frame, FALSE, TRUE);
-	selected_vb = gtk_vbox_new(FALSE, 0);
+	selected_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_add(GTK_CONTAINER(frame), selected_vb);
 	gtk_container_set_border_width(GTK_CONTAINER(selected_vb), 5);
 
@@ -1901,7 +1901,7 @@ wlanstat_dlg_create (void)
 		return;
 	}
 
-	hbox = gtk_hbox_new(FALSE, 3);
+	hbox = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3, FALSE);
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 
 	resolv_cb = gtk_check_button_new_with_mnemonic("Name resolution");
@@ -1965,7 +1965,7 @@ wlanstat_launch (GtkAction *action _U_, gpointer user_data _U_)
 void
 register_tap_listener_wlanstat (void)
 {
-	static const char src[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	static const unsigned char src[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 	SET_ADDRESS(&broadcast, AT_ETHER, 6, src);
 }

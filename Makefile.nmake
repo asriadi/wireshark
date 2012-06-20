@@ -237,7 +237,10 @@ packaging_zip: all
 
 !IFDEF WIRESHARK_GENERATE_BSC_FILE
 # FIXME: Add epan\wspython\*.sbr when we support Python embedding
-# Note: Certain .sbr files which cause bscmake warning "too many references... ignoring ..."
+# Note: Certain .sbr files cause bscmake warning "too many references... ignoring ..."
+# XXX: It seems that using .bsc files with VS2010 doesn't work (isn't supported ?)
+#      Using .bsc files with VS2008 may work
+#      See: http://ask.wireshark.org/questions/8660/wireshark-building-and-debugging-on-visual-c-or-visual-studio
 wireshark.bsc: \
 	*.sbr				\
 	codecs\*.sbr			\
@@ -247,22 +250,23 @@ wireshark.bsc: \
 	epan\dissectors\*.sbr		\
 	epan\ftypes\*.sbr		\
 	epan\wslua\*.sbr		\
-	ui\*.sbr			\
-	ui\gtk\*.sbr			\
 	plugins\asn1\*.sbr		\
 	plugins\docsis\*.sbr		\
 	plugins\ethercat\*.sbr		\
-	plugins\giop\*.sbr		\
 	plugins\gryphon\*.sbr		\
 	plugins\irda\*.sbr		\
 	plugins\m2m\*.sbr		\
 	plugins\mate\*.sbr		\
 	plugins\opcua\*.sbr		\
 	plugins\profinet\*.sbr		\
-	lugins\stats_tree\*.sbr		\
+	plugins\stats_tree\*.sbr	\
 	plugins\unistim\*.sbr		\
 	plugins\wimax\*.sbr		\
 	plugins\wimaxasncp\*.sbr	\
+	ui\*.sbr			\
+	ui\cli\*.sbr			\
+	ui\gtk\*.sbr			\
+	ui\win32\*.sbr			\
 	wiretap\*.sbr			\
 	wsutil\*.sbr
 	$(BSCMAKE) @<<
@@ -274,8 +278,8 @@ wireshark.bsc:
 
 pdb_zip: all
 	cd $(INSTALL_DIR)
-	rm -f ../wireshark-pdb-$(WIRESHARK_TARGET_PLATFORM)-$(VERSION).zip
-	zip -9 ../wireshark-pdb-$(WIRESHARK_TARGET_PLATFORM)-$(VERSION).zip *.pdb *.lib
+	rm -f ../[Ww]ireshark-pdb-$(WIRESHARK_TARGET_PLATFORM)-$(VERSION).zip
+	zip -9 ../Wireshark-pdb-$(WIRESHARK_TARGET_PLATFORM)-$(VERSION).zip *.pdb *.lib
 	cd ..
 
 $(RESOURCES): image
@@ -408,6 +412,7 @@ config.h	: config.h.win32 config.nmake
 	    -e "s/@HAVE_LUA_5_1@/$(LUA_VERSION)/" \
 	    -e "s/@HAVE_PYTHON@/$(PYTHON_CONFIG)/" \
 	    -e "s/@HAVE_AIRPCAP@/$(AIRPCAP_CONFIG)/" \
+	    -e "s/@HAVE_WIRELESS_TOOLBAR@/$(WIRELESS_TOOLBAR_CONFIG)/" \
 	    -e "s/@HAVE_AIRPDCAP@/$(AIRPDCAP_CONFIG)/" \
 	    -e "s/@HAVE_LIBPORTAUDIO@/$(PORTAUDIO_CONFIG)/" \
 	    -e "s/@PORTAUDIO_API_1@/$(PORTAUDIO_API_CONFIG)/" \
@@ -423,9 +428,15 @@ config.h	: config.h.win32 config.nmake
 ui\qt\config.pri: config.nmake Makefile.nmake
 	@echo Creating <<ui\qt\config.pri
 # Automatically generated from Makefile.nmake. Edit there, not here.
-VERSION = $(VERSION)
+# qmake apparently requires a three-part numeric VERSION.
+VERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_MICRO)
+VERSION_FULL = $(VERSION)
+WTAP_VERSION = $(WTAP_VERSION)
 !IFDEF MANIFEST_INFO_REQUIRED
 CONFIG += wireshark_manifest_info_required
+!ENDIF
+!IFDEF KFW_DIR
+CONFIG += wireshark_use_kfw
 !ENDIF
 WIRESHARK_LIB_DIR = $(WIRESHARK_LIB_DIR:\=/)
 GLIB_DIR = $(GTK_DIR:\=/)
@@ -436,6 +447,9 @@ SMI_DIR = $(SMI_DIR:\=/)
 KFW_DIR = $(KFW_DIR:\=/)
 LUA_DIR = $(LUA_DIR:\=/)
 PORTAUDIO_DIR = $(PORTAUDIO_DIR:\=/)
+GEOIP_DIR = $(GEOIP_DIR:\=/)
+
+INTL_DLL = $(INTL_DLL)
 
 MSVC_VARIANT = $(MSVC_VARIANT)
 
@@ -842,7 +856,7 @@ process_libs:
 	@if not exist "$(WIRESHARK_LIB_DIR)" md "$(WIRESHARK_LIB_DIR)"
 !IFDEF GTK_DIR
 	@$(SH) $(WIN_SETUP) "$(WIN_SETUP_OPT)" "$(WIRESHARK_LIB_DIR)" \
-		gtk2 gtk+-bundle_$(GTK_PKG)_$(WIRESHARK_TARGET_PLATFORM).zip
+		"$(GTK_NAME)" gtk+-bundle_$(GTK_PKG)_$(WIRESHARK_TARGET_PLATFORM)$(PKG_SUFIX).zip
 !ENDIF
 !IFDEF KFW_DIR
 	@$(SH) $(WIN_SETUP) "$(WIN_SETUP_OPT)" "$(WIRESHARK_LIB_DIR)" \
@@ -893,7 +907,7 @@ process_libs:
 !ENDIF
 !IFDEF GEOIP_DIR
 	@$(SH) $(WIN_SETUP) "$(WIN_SETUP_OPT)" "$(WIRESHARK_LIB_DIR)" \
-		. GeoIP-1.4.6-$(WIRESHARK_TARGET_PLATFORM)ws.zip
+		GeoIP-$(GEOIP_PKG)-$(WIRESHARK_TARGET_PLATFORM)ws GeoIP-$(GEOIP_PKG)-$(WIRESHARK_TARGET_PLATFORM)ws.zip
 !ENDIF
 !IFDEF HHC_DIR
 	@$(SH) $(WIN_SETUP) "$(WIN_SETUP_OPT)" "$(WIRESHARK_LIB_DIR)" \
@@ -932,7 +946,9 @@ clean_setup:
     rm -r -f gnutls-2.8.1-1
     rm -r -f gnutls-2.8.5-*-win??ws
     rm -r -f gnutls-2.10.3-*-win??ws
+    rm -r -f gnutls-2.12.18-*-win??ws
     rm -r -f gtk2
+    rm -r -f gtk3
     rm -r -f gtk+
     rm -r -f gtk-wimp
     rm -r -f kfw-2.5
@@ -964,6 +980,8 @@ clean_setup:
     rm -r -f AirPcap_Devpack_4_1_0_1622
     rm -r -f GeoIP-1.4.5ws
     rm -r -f GeoIP-1.4.6-win??ws
+    rm -r -f GeoIP-1.4.8-win??ws
+    rm -r -f GeoIP-1.4.8-*-win??ws
     rm -r -f WpdPack
     cd "$(MAKEDIR)"
 
@@ -1076,13 +1094,31 @@ install-generated-files:
 install-all: install-generated-files
 	set copycmd=/y
 	if not exist $(INSTALL_DIR) mkdir $(INSTALL_DIR)
+!IF "$(GTK_INST_VERSION)" == "3.4"
+	xcopy $(GTK_DIR)\bin\libgdk-3-0.dll $(INSTALL_DIR) /d
+	xcopy $(GTK_DIR)\bin\libgtk-3-0.dll $(INSTALL_DIR) /d
+!ELSE
 	xcopy $(GTK_DIR)\bin\libgdk-win32-2.0-0.dll $(INSTALL_DIR) /d
-	xcopy $(GTK_DIR)\bin\libgdk_pixbuf-2.0-0.dll $(INSTALL_DIR) /d
 	xcopy $(GTK_DIR)\bin\libgtk-win32-2.0-0.dll $(INSTALL_DIR) /d
+!ENDIF
+	xcopy $(GTK_DIR)\bin\libgdk_pixbuf-2.0-0.dll $(INSTALL_DIR) /d
 	xcopy $(GTK_DIR)\bin\libatk-1.0-0.dll $(INSTALL_DIR) /d
 	xcopy $(GTK_DIR)\bin\libpango-1.0-0.dll $(INSTALL_DIR) /d
 	xcopy $(GTK_DIR)\bin\libpangowin32-1.0-0.dll $(INSTALL_DIR) /d
 	if not exist $(INSTALL_DIR)\etc mkdir $(INSTALL_DIR)\etc
+!IF "$(GTK_INST_VERSION)" == "3.4"
+	if not exist $(INSTALL_DIR)\etc\gtk-3.0 mkdir $(INSTALL_DIR)\etc\gtk-3.0
+	if not exist $(INSTALL_DIR)\etc\pango mkdir $(INSTALL_DIR)\etc\pango
+	if not exist $(INSTALL_DIR)\lib mkdir $(INSTALL_DIR)\lib
+	if not exist $(INSTALL_DIR)\lib\gtk-3.0 mkdir $(INSTALL_DIR)\lib\gtk-3.0
+	if not exist $(INSTALL_DIR)\lib\gtk-3.0\$(GTK_LIB_DIR) mkdir $(INSTALL_DIR)\lib\gtk-3.0\$(GTK_LIB_DIR)
+	xcopy $(GTK_DIR)\etc\gtk-3.0\*.* $(INSTALL_DIR)\etc\gtk-3.0 /d
+!IFDEF NEED_CAIRO_DLL
+	xcopy $(GTK_DIR)\bin\libcairo-2.dll $(INSTALL_DIR)  /d
+	xcopy $(GTK_DIR)\bin\libcairo-gobject-2.dll $(INSTALL_DIR)  /d
+	xcopy $(GTK_DIR)\bin\libpangocairo-1.0-0.dll $(INSTALL_DIR) /d
+!ENDIF
+!ELSE
 	if not exist $(INSTALL_DIR)\etc\gtk-2.0 mkdir $(INSTALL_DIR)\etc\gtk-2.0
 	if not exist $(INSTALL_DIR)\etc\pango mkdir $(INSTALL_DIR)\etc\pango
 	if not exist $(INSTALL_DIR)\lib mkdir $(INSTALL_DIR)\lib
@@ -1096,33 +1132,52 @@ install-all: install-generated-files
 	if exist $(GTK_DIR)\lib\gtk-2.0\$(GTK_LIB_DIR)\loaders xcopy $(GTK_DIR)\lib\gtk-2.0\$(GTK_LIB_DIR)\loaders\libpixbufloader-*.dll $(INSTALL_DIR)\lib\gtk-2.0\$(GTK_LIB_DIR)\loaders /d
 	xcopy $(GTK_DIR)\lib\gtk-2.0\modules\libgail.dll $(INSTALL_DIR)\lib\gtk-2.0\modules /d
 	xcopy $(GTK_DIR)\lib\gtk-2.0\$(GTK_LIB_DIR)\engines\libpixmap.dll $(INSTALL_DIR)\lib\gtk-2.0\$(GTK_LIB_DIR)\engines /d
-!IFDEF NEED_LIBPNG_DLL
-	xcopy $(GTK_DIR)\bin\$(PNG_DLL) $(INSTALL_DIR) /d
-!ENDIF
-!IFDEF NEED_LIBTIFF_DLL
-	xcopy $(GTK_DIR)\bin\$(TIFF_DLL) $(INSTALL_DIR) /d
-!ENDIF
-!IFDEF NEED_LIBJPEG_DLL
-	xcopy $(GTK_DIR)\bin\$(JPEG_DLL) $(INSTALL_DIR) /d
-!ENDIF
 !IFDEF NEED_CAIRO_DLL
 	xcopy $(GTK_DIR)\bin\libcairo-2.dll $(INSTALL_DIR)  /d
 	xcopy $(GTK_DIR)\bin\libpangocairo-1.0-0.dll $(INSTALL_DIR) /d
+!ENDIF
+!ENDIF
+!IFDEF NEED_EXPAT_DLL
+	xcopy $(GTK_DIR)\bin\$(EXPAT_DLL) $(INSTALL_DIR) /d
+!ENDIF
+!IFDEF NEED_FFI_DLL
+	xcopy $(GTK_DIR)\bin\$(FFI_DLL) $(INSTALL_DIR) /d
+!ENDIF
+!IFDEF NEED_FONTCONFIG_DLL
+	xcopy $(GTK_DIR)\bin\$(FONTCONFIG_DLL) $(INSTALL_DIR) /d
 !ENDIF
 !IFDEF NEED_FREETYPE_DLL
 	xcopy $(GTK_DIR)\bin\libpangoft2-1.0-0.dll $(INSTALL_DIR) /d
 	xcopy $(GTK_DIR)\bin\$(FREETYPE_DLL) $(INSTALL_DIR) /d
 !ENDIF
-!IFDEF NEED_FONTCONFIG_DLL
-	xcopy $(GTK_DIR)\bin\$(FONTCONFIG_DLL) $(INSTALL_DIR) /d
+!IFDEF NEED_JASPER_DLL
+	xcopy $(GTK_DIR)\bin\$(JASPER_DLL) $(INSTALL_DIR) /d
 !ENDIF
-!IFDEF NEED_EXPAT_DLL
-	xcopy $(GTK_DIR)\bin\$(EXPAT_DLL) $(INSTALL_DIR) /d
+!IFDEF NEED_JPEG_DLL
+	xcopy $(GTK_DIR)\bin\$(JPEG_DLL) $(INSTALL_DIR) /d
 !ENDIF
+!IFDEF NEED_LZMA_DLL
+	xcopy $(GTK_DIR)\bin\$(LZMA_DLL) $(INSTALL_DIR) /d
+!ENDIF
+!IFDEF NEED_PIXMAN_DLL
+	xcopy $(GTK_DIR)\bin\$(PIXMAN_DLL) $(INSTALL_DIR) /d
+!ENDIF
+!IFDEF NEED_PNG_DLL
+	xcopy $(GTK_DIR)\bin\$(PNG_DLL) $(INSTALL_DIR) /d
+!ENDIF
+!IFDEF NEED_TIFF_DLL
+	xcopy $(GTK_DIR)\bin\$(TIFF_DLL) $(INSTALL_DIR) /d
+!ENDIF
+!IFDEF NEED_XML_DLL
+	xcopy $(GTK_DIR)\bin\$(XML_DLL) $(INSTALL_DIR) /d
+!ENDIF
+!IF "$(GTK_INST_VERSION)" == "3.4"
+!ELSE
 	if not exist $(INSTALL_DIR)\$(GTK_WIMP_DLLDST_DIR) mkdir $(INSTALL_DIR)\$(GTK_WIMP_DLLDST_DIR)
 	xcopy "$(GTK_WIMP_DLLSRC_DIR)\libwimp.dll" $(INSTALL_DIR)\$(GTK_WIMP_DLLDST_DIR) /d
 	if not exist $(INSTALL_DIR)\$(GTK_WIMP_RCDST_DIR) mkdir $(INSTALL_DIR)\$(GTK_WIMP_RCDST_DIR)
 	xcopy "$(GTK_WIMP_RCSRC_DIR)\gtkrc" $(INSTALL_DIR)\$(GTK_WIMP_RCDST_DIR) /d
+!ENDIF
 	xcopy $(GTK_DIR)\bin\libgio-2.0-0.dll $(INSTALL_DIR) /d
 	xcopy $(GTK_DIR)\bin\libglib-2.0-0.dll $(INSTALL_DIR) /d
 	xcopy $(GTK_DIR)\bin\libgmodule-2.0-0.dll $(INSTALL_DIR) /d
@@ -1168,6 +1223,9 @@ install-all: install-generated-files
 	xcopy "$(SMI_DIR)\share\pibs\*" $(INSTALL_DIR)\snmp\mibs /d
 	xcopy "$(SMI_DIR)\share\yang\*.yang" $(INSTALL_DIR)\snmp\mibs /d
 !ENDIF
+!IFDEF GEOIP_DIR
+	xcopy "$(GEOIP_DIR)\bin\libGeoip-1.dll" $(INSTALL_DIR) /d
+!ENDIF
 	cd $(INSTALL_DIR)
 	peflags --dynamicbase=true --nxcompat=true *.dll
 	peflags --dynamicbase=true --nxcompat=true lib/gtk-2.0/*/engines/*.dll
@@ -1175,7 +1233,7 @@ install-all: install-generated-files
 	cd ..
 
 checkapi_local:
-	$(PERL) tools/checkAPIs.pl \
+	$(PERL) tools/checkAPIs.pl -build \
 	$(wireshark_SOURCES) \
 	$(TSHARK_TAP_SRC) \
 #	$(EXTRA_wireshark_SOURCES)

@@ -108,7 +108,7 @@ build_heur_dissectors_treeview(void)
   GtkTreeViewColumn *proto_col;
 
   /* Protocol list */
-  proto_vb = gtk_vbox_new(FALSE, 0);
+  proto_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
   gtk_widget_show(proto_vb);
 
   proto_sw = scrolled_window_new(NULL, NULL);
@@ -156,7 +156,7 @@ build_heur_dissectors_treeview(void)
   gtk_widget_show(label);
   gtk_box_pack_start(GTK_BOX(proto_vb), label, FALSE, FALSE, 5);
 
-  bbox = gtk_hbutton_box_new();
+  bbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
   gtk_button_box_set_layout(GTK_BUTTON_BOX(bbox), GTK_BUTTONBOX_END);
   gtk_box_set_spacing(GTK_BOX(bbox), 5);
   gtk_box_pack_start(GTK_BOX(proto_vb), bbox, FALSE, FALSE, 0);
@@ -240,7 +240,7 @@ build_protocols_treeview(void)
   GtkTreeViewColumn *proto_col;
 
   /* Protocol list */
-  proto_vb = gtk_vbox_new(FALSE, 0);
+  proto_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
   gtk_widget_show(proto_vb);
 
   proto_sw = scrolled_window_new(NULL, NULL);
@@ -288,7 +288,7 @@ build_protocols_treeview(void)
   gtk_widget_show(label);
   gtk_box_pack_start(GTK_BOX(proto_vb), label, FALSE, FALSE, 5);
 
-  bbox = gtk_hbutton_box_new();
+  bbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
   gtk_button_box_set_layout(GTK_BUTTON_BOX(bbox), GTK_BUTTONBOX_END);
   gtk_box_set_spacing(GTK_BOX(bbox), 5);
   gtk_box_pack_start(GTK_BOX(proto_vb), bbox, FALSE, FALSE, 0);
@@ -377,7 +377,7 @@ proto_cb(GtkWidget *w _U_, gpointer data _U_)
 
   /* Container for each row of widgets */
 
-  main_vb = gtk_vbox_new(FALSE, 6);
+  main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 6, FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(main_vb), 6);
   gtk_container_add(GTK_CONTAINER(proto_w), main_vb);
   gtk_widget_show(main_vb);

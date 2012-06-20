@@ -17,13 +17,21 @@ bash -c "$1"
 
 cd `git rev-parse --show-toplevel`
 # we are at top level
-LAST_TAG=`git describe --tags --abbrev=0`
-rm -rf $LAST_TAG
-mkdir $LAST_TAG
-git archive $LAST_TAG | tar -x -C $LAST_TAG
+
+# Stable branches with releases
+#LAST_TAG=`git describe --tags --abbrev=0`
+#LAST_TAG_DIR=$LAST_TAG
+
+# Unstable branches, e.g. master don't have usable tags. Use a commit instead.
+LAST_TAG=d1128f64332ff4f9553e16a7343796d896f7a07e
+LAST_TAG_DIR=master
+
+rm -rf $LAST_TAG_DIR
+mkdir $LAST_TAG_DIR
+git archive $LAST_TAG | tar -x -C $LAST_TAG_DIR
 
 # build latest tag
-(cd $LAST_TAG && bash -c "$1")
+(cd $LAST_TAG_DIR && bash -c "$1")
 
-exec tools/compare-abis.sh `pwd`/$LAST_TAG `pwd`
+exec tools/compare-abis.sh `pwd`/$LAST_TAG_DIR `pwd`
 

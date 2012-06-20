@@ -632,7 +632,7 @@ dissect_rpcap_filter (tvbuff_t *tvb, packet_info *pinfo,
 }
 
 
-static void
+static int
 dissect_rpcap_auth_request (tvbuff_t *tvb, packet_info *pinfo _U_,
 			    proto_tree *parent_tree, gint offset)
 {
@@ -673,6 +673,7 @@ dissect_rpcap_auth_request (tvbuff_t *tvb, packet_info *pinfo _U_,
 
     proto_item_append_text (ti, " (%s/%s)", username, password);
   }
+  return offset;
 }
 
 
@@ -795,7 +796,7 @@ dissect_rpcap_stats_reply (tvbuff_t *tvb, packet_info *pinfo _U_,
 }
 
 
-static void
+static int
 dissect_rpcap_sampling_request (tvbuff_t *tvb, packet_info *pinfo _U_,
 				proto_tree *parent_tree, gint offset)
 {
@@ -834,6 +835,7 @@ dissect_rpcap_sampling_request (tvbuff_t *tvb, packet_info *pinfo _U_,
   default:
     break;
   }
+  return offset;
 }
 
 
@@ -881,7 +883,7 @@ dissect_rpcap_packet (tvbuff_t *tvb, packet_info *pinfo, proto_tree *top_tree,
 			  "Caplen is bigger than the remaining message length");
     return;
   }
-    
+
   new_tvb = tvb_new_subset (tvb, offset, caplen, len);
   if (decode_content && linktype != WTAP_ENCAP_UNKNOWN) {
     dissector_try_uint(wtap_encap_dissector_table, linktype, new_tvb, pinfo, top_tree);

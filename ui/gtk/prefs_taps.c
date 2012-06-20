@@ -31,6 +31,7 @@
 
 #include <epan/prefs.h>
 
+#include "ui/gtk/gui_utils.h"
 #include "ui/gtk/prefs_taps.h"
 #include "ui/gtk/prefs_dlg.h"
 #include "ui/gtk/main.h"
@@ -55,7 +56,7 @@ stats_prefs_show(void)
         int pos = 0;
 
         /* Main vertical box */
-        main_vb = gtk_vbox_new(FALSE, 7);
+        main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 7, FALSE);
         gtk_container_set_border_width(GTK_CONTAINER(main_vb), 5);
 
         /* Main table */

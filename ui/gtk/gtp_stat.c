@@ -27,10 +27,6 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
 #include <string.h>
 
 #include <gtk/gtk.h>
@@ -64,12 +60,7 @@ typedef struct _gtpstat_t {
 static void
 gtpstat_set_title(gtpstat_t *gtp)
 {
-	char		*title;
-
-	title = g_strdup_printf("GTP Control Plane  Response Time statistics: %s",
-	    cf_get_display_name(&cfile));
-	gtk_window_set_title(GTK_WINDOW(gtp->win), title);
-	g_free(title);
+	set_window_title(gtp->win, "GTP Control Plane  Response Time statistics");
 }
 
 static void
@@ -172,7 +163,7 @@ gtk_gtpstat_init(const char *optarg, void *userdata _U_)
 	gtk_window_set_default_size(GTK_WINDOW(gtp->win), 550, 400);
 	gtpstat_set_title(gtp);
 
-	vbox=gtk_vbox_new(FALSE, 3);
+	vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 3, FALSE);
 	gtk_container_add(GTK_CONTAINER(gtp->win), vbox);
 	gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
 

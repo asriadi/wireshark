@@ -757,10 +757,10 @@ keylookup(guint8 *keybuff, guint8 keyid)
  * \param decrypt TRUE if packet is to be authenticated and decrypted; FALSE if authentication only is requested
  * \returns TRUE if the requested operation was successful; otherwise FALSE
  */
+#ifdef HAVE_LIBGCRYPT
 static gboolean 
 decrypt_packet(guchar *buffer, guint32 length, gboolean decrypt)
 {
-#ifdef HAVE_LIBGCRYPT
 #define CANONBUFFSIZE 300U
   guchar canonbuff[CANONBUFFSIZE];
   guint8 c1222_key[EAX_SIZEOF_KEY];
@@ -796,14 +796,14 @@ decrypt_packet(guchar *buffer, guint32 length, gboolean decrypt)
 		  decrypt ? EAX_MODE_CIPHERTEXT_AUTH : EAX_MODE_CLEARTEXT_AUTH);
   }
   return status;
-#else /* HAVE_LIBCRYPT */  
-  /* these are to silence compiler unreferenced variable warnings */
-  buffer=buffer;
-  length=length;
-  decrypt=decrypt;
-  return FALSE;
-#endif /* HAVE_LIBGCRYPT */
 }
+#else /* HAVE_LIBCRYPT */  
+static gboolean 
+decrypt_packet(guchar *buffer _U_, guint32 length _U_, gboolean decrypt _U_)
+{
+  return FALSE;
+}
+#endif /* HAVE_LIBGCRYPT */
 
 /**
  * Checks to make sure that a complete, valid BER-encoded length is in the buffer.
@@ -880,13 +880,15 @@ dissect_epsem(tvbuff_t *tvb, int offset, guint32 len, packet_info *pinfo, proto_
   }
   /* parse the flags byte which is always unencrypted */
   flags = tvb_get_guint8(tvb, offset);
-  proto_tree_add_bitmask(tree, tvb, offset, hf_c1222_epsem_flags, ett_c1222_flags, c1222_flags, FALSE);
+  proto_tree_add_bitmask(tree, tvb, offset, hf_c1222_epsem_flags, ett_c1222_flags, c1222_flags, ENC_BIG_ENDIAN);
   offset++;
   switch ((flags & C1222_EPSEM_FLAG_SECURITY_MODE) >> 2) {
     case EAX_MODE_CIPHERTEXT_AUTH:
       /* mode is ciphertext with authentication */
       hasmac = TRUE;
       len2 = tvb_length_remaining(tvb, offset);
+      if (len2 <= 0)
+        return offset; 
       encrypted = TRUE;
       if (c1222_decrypt) {
 	buffer = tvb_memdup(tvb, offset, len2);
@@ -906,6 +908,8 @@ dissect_epsem(tvbuff_t *tvb, int offset, guint32 len, packet_info *pinfo, proto_
       /* mode is cleartext with authentication */
       hasmac = TRUE;
       len2 = tvb_length_remaining(tvb, offset);
+      if (len2 <= 0)
+        return offset;
       buffer = tvb_memdup(tvb, offset, len2);
       epsem_buffer = tvb_new_subset(tvb, offset, -1, -1);
       if (c1222_decrypt) {

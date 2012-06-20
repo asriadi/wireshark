@@ -42,8 +42,6 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
-
 #include <glib.h>
 
 #include <epan/packet.h>
@@ -55,11 +53,17 @@
 const value_string string_fec_encoding_id[] =
 {
 	{ 0, "Compact No-Code" },
-	{ 2, "Simple XOR, Reed-Solomon, and Parity Check Matrix-based FEC Codes" },
+	{ 1, "Raptor" },
+	{ 2, "Reed-Solomon Codes over GF(2^^m)" },
+	{ 3, "LDPC Staircase Codes" },
+	{ 4, "LDPC Triangle Codes" },
+	{ 5, "Reed-Solomon Codes over GF(2^^8)" },
+	{ 6, "RaptorQ Code" },
+	/* 7-127 Unassigned  */
 	{ 128, "Small Block, Large Block and Expandable FEC Codes" },
 	{ 129, "Small Block Systematic FEC Codes" },
 	{ 130, "Compact FEC Codes" },
-	{ 132, "Simple XOR, Reed-Solomon, and Parity Check Matrix-based FEC Codes" },
+	/* 131-255 Unassigned  */
 	{ 0, NULL }
 };
 
@@ -84,7 +88,7 @@ void fec_info_column(struct _fec *fec, packet_info *pinfo)
 /* Decode an EXT_FTI extension and fill FEC array */
 void fec_decode_ext_fti(struct _ext *e, tvbuff_t *tvb, proto_tree *tree, gint ett, struct _fec_ptr f)
 {
-	proto_item* ti = NULL;
+	proto_item* ti = NULL, *item = NULL;
 	proto_tree *ext_tree;
 
 	if (tree)
@@ -106,8 +110,13 @@ void fec_decode_ext_fti(struct _ext *e, tvbuff_t *tvb, proto_tree *tree, gint et
 			f.fec->instance_id = (guint8) tvb_get_ntohs(tvb, e->offset+8);
 		}
 
-		if (tree)
+		if (tree){
 			proto_tree_add_uint64(ext_tree, f.hf->fti_transfer_length, tvb, e->offset+2, 6, f.fec->transfer_length);
+			item = proto_tree_add_item(ext_tree, f.hf->instance_id, tvb,  e->offset+8, 2, ENC_BIG_ENDIAN);
+			if(f.fec->instance_id_present == FALSE){
+				proto_item_append_text(item," - [FEC Encoding ID < 128, should be zero]");
+			}
+		}
 
 		switch (f.fec->encoding_id)
 		{
@@ -230,6 +239,24 @@ void fec_dissector(struct _fec_ptr f, tvbuff_t *tvb, proto_tree *tree, guint *of
 			*offset += 8;
 			break;
 
+		case 3:
+		case 4:
+			f.fec->sbn = tvb_get_ntohl(tvb, *offset);
+			f.fec->sbn = f.fec->sbn >> 20;
+			f.fec->esi = tvb_get_ntohl(tvb, *offset);
+			f.fec->esi &= 0xfffff;
+			
+			if (tree)
+			{
+				proto_tree_add_uint(fec_tree, f.hf->sbn, tvb, *offset, 4, f.fec->sbn);
+				proto_tree_add_uint(fec_tree, f.hf->esi, tvb, *offset, 4, f.fec->esi);
+			}
+			
+			f.fec->sbn_present = TRUE;
+			f.fec->esi_present = TRUE;
+			*offset += 4;
+			break;
+			
 		case 129:
 			f.fec->sbn = tvb_get_ntohl(tvb, *offset);
 			f.fec->sbl = tvb_get_ntohs(tvb, *offset+4);

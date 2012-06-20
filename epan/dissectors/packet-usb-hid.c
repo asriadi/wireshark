@@ -583,7 +583,7 @@ dissect_usb_hid_get_report(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *t
 		offset += 2;
 
 		proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-		offset += 2;
+		/*offset += 2;*/
 	} else {
 	}
 }
@@ -608,7 +608,7 @@ dissect_usb_hid_set_report(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *t
 		offset += 2;
 
 		proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-		offset += 2;
+		/*offset += 2;*/
 	} else {
 	}
 }
@@ -634,7 +634,7 @@ dissect_usb_hid_get_idle(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb
 		offset += 2;
 
 		proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-		offset += 2;
+		/*offset += 2;*/
 	} else {
 	}
 }
@@ -660,7 +660,7 @@ dissect_usb_hid_set_idle(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb
 		offset += 2;
 
 		proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-		offset += 2;
+		/*offset += 2;*/
 	} else {
 	}
 }
@@ -677,7 +677,7 @@ dissect_usb_hid_get_protocol(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t 
 		offset += 2;
 
 		proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-		offset += 2;
+		/*offset += 2;*/
 	} else {
 	}
 }
@@ -694,7 +694,7 @@ dissect_usb_hid_set_protocol(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t 
 		offset += 2;
 
 		proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-		offset += 2;
+		/*offset += 2;*/
 	} else {
 	}
 }
@@ -768,10 +768,10 @@ dissect_usb_hid_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 	dissector = NULL;
 
 	/* Check valid values for bmRequestType. See Chapter 7.2 in USBHID 1.11 */
-	if ((usb_trans_info->requesttype & 0x7F) ==
+	if ((usb_trans_info->setup.requesttype & 0x7F) ==
 	    ((RQT_SETUP_TYPE_CLASS << 5) | RQT_SETUP_RECIPIENT_INTERFACE)) {
 		for (tmp = setup_dissectors; tmp->dissector; tmp++) {
-			if (tmp->request == usb_trans_info->request) {
+			if (tmp->request == usb_trans_info->setup.request) {
 				dissector = tmp->dissector;
 				break;
 			}
@@ -788,7 +788,7 @@ dissect_usb_hid_control(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
 	if (check_col(pinfo->cinfo, COL_INFO)) {
 		col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s",
-		val_to_str(usb_trans_info->request, setup_request_names_vals, "Unknown type %x"),
+		val_to_str(usb_trans_info->setup.request, setup_request_names_vals, "Unknown type %x"),
 			is_request ? "Request" : "Response");
 	}
 
@@ -880,13 +880,13 @@ proto_register_usb_hid(void)
 				TFS(&tfs_mainitem_bit8), 1<<8, NULL, HFILL }},
 
 		{ &hf_usb_hid_mainitem_colltype,
-			{ "Collection type", "usbhid.item.main.colltype", FT_UINT8, BASE_HEX,
+			{ "Collection type", "usbhid.item.main.colltype", FT_UINT8, BASE_RANGE_STRING|BASE_HEX,
 				RVALS(usb_hid_mainitem_colltype_vals), 0, NULL, HFILL }},
 
 		/* Global-report item data */
 
 		{ &hf_usb_hid_globalitem_usage,
-			{ "Usage page", "usbhid.item.global.usage", FT_UINT8, BASE_HEX,
+			{ "Usage page", "usbhid.item.global.usage", FT_UINT8, BASE_RANGE_STRING|BASE_HEX,
 				RVALS(usb_hid_item_usage_vals), 0, NULL, HFILL }},
 
 		{ &hf_usb_hid_globalitem_log_min,
@@ -960,7 +960,7 @@ proto_register_usb_hid(void)
 		/* Local-report item data */
 
 		{ &hf_usb_hid_localitem_usage,
-			{ "Usage", "usbhid.item.local.usage", FT_UINT8, BASE_HEX,
+			{ "Usage", "usbhid.item.local.usage", FT_UINT8, BASE_RANGE_STRING|BASE_HEX,
 				RVALS(usb_hid_item_usage_vals), 0, NULL, HFILL }},
 
 		{ &hf_usb_hid_localitem_usage_min,

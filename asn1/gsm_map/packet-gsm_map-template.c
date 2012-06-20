@@ -1835,9 +1835,9 @@ dissect_gsm_map_GSMMAPPDU(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset, 
   opcode = 0;
   application_context_version = 0;
   if (actx->pinfo->private_data != NULL){
-    p_private_tcap=actx->pinfo->private_data;
+    p_private_tcap = (struct tcap_private_t *)actx->pinfo->private_data;
     if (p_private_tcap->acv==TRUE ){
-      version_ptr = strrchr(p_private_tcap->oid,'.');
+      version_ptr = strrchr((const char*)p_private_tcap->oid,'.');
       if (version_ptr){
 		  application_context_version = atoi(version_ptr+1);
 	  }
@@ -1877,7 +1877,7 @@ dissect_gsm_map(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree)
 
     /* create display subtree for the protocol */
     if(parent_tree){
-        item = proto_tree_add_item(parent_tree, proto_gsm_map, tvb, 0, -1, FALSE);
+        item = proto_tree_add_item(parent_tree, proto_gsm_map, tvb, 0, -1, ENC_NA);
         tree = proto_item_add_subtree(item, ett_gsm_map);
     }
 
@@ -2542,7 +2542,7 @@ void proto_register_gsm_map(void) {
           NULL, HFILL }},
       { &hf_gsm_map_locationnumber_nai,
         { "Nature of address indicator", "gsm_map.locationnumber.nai",
-          FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&gsm_map_na_vals), 0x3f,
+          FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(gsm_map_na_vals), 0x3f,
           NULL, HFILL }},
       { &hf_gsm_map_locationnumber_inn,
         { "Internal Network Number indicator (INN)", "gsm_map.locationnumber.inn",

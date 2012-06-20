@@ -50,6 +50,7 @@ const value_string ssl_version_short_names[] = {
     { SSL_VER_TLS,        "TLSv1" },
     { SSL_VER_TLSv1DOT1,  "TLSv1.1" },
     { SSL_VER_DTLS,       "DTLSv1.0" },
+    { SSL_VER_DTLS1DOT2,  "DTLSv1.2" },
     { SSL_VER_PCT,        "PCT" },
     { SSL_VER_TLSv1DOT2,  "TLSv1.2" },
     { 0x00, NULL }
@@ -350,15 +351,15 @@ value_string_ext ssl_20_cipher_suites_ext = VALUE_STRING_EXT_INIT(ssl_20_cipher_
 
 
 const value_string ssl_extension_curves[] = {
-    { 1, "sect163k1" },
-    { 2, "sect163r1" },
-    { 3, "sect163r2" },
-    { 4, "sect193r1" },
-    { 5, "sect193r2" },
-    { 6, "sect233k1" },
-    { 7, "sect233r1" },
-    { 8, "sect239k1" },
-    { 9, "sect283k1" },
+    {  1, "sect163k1" },
+    {  2, "sect163r1" },
+    {  3, "sect163r2" },
+    {  4, "sect193r1" },
+    {  5, "sect193r2" },
+    {  6, "sect233k1" },
+    {  7, "sect233r1" },
+    {  8, "sect239k1" },
+    {  9, "sect283k1" },
     { 10, "sect283r1" },
     { 11, "sect409k1" },
     { 12, "sect409r1" },
@@ -410,6 +411,7 @@ const value_string ssl_31_content_type[] = {
 };
 
 const value_string ssl_versions[] = {
+    { 0xfefd, "DTLS 1.2" },
     { 0xfeff, "DTLS 1.0" },
     { 0x0100, "DTLS 1.0 (OpenSSL pre 0.9.8f)" },
     { 0x0303, "TLS 1.2" },
@@ -436,29 +438,29 @@ const value_string ssl_31_alert_level[] = {
 };
 
 const value_string ssl_31_alert_description[] = {
-    {  0,  "Close Notify" },
-    { 10,  "Unexpected Message" },
-    { 20,  "Bad Record MAC" },
-    { 21,  "Decryption Failed" },
-    { 22,  "Record Overflow" },
-    { 30,  "Decompression Failure" },
-    { 40,  "Handshake Failure" },
-    { 41,  "No Certificate" },
-    { 42,  "Bad Certificate" },
-    { 43,  "Unsupported Certificate" },
-    { 44,  "Certificate Revoked" },
-    { 45,  "Certificate Expired" },
-    { 46,  "Certificate Unknown" },
-    { 47,  "Illegal Parameter" },
-    { 48,  "Unknown CA" },
-    { 49,  "Access Denied" },
-    { 50,  "Decode Error" },
-    { 51,  "Decrypt Error" },
-    { 60,  "Export Restriction" },
-    { 70,  "Protocol Version" },
-    { 71,  "Insufficient Security" },
-    { 80,  "Internal Error" },
-    { 90,  "User Canceled" },
+    {   0,  "Close Notify" },
+    {  10,  "Unexpected Message" },
+    {  20,  "Bad Record MAC" },
+    {  21,  "Decryption Failed" },
+    {  22,  "Record Overflow" },
+    {  30,  "Decompression Failure" },
+    {  40,  "Handshake Failure" },
+    {  41,  "No Certificate" },
+    {  42,  "Bad Certificate" },
+    {  43,  "Unsupported Certificate" },
+    {  44,  "Certificate Revoked" },
+    {  45,  "Certificate Expired" },
+    {  46,  "Certificate Unknown" },
+    {  47,  "Illegal Parameter" },
+    {  48,  "Unknown CA" },
+    {  49,  "Access Denied" },
+    {  50,  "Decode Error" },
+    {  51,  "Decrypt Error" },
+    {  60,  "Export Restriction" },
+    {  70,  "Protocol Version" },
+    {  71,  "Insufficient Security" },
+    {  80,  "Internal Error" },
+    {  90,  "User Canceled" },
     { 100, "No Renegotiation" },
     { 110, "Unsupported Extension" },
     { 111, "Certificate Unobtainable" },
@@ -499,8 +501,8 @@ const value_string tls_heartbeat_mode[] = {
 };
 
 const value_string ssl_31_compression_method[] = {
-    { 0, "null" },
-    { 1, "DEFLATE" },
+    {  0, "null" },
+    {  1, "DEFLATE" },
     { 64, "LZS" },
     { 0x00, NULL }
 };
@@ -898,7 +900,7 @@ const value_string pct_error_code[] = {
 
 /* RFC 4366 */
 const value_string tls_hello_extension_types[] = {
-    { 0, "server_name" },
+    { SSL_HND_HELLO_EXT_SERVER_NAME, "server_name" }, /* RFC 3546 */
     { 1, "max_fragment_length" },
     { 2, "client_certificate_url" },
     { 3, "trusted_ca_keys" },
@@ -915,7 +917,13 @@ const value_string tls_hello_extension_types[] = {
     { 14, "use_srtp" },
     { SSL_HND_HELLO_EXT_HEARTBEAT, "Heartbeat" },  /* RFC 6520 */
     { 35, "SessionTicket TLS" },  /* RFC 4507 */
-    { 65281, "renegotiation_info" },
+    { SSL_HND_HELLO_EXT_NPN, "next_protocol_negotiation"}, /* http://technotes.googlecode.com/git/nextprotoneg.html */
+    { SSL_HND_HELLO_EXT_RENEG_INFO, "renegotiation_info" }, /* RFC 5746 */
+    { 0, NULL }
+};
+
+const value_string tls_hello_ext_server_name_type_vs[] = {
+    { 0, "host_name" },
     { 0, NULL }
 };
 
@@ -967,192 +975,192 @@ struct _SslDecompress {
    0 indicates unknown */
 gint ssl_get_keyex_alg(gint cipher)
 {
-	switch(cipher) {
-	case 0x0001:
-	case 0x0002:
-	case 0x0003:
-	case 0x0004:
-	case 0x0005:
-	case 0x0006:
-	case 0x0007:
-	case 0x0008:
-	case 0x0009:
-	case 0x000a:
-	case 0x002e:
-	case 0x002f:
-	case 0x0035:
-	case 0x003b:
-	case 0x003c:
-	case 0x003d:
-	case 0x0041:
-	case 0x0060:
-	case 0x0061:
-	case 0x0062:
-	case 0x0064:
-	case 0x0084:
-	case 0x0092:
-	case 0x0093:
-	case 0x0094:
-	case 0x0095:
-	case 0x0096:
-	case 0x009c:
-	case 0x009d:
-	case 0x00ac:
-	case 0x00ad:
-	case 0x00b6:
-	case 0x00b7:
-	case 0x00b8:
-	case 0x00b9:
-	case 0x00ba:
-	case 0x00c0:
-	case 0xfefe:
-	case 0xfeff:
-	case 0xffe0:
-	case 0xffe1:
-		return KEX_RSA;
-	case 0x000b:
-	case 0x000c:
-	case 0x000d:
-	case 0x000e:
-	case 0x000f:
-	case 0x0010:
-	case 0x0011:
-	case 0x0012:
-	case 0x0013:
-	case 0x0014:
-	case 0x0015:
-	case 0x0016:
-	case 0x0017:
-	case 0x0018:
-	case 0x0019:
-	case 0x001a:
-	case 0x001b:
-	case 0x002d:
-	case 0x0030:
-	case 0x0031:
-	case 0x0032:
-	case 0x0033:
-	case 0x0034:
-	case 0x0036:
-	case 0x0037:
-	case 0x0038:
-	case 0x0039:
-	case 0x003a:
-	case 0x003e:
-	case 0x003f:
-	case 0x0040:
-	case 0x0042:
-	case 0x0043:
-	case 0x0044:
-	case 0x0045:
-	case 0x0046:
-	case 0x0063:
-	case 0x0065:
-	case 0x0066:
-	case 0x0067:
-	case 0x0068:
-	case 0x0069:
-	case 0x006a:
-	case 0x006b:
-	case 0x006c:
-	case 0x006d:
-	case 0x0085:
-	case 0x0086:
-	case 0x0087:
-	case 0x0088:
-	case 0x0089:
-	case 0x008e:
-	case 0x008f:
-	case 0x0090:
-	case 0x0091:
-	case 0x0097:
-	case 0x0098:
-	case 0x0099:
-	case 0x009a:
-	case 0x009b:
-	case 0x009e:
-	case 0x009f:
-	case 0x00a0:
-	case 0x00a1:
-	case 0x00a2:
-	case 0x00a3:
-	case 0x00a4:
-	case 0x00a5:
-	case 0x00a6:
-	case 0x00a7:
-	case 0x00aa:
-	case 0x00ab:
-	case 0x00b2:
-	case 0x00b3:
-	case 0x00b4:
-	case 0x00b5:
-	case 0x00bb:
-	case 0x00bc:
-	case 0x00bd:
-	case 0x00be:
-	case 0x00bf:
-	case 0x00c1:
-	case 0x00c2:
-	case 0x00c3:
-	case 0x00c4:
-	case 0x00c5:
-		return KEX_DH;
-	case 0xc001:
-	case 0xc002:
-	case 0xc003:
-	case 0xc004:
-	case 0xc005:
-	case 0xc006:
-	case 0xc007:
-	case 0xc008:
-	case 0xc009:
-	case 0xc00a:
-	case 0xc00b:
-	case 0xc00c:
-	case 0xc00d:
-	case 0xc00e:
-	case 0xc00f:
-	case 0xc010:
-	case 0xc011:
-	case 0xc012:
-	case 0xc013:
-	case 0xc014:
-	case 0xc015:
-	case 0xc016:
-	case 0xc017:
-	case 0xc018:
-	case 0xc019:
-	case 0xc023:
-	case 0xc024:
-	case 0xc025:
-	case 0xc026:
-	case 0xc027:
-	case 0xc028:
-	case 0xc029:
-	case 0xc02a:
-	case 0xc02b:
-	case 0xc02c:
-	case 0xc02d:
-	case 0xc02e:
-	case 0xc02f:
-	case 0xc030:
-	case 0xc031:
-	case 0xc032:
-	case 0xc033:
-	case 0xc034:
-	case 0xc035:
-	case 0xc036:
-	case 0xc037:
-	case 0xc038:
-	case 0xc039:
-	case 0xc03a:
-	case 0xc03b:
-		return KEX_ECDH;
-	default:
-		break;
-	}
+    switch(cipher) {
+    case 0x0001:
+    case 0x0002:
+    case 0x0003:
+    case 0x0004:
+    case 0x0005:
+    case 0x0006:
+    case 0x0007:
+    case 0x0008:
+    case 0x0009:
+    case 0x000a:
+    case 0x002e:
+    case 0x002f:
+    case 0x0035:
+    case 0x003b:
+    case 0x003c:
+    case 0x003d:
+    case 0x0041:
+    case 0x0060:
+    case 0x0061:
+    case 0x0062:
+    case 0x0064:
+    case 0x0084:
+    case 0x0092:
+    case 0x0093:
+    case 0x0094:
+    case 0x0095:
+    case 0x0096:
+    case 0x009c:
+    case 0x009d:
+    case 0x00ac:
+    case 0x00ad:
+    case 0x00b6:
+    case 0x00b7:
+    case 0x00b8:
+    case 0x00b9:
+    case 0x00ba:
+    case 0x00c0:
+    case 0xfefe:
+    case 0xfeff:
+    case 0xffe0:
+    case 0xffe1:
+        return KEX_RSA;
+    case 0x000b:
+    case 0x000c:
+    case 0x000d:
+    case 0x000e:
+    case 0x000f:
+    case 0x0010:
+    case 0x0011:
+    case 0x0012:
+    case 0x0013:
+    case 0x0014:
+    case 0x0015:
+    case 0x0016:
+    case 0x0017:
+    case 0x0018:
+    case 0x0019:
+    case 0x001a:
+    case 0x001b:
+    case 0x002d:
+    case 0x0030:
+    case 0x0031:
+    case 0x0032:
+    case 0x0033:
+    case 0x0034:
+    case 0x0036:
+    case 0x0037:
+    case 0x0038:
+    case 0x0039:
+    case 0x003a:
+    case 0x003e:
+    case 0x003f:
+    case 0x0040:
+    case 0x0042:
+    case 0x0043:
+    case 0x0044:
+    case 0x0045:
+    case 0x0046:
+    case 0x0063:
+    case 0x0065:
+    case 0x0066:
+    case 0x0067:
+    case 0x0068:
+    case 0x0069:
+    case 0x006a:
+    case 0x006b:
+    case 0x006c:
+    case 0x006d:
+    case 0x0085:
+    case 0x0086:
+    case 0x0087:
+    case 0x0088:
+    case 0x0089:
+    case 0x008e:
+    case 0x008f:
+    case 0x0090:
+    case 0x0091:
+    case 0x0097:
+    case 0x0098:
+    case 0x0099:
+    case 0x009a:
+    case 0x009b:
+    case 0x009e:
+    case 0x009f:
+    case 0x00a0:
+    case 0x00a1:
+    case 0x00a2:
+    case 0x00a3:
+    case 0x00a4:
+    case 0x00a5:
+    case 0x00a6:
+    case 0x00a7:
+    case 0x00aa:
+    case 0x00ab:
+    case 0x00b2:
+    case 0x00b3:
+    case 0x00b4:
+    case 0x00b5:
+    case 0x00bb:
+    case 0x00bc:
+    case 0x00bd:
+    case 0x00be:
+    case 0x00bf:
+    case 0x00c1:
+    case 0x00c2:
+    case 0x00c3:
+    case 0x00c4:
+    case 0x00c5:
+        return KEX_DH;
+    case 0xc001:
+    case 0xc002:
+    case 0xc003:
+    case 0xc004:
+    case 0xc005:
+    case 0xc006:
+    case 0xc007:
+    case 0xc008:
+    case 0xc009:
+    case 0xc00a:
+    case 0xc00b:
+    case 0xc00c:
+    case 0xc00d:
+    case 0xc00e:
+    case 0xc00f:
+    case 0xc010:
+    case 0xc011:
+    case 0xc012:
+    case 0xc013:
+    case 0xc014:
+    case 0xc015:
+    case 0xc016:
+    case 0xc017:
+    case 0xc018:
+    case 0xc019:
+    case 0xc023:
+    case 0xc024:
+    case 0xc025:
+    case 0xc026:
+    case 0xc027:
+    case 0xc028:
+    case 0xc029:
+    case 0xc02a:
+    case 0xc02b:
+    case 0xc02c:
+    case 0xc02d:
+    case 0xc02e:
+    case 0xc02f:
+    case 0xc030:
+    case 0xc031:
+    case 0xc032:
+    case 0xc033:
+    case 0xc034:
+    case 0xc035:
+    case 0xc036:
+    case 0xc037:
+    case 0xc038:
+    case 0xc039:
+    case 0xc03a:
+    case 0xc03b:
+        return KEX_ECDH;
+    default:
+        break;
+    }
 
-	return 0;
+    return 0;
 }
 
 
@@ -1187,8 +1195,9 @@ static gint ver_major, ver_minor, ver_patch;
 static inline gint
 ssl_hmac_init(SSL_HMAC* md, const void * key, gint len, gint algo)
 {
-    gcry_error_t err;
-    const char *err_str, *err_src;
+    gcry_error_t  err;
+    const char   *err_str, *err_src;
+
     err = gcry_md_open(md,algo, GCRY_MD_FLAG_HMAC);
     if (err != 0) {
         err_str = gcry_strerror(err);
@@ -1207,12 +1216,13 @@ ssl_hmac_update(SSL_HMAC* md, const void* data, gint len)
 static inline void
 ssl_hmac_final(SSL_HMAC* md, guchar* data, guint* datalen)
 {
-    gint algo;
+    gint  algo;
     guint len;
+
     algo = gcry_md_get_algo (*(md));
-    len = gcry_md_get_algo_dlen(algo);
+    len  = gcry_md_get_algo_dlen(algo);
     memcpy(data, gcry_md_read(*(md), algo), len);
-    *datalen =len;
+    *datalen = len;
 }
 static inline void
 ssl_hmac_cleanup(SSL_HMAC* md)
@@ -1226,8 +1236,8 @@ ssl_hmac_cleanup(SSL_HMAC* md)
 static inline gint
 ssl_md_init(SSL_MD* md, gint algo)
 {
-    gcry_error_t err;
-    const char *err_str, *err_src;
+    gcry_error_t  err;
+    const char   *err_str, *err_src;
     err = gcry_md_open(md,algo, 0);
     if (err != 0) {
         err_str = gcry_strerror(err);
@@ -1276,7 +1286,7 @@ static inline void
 ssl_sha_final(guchar* buf, SSL_SHA_CTX* md)
 {
     memcpy(buf, gcry_md_read(*(md),  GCRY_MD_SHA1),
-        gcry_md_get_algo_dlen(GCRY_MD_SHA1));
+           gcry_md_get_algo_dlen(GCRY_MD_SHA1));
 }
 static inline void
 ssl_sha_cleanup(SSL_SHA_CTX* md)
@@ -1298,7 +1308,7 @@ static inline void
 ssl_md5_final(guchar* buf, SSL_MD5_CTX* md)
 {
     memcpy(buf, gcry_md_read(*(md),  GCRY_MD_MD5),
-        gcry_md_get_algo_dlen(GCRY_MD_MD5));
+           gcry_md_get_algo_dlen(GCRY_MD_MD5));
 }
 static inline void
 ssl_md5_cleanup(SSL_MD5_CTX* md)
@@ -1309,27 +1319,30 @@ ssl_md5_cleanup(SSL_MD5_CTX* md)
 gint
 ssl_cipher_setiv(SSL_CIPHER_CTX *cipher, guchar* iv, gint iv_len)
 {
-    /* guchar * ivp; */
     gint ret;
-    /* gint i; */
-    /* gcry_cipher_hd_t c; */
-    /*c=(gcry_cipher_hd_t)*cipher;*/
-
+#if 0
+    guchar *ivp;
+    gint i;
+    gcry_cipher_hd_t c;
+    c=(gcry_cipher_hd_t)*cipher;
+#endif
     ssl_debug_printf("--------------------------------------------------------------------");
-    /*for(ivp=c->iv,i=0; i < iv_len; i++ )
+#if 0
+    for(ivp=c->iv,i=0; i < iv_len; i++ )
         {
         ssl_debug_printf("%d ",ivp[i]);
         i++;
         }
-    */
+#endif
     ssl_debug_printf("--------------------------------------------------------------------");
     ret = gcry_cipher_setiv(*(cipher), iv, iv_len);
-    /*for(ivp=c->iv,i=0; i < iv_len; i++ )
+#if 0
+    for(ivp=c->iv,i=0; i < iv_len; i++ )
         {
         ssl_debug_printf("%d ",ivp[i]);
         i++;
         }
-    */
+#endif
     ssl_debug_printf("--------------------------------------------------------------------");
     return ret;
 }
@@ -1400,9 +1413,9 @@ _gcry_rsa_decrypt (int algo, gcry_mpi_t *result, gcry_mpi_t *data,
 const gchar*
 ssl_private_key_to_str(SSL_PRIVATE_KEY* pk)
 {
-    const gchar *str="NULL";
-    size_t n;
-    gchar *buf;
+    const gchar *str = "NULL";
+    size_t       n;
+    gchar       *buf;
 
     if (!pk) return str;
 #ifndef SSL_FAST
@@ -1422,16 +1435,16 @@ ssl_private_key_to_str(SSL_PRIVATE_KEY* pk)
 int
 ssl_private_decrypt(guint len, guchar* encr_data, SSL_PRIVATE_KEY* pk)
 {
-    gint rc;
-    size_t decr_len;
-    gcry_sexp_t  s_data, s_plain;
-    gcry_mpi_t encr_mpi;
-    size_t i, encr_len;
-    guchar* decr_data_ptr;
-    gcry_mpi_t text;
+    gint        rc;
+    size_t      decr_len;
+    gcry_sexp_t s_data, s_plain;
+    gcry_mpi_t  encr_mpi;
+    size_t      i, encr_len;
+    guchar*     decr_data_ptr;
+    gcry_mpi_t  text;
     decr_len = 0;
     encr_len = len;
-    text=NULL;
+    text     = NULL;
 
     /* build up a mpi rappresentation for encrypted data */
     rc = gcry_mpi_scan(&encr_mpi, GCRYMPI_FMT_USG,encr_data, encr_len, &encr_len);
@@ -1653,6 +1666,7 @@ static SslCipherSuite cipher_suites[]={
     {139,KEX_PSK,SIG_RSA,ENC_3DES,8,192,192,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
     {140,KEX_PSK,SIG_RSA,ENC_AES,16,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
     {141,KEX_PSK,SIG_RSA,ENC_AES256,16,256,256,DIG_SHA,20,0, SSL_CIPHER_MODE_CBC},
+    {49169,KEX_DH,SIG_RSA,ENC_RC4,1,128,128,DIG_SHA,20,0, SSL_CIPHER_MODE_STREAM},    /* TLS_ECDHE_RSA_WITH_RC4_128_SHA */
     {49187,KEX_DH,SIG_DSS,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   /* TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 */
     {49188,KEX_DH,SIG_DSS,ENC_AES256,16,256,256,DIG_SHA384,48,0, SSL_CIPHER_MODE_CBC},   /* TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 */
     {49189,KEX_DH,SIG_DSS,ENC_AES,16,128,128,DIG_SHA256,32,0, SSL_CIPHER_MODE_CBC},   /* TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256 */
@@ -1685,15 +1699,15 @@ ssl_find_cipher(int num,SslCipherSuite* cs)
 static gint
 tls_hash(StringInfo* secret, StringInfo* seed, gint md, StringInfo* out)
 {
-    guint8 *ptr;
-    guint left;
-    gint tocpy;
-    guint8 *A;
-    guint8 _A[48],tmp[48];
-    guint A_l,tmp_l;
-    SSL_HMAC hm;
-    ptr=out->data;
-    left=out->data_len;
+    guint8   *ptr;
+    guint     left;
+    gint      tocpy;
+    guint8   *A;
+    guint8    _A[48],tmp[48];
+    guint     A_l,tmp_l;
+    SSL_HMAC  hm;
+    ptr  = out->data;
+    left = out->data_len;
 
 
     ssl_print_string("tls_hash: hash secret", secret);
@@ -1728,12 +1742,12 @@ static gint
 tls_prf(StringInfo* secret, const gchar *usage,
         StringInfo* rnd1, StringInfo* rnd2, StringInfo* out)
 {
-    StringInfo seed, sha_out, md5_out;
-    guint8 *ptr;
-    StringInfo s1, s2;
-    guint i,s_l, r;
-    size_t usage_len;
-    r=-1;
+    StringInfo  seed, sha_out, md5_out;
+    guint8     *ptr;
+    StringInfo  s1, s2;
+    guint       i,s_l, r;
+    size_t      usage_len;
+    r         = -1;
     usage_len = strlen(usage);
 
     /* initalize buffer for sha, md5 random seed*/
@@ -1802,7 +1816,7 @@ static gint
 tls12_prf(gint md, StringInfo* secret, const gchar* usage, StringInfo* rnd1, StringInfo* rnd2, StringInfo* out)
 {
     StringInfo label_seed;
-    size_t usage_len;
+    size_t     usage_len;
 
     usage_len = strlen(usage);
     if (ssl_data_alloc(&label_seed, usage_len+rnd1->data_len+rnd2->data_len) < 0) {
@@ -1827,7 +1841,7 @@ ssl3_generate_export_iv(StringInfo* r1,
         StringInfo* r2, StringInfo* out)
 {
     SSL_MD5_CTX md5;
-    guint8 tmp[16];
+    guint8      tmp[16];
 
     ssl_md5_init(&md5);
     ssl_md5_update(&md5,r1->data,r1->data_len);
@@ -1846,12 +1860,12 @@ ssl3_prf(StringInfo* secret, const gchar* usage,
         StringInfo* r1,
         StringInfo* r2,StringInfo* out)
 {
-    SSL_MD5_CTX md5;
-    SSL_SHA_CTX sha;
-    StringInfo *rnd1,*rnd2;
-    guint off;
-    gint i=0,j;
-    guint8 buf[20];
+    SSL_MD5_CTX  md5;
+    SSL_SHA_CTX  sha;
+    StringInfo  *rnd1,*rnd2;
+    guint        off;
+    gint         i = 0,j;
+    guint8       buf[20];
 
     rnd1=r1; rnd2=r2;
 
@@ -1902,8 +1916,9 @@ static gint prf(SslDecryptSession* ssl,StringInfo* secret,gchar* usage,StringInf
     gint ret;
     if (ssl->version_netorder==SSLV3_VERSION){
         ret = ssl3_prf(secret,usage,rnd1,rnd2,out);
-    }else if (ssl->version_netorder==TLSV1_VERSION || ssl->version_netorder==TLSV1DOT1_VERSION || 
-            ssl->version_netorder==DTLSV1DOT0_VERSION || ssl->version_netorder==DTLSV1DOT0_VERSION_NOT){
+    }else if (ssl->version_netorder==TLSV1_VERSION || ssl->version_netorder==TLSV1DOT1_VERSION ||
+            ssl->version_netorder==DTLSV1DOT0_VERSION || ssl->version_netorder==DTLSV1DOT2_VERSION ||
+            ssl->version_netorder==DTLSV1DOT0_VERSION_NOT){
         ret = tls_prf(secret,usage,rnd1,rnd2,out);
     }else{
         if (ssl->cipher_suite.dig == DIG_SHA384){
@@ -1980,7 +1995,7 @@ ssl_create_decoder(SslCipherSuite *cipher_suite, gint compression,
         guint8 *mk, guint8 *sk, guint8 *iv)
 {
     SslDecoder *dec;
-    gint ciph;
+    gint        ciph;
 
     dec = se_alloc0(sizeof(SslDecoder));
     /* Find the SSLeay cipher */
@@ -2023,11 +2038,11 @@ ssl_create_decoder(SslCipherSuite *cipher_suite, gint compression,
 int
 ssl_generate_keyring_material(SslDecryptSession*ssl_session)
 {
-    StringInfo key_block;
-    guint8 _iv_c[MAX_BLOCK_SIZE],_iv_s[MAX_BLOCK_SIZE];
-    guint8 _key_c[MAX_KEY_SIZE],_key_s[MAX_KEY_SIZE];
-    gint needed;
-    guint8 *ptr,*c_wk,*s_wk,*c_mk,*s_mk,*c_iv = _iv_c,*s_iv = _iv_s;
+    StringInfo  key_block;
+    guint8      _iv_c[MAX_BLOCK_SIZE],_iv_s[MAX_BLOCK_SIZE];
+    guint8      _key_c[MAX_KEY_SIZE],_key_s[MAX_KEY_SIZE];
+    gint        needed;
+    guint8     *ptr,*c_wk,*s_wk,*c_mk,*s_mk,*c_iv = _iv_c,*s_iv = _iv_s;
 
     /* check for enough info to proced */
     guint need_all = SSL_CIPHER|SSL_CLIENT_RANDOM|SSL_SERVER_RANDOM|SSL_VERSION;
@@ -2318,17 +2333,17 @@ tls_check_mac(SslDecoder*decoder, gint ct, gint ver, guint8* data,
         guint32 datalen, guint8* mac)
 {
     SSL_HMAC hm;
-    gint md;
-    guint32 len;
-    guint8 buf[48];
-    gint16 temp;
+    gint     md;
+    guint32  len;
+    guint8   buf[48];
+    gint16   temp;
 
     md=ssl_get_digest_by_name(digests[decoder->cipher_suite->dig-0x40]);
     ssl_debug_printf("tls_check_mac mac type:%s md %d\n",
         digests[decoder->cipher_suite->dig-0x40], md);
 
     if (ssl_hmac_init(&hm,decoder->mac_key.data,decoder->mac_key.data_len,md) != 0)
-        return -1;;
+        return -1;
 
     /* hash sequence number */
     fmt_seq(decoder->seq,buf);
@@ -2367,12 +2382,12 @@ int
 ssl3_check_mac(SslDecoder*decoder,int ct,guint8* data,
         guint32 datalen, guint8* mac)
 {
-    SSL_MD mc;
-    gint md;
+    SSL_MD  mc;
+    gint    md;
     guint32 len;
-    guint8 buf[64],dgst[20];
-    gint pad_ct;
-    gint16 temp;
+    guint8  buf[64],dgst[20];
+    gint    pad_ct;
+    gint16  temp;
 
     pad_ct=(decoder->cipher_suite->dig==DIG_SHA)?40:48;
 
@@ -2432,10 +2447,10 @@ dtls_check_mac(SslDecoder*decoder, gint ct,int ver, guint8* data,
         guint32 datalen, guint8* mac)
 {
     SSL_HMAC hm;
-    gint md;
-    guint32 len;
-    guint8 buf[20];
-    gint16 temp;
+    gint     md;
+    guint32  len;
+    guint8   buf[20];
+    gint16   temp;
 
     md=ssl_get_digest_by_name(digests[decoder->cipher_suite->dig-0x40]);
     ssl_debug_printf("dtls_check_mac mac type:%s md %d\n",
@@ -2517,7 +2532,7 @@ int
 ssl_decrypt_record(SslDecryptSession*ssl,SslDecoder* decoder, gint ct,
         const guchar* in, guint inl, StringInfo* comp_str, StringInfo* out_str, guint* outl)
 {
-    guint pad, worklen, uncomplen;
+    guint   pad, worklen, uncomplen;
     guint8 *mac;
 
     ssl_debug_printf("ssl_decrypt_record ciphertext len %d\n", inl);
@@ -2565,6 +2580,7 @@ ssl_decrypt_record(SslDecryptSession*ssl,SslDecoder* decoder, gint ct,
         memcpy(out_str->data,out_str->data+(decoder->cipher_suite->block!=1 ? decoder->cipher_suite->block : 0),worklen);
     }
     if(ssl->version_netorder==DTLSV1DOT0_VERSION ||
+      ssl->version_netorder==DTLSV1DOT2_VERSION ||
       ssl->version_netorder==DTLSV1DOT0_VERSION_NOT){
         worklen=worklen-decoder->cipher_suite->block;
         memcpy(out_str->data,out_str->data+decoder->cipher_suite->block,worklen);
@@ -2574,13 +2590,13 @@ ssl_decrypt_record(SslDecryptSession*ssl,SslDecoder* decoder, gint ct,
         worklen, ssl->version_netorder, ct, decoder->seq);
     if(ssl->version_netorder==SSLV3_VERSION){
         if(ssl3_check_mac(decoder,ct,out_str->data,worklen,mac) < 0) {
-			if(ssl_ignore_mac_failed) {
-			ssl_debug_printf("ssl_decrypt_record: mac failed, but ignored for troubleshooting ;-)\n");
+            if(ssl_ignore_mac_failed) {
+                ssl_debug_printf("ssl_decrypt_record: mac failed, but ignored for troubleshooting ;-)\n");
             }
-			else{
-				ssl_debug_printf("ssl_decrypt_record: mac failed\n");
-				return -1;
-			}
+            else{
+                ssl_debug_printf("ssl_decrypt_record: mac failed\n");
+                return -1;
+            }
         }
         else{
             ssl_debug_printf("ssl_decrypt_record: mac ok\n");
@@ -2588,19 +2604,20 @@ ssl_decrypt_record(SslDecryptSession*ssl,SslDecoder* decoder, gint ct,
     }
     else if(ssl->version_netorder==TLSV1_VERSION || ssl->version_netorder==TLSV1DOT1_VERSION || ssl->version_netorder==TLSV1DOT2_VERSION){
         if(tls_check_mac(decoder,ct,ssl->version_netorder,out_str->data,worklen,mac)< 0) {
-			if(ssl_ignore_mac_failed) {
-			ssl_debug_printf("ssl_decrypt_record: mac failed, but ignored for troubleshooting ;-)\n");
+            if(ssl_ignore_mac_failed) {
+                ssl_debug_printf("ssl_decrypt_record: mac failed, but ignored for troubleshooting ;-)\n");
             }
-			else{
-				ssl_debug_printf("ssl_decrypt_record: mac failed\n");
-				return -1;
-			}
+            else{
+                ssl_debug_printf("ssl_decrypt_record: mac failed\n");
+                return -1;
+            }
         }
         else{
             ssl_debug_printf("ssl_decrypt_record: mac ok\n");
         }
     }
     else if(ssl->version_netorder==DTLSV1DOT0_VERSION ||
+        ssl->version_netorder==DTLSV1DOT2_VERSION ||
         ssl->version_netorder==DTLSV1DOT0_VERSION_NOT){
         /* Try rfc-compliant mac first, and if failed, try old openssl's non-rfc-compliant mac */
         if(dtls_check_mac(decoder,ct,ssl->version_netorder,out_str->data,worklen,mac)>= 0) {
@@ -2618,19 +2635,19 @@ ssl_decrypt_record(SslDecryptSession*ssl,SslDecoder* decoder, gint ct,
         }
     }
 
-	*outl = worklen;
+    *outl = worklen;
 
     if (decoder->compression > 0) {
-      ssl_debug_printf("ssl_decrypt_record: compression method %d\n", decoder->compression);
-      ssl_data_copy(comp_str, out_str);
-      ssl_print_data("Plaintext compressed", comp_str->data, worklen);
-      if (!decoder->decomp) {
-        ssl_debug_printf("decrypt_ssl3_record: no decoder available\n");
-        return -1;
-      }
-      if (ssl_decompress_record(decoder->decomp, comp_str->data, worklen, out_str, &uncomplen) < 0) return -1;
-      ssl_print_data("Plaintext uncompressed", out_str->data, uncomplen);
-      *outl = uncomplen;
+        ssl_debug_printf("ssl_decrypt_record: compression method %d\n", decoder->compression);
+        ssl_data_copy(comp_str, out_str);
+        ssl_print_data("Plaintext compressed", comp_str->data, worklen);
+        if (!decoder->decomp) {
+            ssl_debug_printf("decrypt_ssl3_record: no decoder available\n");
+            return -1;
+        }
+        if (ssl_decompress_record(decoder->decomp, comp_str->data, worklen, out_str, &uncomplen) < 0) return -1;
+        ssl_print_data("Plaintext uncompressed", out_str->data, uncomplen);
+        *outl = uncomplen;
     }
 
     return 0;
@@ -2649,13 +2666,13 @@ SSL_PRIVATE_KEY*
 ssl_privkey_to_sexp(struct gnutls_x509_privkey_int* priv_key)
 {
     gnutls_datum_t rsa_datum[RSA_PARS]; /* m, e, d, p, q, u */
-    size_t tmp_size;
-    gcry_sexp_t rsa_priv_key = NULL;
-    gint major, minor, patch;
-    gint i, p_idx, q_idx;
-    int ret;
-    size_t buf_len;
-    unsigned char buf_keyid[32];
+    size_t         tmp_size;
+    gcry_sexp_t    rsa_priv_key = NULL;
+    gint           major, minor, patch;
+    gint           i, p_idx, q_idx;
+    int            ret;
+    size_t         buf_len;
+    unsigned char  buf_keyid[32];
 
 #ifdef SSL_FAST
     gcry_mpi_t* rsa_params = g_malloc(sizeof(gcry_mpi_t)*RSA_PARS);
@@ -2711,7 +2728,7 @@ ssl_privkey_to_sexp(struct gnutls_x509_privkey_int* priv_key)
     ssl_get_version(&major, &minor, &patch);
 
     /* certain versions of gnutls require swap of rsa params 'p' and 'q' */
-    if ((major <= 1) && (minor <= 0) && (patch <=13))
+    if ((major <= 1) && (minor <= 0) && (patch <= 13))
     {
         gcry_mpi_t tmp;
         ssl_debug_printf("ssl_load_key: swapping p and q parameters\n");
@@ -2744,14 +2761,14 @@ ssl_privkey_to_sexp(struct gnutls_x509_privkey_int* priv_key)
 Ssl_private_key_t *
 ssl_load_key(FILE* fp)
 {
-    /* gnutls make our work much harded, since we have to work internally with
-     * s-exp formatted data, but PEM loader export only in "gnutls_datum"
+    /* gnutls makes our work much harder, since we have to work internally with
+     * s-exp formatted data, but PEM loader exports only in "gnutls_datum"
      * format, and a datum -> s-exp convertion function does not exist.
      */
     gnutls_x509_privkey_t priv_key;
-    gnutls_datum key;
-    gint size;
-    guint bytes;
+    gnutls_datum          key;
+    gint                  size;
+    guint                 bytes;
 
     Ssl_private_key_t *private_key = g_malloc0(sizeof(Ssl_private_key_t));
 
@@ -2828,16 +2845,16 @@ BAGTYPE(gnutls_pkcs12_bag_type_t x) {
 Ssl_private_key_t *
 ssl_load_pkcs12(FILE* fp, const gchar *cert_passwd) {
 
-    int i, j, ret;
-    int rest;
-    unsigned char *p;
-    gnutls_datum_t data;
-    gnutls_pkcs12_bag_t bag = NULL;
-    gnutls_pkcs12_bag_type_t bag_type;
-    size_t len, buf_len;
-    static char buf_name[256];
-    static char buf_email[128];
-    unsigned char buf_keyid[32];
+    int                       i, j, ret;
+    int                       rest;
+    unsigned char            *p;
+    gnutls_datum_t            data;
+    gnutls_pkcs12_bag_t       bag = NULL;
+    gnutls_pkcs12_bag_type_t  bag_type;
+    size_t                    len, buf_len;
+    static char               buf_name[256];
+    static char               buf_email[128];
+    unsigned char             buf_keyid[32];
 
     gnutls_pkcs12_t       ssl_p12  = NULL;
     gnutls_x509_crt_t     ssl_cert = NULL;
@@ -3005,9 +3022,13 @@ void ssl_free_key(Ssl_private_key_t* key)
 gint
 ssl_find_private_key(SslDecryptSession *ssl_session, GHashTable *key_hash, GTree* associations, packet_info *pinfo) {
     SslService dummy;
-    char ip_addr_any[] = {0,0,0,0};
-    guint32 port = 0;
+    char       ip_addr_any[] = {0,0,0,0};
+    guint32    port    = 0;
     Ssl_private_key_t * private_key;
+
+    if (!ssl_session) {
+	return 0;
+    }
 
     /* we need to know which side of the conversation is speaking */
     if (ssl_packet_from_server(ssl_session, associations, pinfo)) {
@@ -3238,12 +3259,13 @@ guint
 ssl_private_key_hash  (gconstpointer v)
 {
     const SslService *key;
-    guint l, hash, len ;
+    guint        l, hash, len ;
     const guint* cur;
-    key = (const SslService *)v;
+
+    key  = (const SslService *)v;
     hash = key->port;
-    len = key->addr.len;
-    cur = (const guint*) key->addr.data;
+    len  = key->addr.len;
+    cur  = (const guint*) key->addr.data;
 
     for (l=4; (l<len); l+=4, cur++)
         hash = hash ^ (*cur);
@@ -3326,7 +3348,7 @@ SslAssociation*
 ssl_association_find(GTree * associations, guint port, gboolean tcp)
 {
     register SslAssociation* ret;
-    SslAssociation assoc_tmp;
+    SslAssociation           assoc_tmp;
 
     assoc_tmp.tcp = tcp;
     assoc_tmp.ssl_port = port;
@@ -3362,7 +3384,7 @@ ssl_packet_from_server(SslDecryptSession* ssl, GTree* associations, packet_info 
 void
 ssl_add_record_info(gint proto, packet_info *pinfo, guchar* data, gint data_len, gint record_id)
 {
-    guchar* real_data;
+    guchar*        real_data;
     SslRecordInfo* rec;
     SslPacketInfo* pi;
 
@@ -3408,7 +3430,7 @@ ssl_get_record_info(tvbuff_t *parent_tvb, int proto, packet_info *pinfo, gint re
 void
 ssl_add_data_info(gint proto, packet_info *pinfo, guchar* data, gint data_len, gint key, SslFlow *flow)
 {
-    SslDataInfo *rec, **prec;
+    SslDataInfo   *rec, **prec;
     SslPacketInfo *pi;
 
     pi = p_get_proto_data(pinfo->fd, proto);
@@ -3444,7 +3466,7 @@ ssl_add_data_info(gint proto, packet_info *pinfo, guchar* data, gint data_len, g
 SslDataInfo*
 ssl_get_data_info(int proto, packet_info *pinfo, gint key)
 {
-    SslDataInfo* rec;
+    SslDataInfo*   rec;
     SslPacketInfo* pi;
     pi = p_get_proto_data(pinfo->fd, proto);
 
@@ -3478,11 +3500,11 @@ ssl_common_init(GHashTable **session_hash, StringInfo *decrypted_data, StringInf
 void
 ssl_parse_key_list(const ssldecrypt_assoc_t * uats, GHashTable *key_hash, GTree* associations, dissector_handle_t handle, gboolean tcp)
 {
-    SslService* service;
-    Ssl_private_key_t * private_key, *tmp_private_key;
-    FILE* fp = NULL;
-    guint32 addr_data[4];
-    int addr_len, at;
+    SslService*        service;
+    Ssl_private_key_t* private_key, *tmp_private_key;
+    FILE*              fp     = NULL;
+    guint32            addr_data[4];
+    int                addr_len, at;
     address_type addr_type[2] = { AT_IPv4, AT_IPv6 };
 
     /* try to load keys file first */
@@ -3603,7 +3625,7 @@ ssl_restore_session(SslDecryptSession* ssl, GHashTable *session_hash)
 int
 ssl_is_valid_content_type(guint8 type)
 {
-    if (type >= 0x14 && type <= 0x18)
+    if ((type >= 0x14) && (type <= 0x18))
     {
         return 1;
     }
@@ -3613,22 +3635,192 @@ ssl_is_valid_content_type(guint8 type)
 
 static guint8
 from_hex_char(gchar c) {
-    if (c >= '0' && c <= '9')
+    if ((c >= '0') && (c <= '9'))
         return c - '0';
-    if (c >= 'A' && c <= 'F')
+    if ((c >= 'A') && (c <= 'F'))
         return c - 'A' + 10;
-    if (c >= 'a' && c <= 'f')
+    if ((c >= 'a') && (c <= 'f'))
         return c - 'a' + 10;
     return 16;
+}
+
+/* from_hex converts |hex_len| bytes of hex data from |in| and sets |*out| to
+ * the result. |out->data| will be allocated using se_alloc. Returns TRUE on
+ * success. */
+static gboolean from_hex(StringInfo* out, const char* in, gsize hex_len) {
+    gsize i;
+
+    if (hex_len & 1)
+        return FALSE;
+
+    out->data_len = (guint)hex_len/2;
+    out->data = se_alloc(out->data_len);
+    for (i = 0; i < out->data_len; i++) {
+        guint8 a = from_hex_char(in[i*2]);
+        guint8 b = from_hex_char(in[i*2 + 1]);
+        if (a == 16 || b == 16)
+            return FALSE;
+        out->data[i] = a << 4 | b;
+    }
+    return TRUE;
+}
+
+static const unsigned int kRSAMasterSecretLength = 48; /* RFC5246 8.1 */
+
+/* ssl_keylog_parse_session_id parses, from |line|, a string that looks like:
+ *   RSA Session-ID:<hex session id> Master-Key:<hex TLS master secret>.
+ *
+ * It returns TRUE iff the session id matches |ssl_session| and the master
+ * secret is correctly extracted. */
+static gboolean
+ssl_keylog_parse_session_id(const char* line,
+                            SslDecryptSession* ssl_session)
+{
+    gsize len = strlen(line);
+    unsigned int i;
+
+    if (ssl_session->session_id.data_len == 0)
+        return FALSE;
+
+    if (len < 15 || memcmp(line, "RSA Session-ID:", 15) != 0)
+        return FALSE;
+    line += 15;
+    len -= 15;
+
+    if (len < ssl_session->session_id.data_len*2)
+        return FALSE;
+
+    for (i = 0; i < ssl_session->session_id.data_len; i++) {
+        if (from_hex_char(line[2*i]) != (ssl_session->session_id.data[i] >> 4) ||
+            from_hex_char(line[2*i+1]) != (ssl_session->session_id.data[i] & 15)) {
+            ssl_debug_printf("    line does not match session id\n");
+            return FALSE;
+        }
+    }
+
+    line += 2*i;
+    len -= 2*i;
+
+    if (len != 12 + kRSAMasterSecretLength*2 ||
+        memcmp(line, " Master-Key:", 12) != 0) {
+        return FALSE;
+    }
+    line += 12;
+    len -= 12;
+
+    if (!from_hex(&ssl_session->master_secret, line, len))
+        return FALSE;
+    ssl_session->state &= ~(SSL_PRE_MASTER_SECRET|SSL_HAVE_SESSION_KEY);
+    ssl_session->state |= SSL_MASTER_SECRET;
+    ssl_debug_printf("found master secret in key log\n");
+    return TRUE;
+}
+
+/* ssl_keylog_parse_client_random parses, from |line|, a string that looks like:
+ *   CLIENT_RANDOM <hex client_random> <hex TLS master secret>.
+ *
+ * It returns TRUE iff the client_random matches |ssl_session| and the master
+ * secret is correctly extracted. */
+static gboolean
+ssl_keylog_parse_client_random(const char* line,
+                               SslDecryptSession* ssl_session)
+{
+    static const unsigned int kTLSRandomSize = 32; /* RFC5246 A.6 */
+    gsize len = strlen(line);
+    unsigned int i;
+
+    if (len < 14 || memcmp(line, "CLIENT_RANDOM ", 14) != 0)
+        return FALSE;
+    line += 14;
+    len -= 14;
+
+    if (len < kTLSRandomSize*2 ||
+        ssl_session->client_random.data_len != kTLSRandomSize) {
+        return FALSE;
+    }
+
+    for (i = 0; i < kTLSRandomSize; i++) {
+        if (from_hex_char(line[2*i]) != (ssl_session->client_random.data[i] >> 4) ||
+            from_hex_char(line[2*i+1]) != (ssl_session->client_random.data[i] & 15)) {
+            ssl_debug_printf("    line does not match client random\n");
+            return FALSE;
+        }
+    }
+
+    line += 2*kTLSRandomSize;
+    len -= 2*kTLSRandomSize;
+
+    if (len != 1 + kRSAMasterSecretLength*2 || line[0] != ' ')
+        return FALSE;
+    line++;
+    len--;
+
+    if (!from_hex(&ssl_session->master_secret, line, len))
+        return FALSE;
+    ssl_session->state &= ~(SSL_PRE_MASTER_SECRET|SSL_HAVE_SESSION_KEY);
+    ssl_session->state |= SSL_MASTER_SECRET;
+    ssl_debug_printf("found master secret in key log\n");
+    return TRUE;
+}
+
+/* ssl_keylog_parse_session_id parses, from |line|, a string that looks like:
+ *   RSA <hex, 8-bytes of encrypted pre-master secret> <hex pre-master secret>.
+ *
+ * It returns TRUE iff the session id matches |ssl_session| and the master
+ * secret is correctly extracted. */
+static gboolean
+ssl_keylog_parse_rsa_premaster(const char* line,
+                               SslDecryptSession* ssl_session,
+                               StringInfo* encrypted_pre_master)
+{
+    static const unsigned int kRSAPremasterLength = 48; /* RFC5246 7.4.7.1 */
+    gsize len = strlen(line);
+    unsigned int i;
+
+    if (encrypted_pre_master == NULL)
+        return FALSE;
+
+    if (encrypted_pre_master->data_len < 8)
+        return FALSE;
+
+    if (len < 4 || memcmp(line, "RSA ", 4) != 0)
+        return FALSE;
+    line += 4;
+    len -= 4;
+
+    if (len < 16)
+        return FALSE;
+
+    for (i = 0; i < 8; i++) {
+        if (from_hex_char(line[2*i]) != (encrypted_pre_master->data[i] >> 4) ||
+            from_hex_char(line[2*i+1]) != (encrypted_pre_master->data[i] & 15)) {
+            ssl_debug_printf("    line does not match encrypted pre-master secret");
+            return FALSE;
+        }
+    }
+
+    line += 16;
+    len -= 16;
+
+    if (len != 1 + kRSAPremasterLength*2 || line[0] != ' ')
+        return FALSE;
+    line++;
+    len--;
+
+    if (!from_hex(&ssl_session->pre_master_secret, line, len))
+        return FALSE;
+    ssl_session->state &= ~(SSL_MASTER_SECRET|SSL_HAVE_SESSION_KEY);
+    ssl_session->state |= SSL_PRE_MASTER_SECRET;
+    ssl_debug_printf("found pre-master secret in key log\n");
+
+    return TRUE;
 }
 
 int
 ssl_keylog_lookup(SslDecryptSession* ssl_session,
                   const gchar* ssl_keylog_filename,
                   StringInfo* encrypted_pre_master) {
-    static const unsigned int kRSAPremasterLength = 48; /* RFC5246 7.4.7.1 */
     FILE* ssl_keylog;
-    gsize bytes_read;
     int ret = -1;
 
     ssl_debug_printf("trying to use SSL keylog in %s\n", ssl_keylog_filename);
@@ -3645,19 +3837,26 @@ ssl_keylog_lookup(SslDecryptSession* ssl_session,
      *     Where yyyy is the cleartext pre-master secret (hex-encoded)
      *     (this is the original format introduced with bug 4349)
      *
-     *   - "RSA Sesion-ID:xxxx Master-Key:yyyy"
+     *   - "RSA Session-ID:xxxx Master-Key:yyyy"
      *     Where xxxx is the SSL session ID (hex-encoded)
      *     Where yyyy is the cleartext master secret (hex-encoded)
      *     (added to support openssl s_client Master-Key output)
+     *     This is somewhat is a misnomer because there's nothing RSA specific
+     *     about this.
+     *
+     *   - "CLIENT_RANDOM xxxx yyyy"
+     *     Where xxxx is the client_random from the ClientHello (hex-encoded)
+     *     Where yyy is the cleartext master secret (hex-encoded)
+     *     (This format allows non-RSA SSL connections to be decrypted, i.e.
+     *     ECDHE-RSA.)
      */
     for (;;) {
         char buf[512], *line;
-        unsigned int i;
-        unsigned int offset;
+        gsize bytes_read;
 
         line = fgets(buf, sizeof(buf), ssl_keylog);
         if (!line)
-                break;
+            break;
 
         bytes_read = strlen(line);
         /* fgets includes the \n at the end of the line. */
@@ -3668,104 +3867,14 @@ ssl_keylog_lookup(SslDecryptSession* ssl_session,
 
         ssl_debug_printf("  checking keylog line: %s\n", line);
 
-        if ( memcmp(line, "RSA ", 4) != 0) {
-            ssl_debug_printf("    rejecting line due to bad format\n");
-            continue;
-        }
-
-        offset = 4;
-
-        if ( ssl_session->session_id.data_len>0 && memcmp(line+offset,"Session-ID:",11) == 0 ) {
-            offset += 11;
-            for (i = 0; i < ssl_session->session_id.data_len; i++) {
-                if (from_hex_char(line[offset + i*2]) != (ssl_session->session_id.data[i] >> 4) ||
-                    from_hex_char(line[offset + i*2 + 1]) != (ssl_session->session_id.data[i] & 15)) {
-                    line = NULL;
-                    break;
-                }
-            }
-
-            if (line == NULL) {
-                ssl_debug_printf("    line does not match SSL-ID\n");
-                continue;
-            }
-
-            offset += 2*ssl_session->session_id.data_len;
-            offset++;
-
-        } else if( line[offset+16] == ' ' ) {
-            for (i = 0; i < 8; i++) {
-                if (from_hex_char(line[offset + i*2]) != (encrypted_pre_master->data[i] >> 4) ||
-                    from_hex_char(line[offset + i*2 + 1]) != (encrypted_pre_master->data[i] & 15)) {
-                    line = NULL;
-                    break;
-                }
-            }
-
-            if (line == NULL) {
-                ssl_debug_printf("    line does not match encrypted pre-master secret\n");
-                continue;
-            }
-
-            offset += 17;
-
-        } else {
-            ssl_debug_printf("    rejecting line due to bad format\n");
-            continue;
-        }
-
-
-        /* This record seems to match. */
-        if (memcmp(line+offset, "Master-Key:", 11) == 0) {
-            /* Key is a MasterSecret */
-            offset += 11;
-            ssl_session->master_secret.data = se_alloc(kRSAPremasterLength);
-            for (i = 0; i < kRSAPremasterLength; i++) {
-                guint8 a = from_hex_char(line[offset + i*2]);
-                guint8 b = from_hex_char(line[offset + i*2 + 1]);
-                if (a == 16 || b == 16) {
-                    line = NULL;
-                    break;
-                }
-                ssl_session->master_secret.data[i] = a << 4 | b;
-            }
-
-            if (line == NULL) {
-                ssl_debug_printf("    line contains non-hex chars in master secret\n");
-                continue;
-            }
-
-            ssl_session->master_secret.data_len = kRSAPremasterLength;
-            ssl_session->state &= ~(SSL_PRE_MASTER_SECRET|SSL_HAVE_SESSION_KEY);
-            ssl_session->state |= SSL_MASTER_SECRET;
-            ssl_debug_printf("found master secret in key log\n");
-            ret = 0;
+        if (ssl_keylog_parse_session_id(line, ssl_session) ||
+            ssl_keylog_parse_rsa_premaster(line, ssl_session,
+                                           encrypted_pre_master) ||
+            ssl_keylog_parse_client_random(line, ssl_session)) {
+            ret = 1;
             break;
-
         } else {
-            /* Key is a PreMasterSecret */
-            ssl_session->pre_master_secret.data = se_alloc(kRSAPremasterLength);
-            for (i = 0; i < kRSAPremasterLength; i++) {
-                guint8 a = from_hex_char(line[offset + i*2]);
-                guint8 b = from_hex_char(line[offset + i*2 + 1]);
-                if (a == 16 || b == 16) {
-                    line = NULL;
-                    break;
-                }
-                ssl_session->pre_master_secret.data[i] = a << 4 | b;
-            }
-
-            if (line == NULL) {
-                ssl_debug_printf("    line contains non-hex chars in pre-master secret\n");
-                continue;
-            }
-
-            ssl_session->pre_master_secret.data_len = kRSAPremasterLength;
-            ssl_session->state &= ~(SSL_MASTER_SECRET|SSL_HAVE_SESSION_KEY);
-            ssl_session->state |= SSL_PRE_MASTER_SECRET;
-            ssl_debug_printf("found pre-master secret in key log\n");
-            ret = 0;
-            break;
+            ssl_debug_printf("    line does not match\n");
         }
     }
 
@@ -3778,12 +3887,13 @@ ssl_keylog_lookup(SslDecryptSession* ssl_session,
 static FILE* ssl_debug_file=NULL;
 
 void
-ssl_set_debug(char* name)
+ssl_set_debug(const gchar* name)
 {
     static gint debug_file_must_be_closed;
-    gint use_stderr;
+    gint        use_stderr;
+
     debug_file_must_be_closed = 0;
-    use_stderr = name?(strcmp(name, SSL_DEBUG_USE_STDERR) == 0):0;
+    use_stderr                = name?(strcmp(name, SSL_DEBUG_USE_STDERR) == 0):0;
 
     if (debug_file_must_be_closed)
         fclose(ssl_debug_file);
@@ -3838,7 +3948,7 @@ ssl_print_data(const gchar* name, const guchar* data, size_t len)
         return;
     fprintf(ssl_debug_file,"%s[%d]:\n",name, (int) len);
     for (i=0; i< len; i++) {
-        if ((i>0) && (i%16 == 0))
+        if ((i > 0) && (i%16 == 0))
             fprintf(ssl_debug_file,"\n");
         fprintf(ssl_debug_file,"%.2x ",data[i]&255);
     }
@@ -3923,12 +4033,12 @@ ssldecrypt_uat_fld_fileopen_chk_cb(void* r _U_, const char* p, unsigned len _U_,
 }
 
 gboolean
-ssldecrypt_uat_fld_password_chk_cb(void* r _U_, const char* p, unsigned len _U_, const void* u1 _U_, const void* u2 _U_, const char** err)
+ssldecrypt_uat_fld_password_chk_cb(void* r _U_, const char* p, unsigned len _U_, const void* u1 _U_, const void* u2 _U_, const char ** err)
 {
-    ssldecrypt_assoc_t* f = r;
-    FILE *fp = NULL;
+    ssldecrypt_assoc_t*  f  = r;
+    FILE                *fp = NULL;
 
-    if (p && strlen(p) > 0u) {
+    if (p && (strlen(p) > 0u)) {
         fp = ws_fopen(f->keyfile, "rb");
         if (fp) {
             if (!ssl_load_pkcs12(fp, p)) {

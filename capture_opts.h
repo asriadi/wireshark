@@ -240,9 +240,6 @@ capture_opts_init(capture_options *capture_opts, void *cf);
 extern int
 capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg, gboolean *start_capture);
 
-extern int
-capture_opts_add_iface_opt(capture_options *capture_opts, const char *optarg_str_p);
-
 /* log content of capture_opts */
 extern void
 capture_opts_log(const char *log_domain, GLogLevelFlags log_level, capture_options *capture_opts);
@@ -282,9 +279,6 @@ typedef struct {
  */
 cap_settings_t
 capture_get_cap_settings (gchar *if_name);
-
-extern void 
-scan_local_interfaces(capture_options* capture_opts, int *error);
 
 #ifdef __cplusplus
 }

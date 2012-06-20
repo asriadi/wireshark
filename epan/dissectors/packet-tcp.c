@@ -94,6 +94,7 @@ static int hf_tcp_checksum_bad = -1;
 static int hf_tcp_checksum_good = -1;
 static int hf_tcp_len = -1;
 static int hf_tcp_urgent_pointer = -1;
+static int hf_tcp_analysis = -1;
 static int hf_tcp_analysis_flags = -1;
 static int hf_tcp_analysis_bytes_in_flight = -1;
 static int hf_tcp_analysis_acks_frame = -1;
@@ -272,6 +273,15 @@ static gint ett_tcp_opt_rvbd_probe = -1;
 static gint ett_tcp_opt_rvbd_probe_flags = -1;
 static gint ett_tcp_opt_rvbd_trpy = -1;
 static gint ett_tcp_opt_rvbd_trpy_flags = -1;
+
+/* Some protocols such as encrypted DCE/RPCoverHTTP have dependencies
+ * from one PDU to the next PDU and require that they are called in sequence.
+ * These protocols would not be able to handle PDUs coming out of order
+ * or for example when a PDU is seen twice, like for retransmissions.
+ * This preference can be set for such protocols to make sure that we dont invoke
+ * the subdissectors for retransmitted or out-of-order segments.
+ */
+static gboolean tcp_no_subdissector_on_error = FALSE;
 
 /*
  *  TCP option
@@ -462,6 +472,7 @@ init_tcp_conversation_data(packet_info *pinfo)
     tcpd->flow1.valid_bif = 1;
     tcpd->flow2.valid_bif = 1;
     tcpd->stream = tcp_stream_index++;
+    tcpd->server_port = 0;
 
     return tcpd;
 }
@@ -753,15 +764,18 @@ pdu_store_window_scale_option(guint8 ws, struct tcp_analysis *tcpd)
 /* when this function returns, it will (if createflag) populate the ta pointer.
  */
 static void
-tcp_analyze_get_acked_struct(guint32 frame, gboolean createflag, struct tcp_analysis *tcpd)
+tcp_analyze_get_acked_struct(guint32 frame, guint32 seq, guint32 ack, gboolean createflag, struct tcp_analysis *tcpd)
 {
-    if (!tcpd)
-        return;
+    emem_tree_key_t key[] = {{1, &frame}, {1, &seq}, {1, &ack}, {0, NULL}};
 
-    tcpd->ta=se_tree_lookup32(tcpd->acked_table, frame);
+    if (!tcpd) {
+        return;
+    }
+
+    tcpd->ta = se_tree_lookup32_array(tcpd->acked_table, key);
     if((!tcpd->ta) && createflag){
-        tcpd->ta=se_alloc0(sizeof(struct tcp_acked));
-        se_tree_insert32(tcpd->acked_table, frame, (void *)tcpd->ta);
+        tcpd->ta = se_alloc0(sizeof(struct tcp_acked));
+        se_tree_insert32_array(tcpd->acked_table, key, (void *)tcpd->ta);
     }
 }
 
@@ -829,7 +843,7 @@ printf("REV list lastflags:0x%04x base_seq:0x%08x:\n",tcpd->rev->lastsegmentflag
     &&  seq==tcpd->fwd->nextseq
     &&  tcpd->rev->window==0 ){
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_ZERO_WINDOW_PROBE;
         goto finished_fwd;
@@ -843,7 +857,7 @@ printf("REV list lastflags:0x%04x base_seq:0x%08x:\n",tcpd->rev->lastsegmentflag
     if( window==0
     && (flags&(TH_RST|TH_FIN|TH_SYN))==0 ){
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_ZERO_WINDOW;
     }
@@ -861,7 +875,7 @@ printf("REV list lastflags:0x%04x base_seq:0x%08x:\n",tcpd->rev->lastsegmentflag
     &&  GT_SEQ(seq, tcpd->fwd->nextseq)
     &&  (flags&(TH_RST))==0 ){
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_LOST_PACKET;
 
@@ -880,7 +894,7 @@ printf("REV list lastflags:0x%04x base_seq:0x%08x:\n",tcpd->rev->lastsegmentflag
     &&  seq==(tcpd->fwd->nextseq-1)
     &&  (flags&(TH_SYN|TH_FIN|TH_RST))==0 ){
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_KEEP_ALIVE;
     }
@@ -896,7 +910,7 @@ printf("REV list lastflags:0x%04x base_seq:0x%08x:\n",tcpd->rev->lastsegmentflag
     &&  ack==tcpd->fwd->lastack
     &&  (flags&(TH_SYN|TH_FIN|TH_RST))==0 ){
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_WINDOW_UPDATE;
     }
@@ -915,7 +929,7 @@ printf("REV list lastflags:0x%04x base_seq:0x%08x:\n",tcpd->rev->lastsegmentflag
     &&  (seq+seglen)==(tcpd->rev->lastack+(tcpd->rev->window<<(tcpd->rev->win_scale==-2?0:tcpd->rev->win_scale)))
     &&  (flags&(TH_SYN|TH_FIN|TH_RST))==0 ){
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_WINDOW_FULL;
     }
@@ -934,7 +948,7 @@ printf("REV list lastflags:0x%04x base_seq:0x%08x:\n",tcpd->rev->lastsegmentflag
     && (tcpd->rev->lastsegmentflags&TCP_A_KEEP_ALIVE)
     &&  (flags&(TH_SYN|TH_FIN|TH_RST))==0 ){
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_KEEP_ALIVE_ACK;
         goto finished_fwd;
@@ -955,7 +969,7 @@ printf("REV list lastflags:0x%04x base_seq:0x%08x:\n",tcpd->rev->lastsegmentflag
     && (tcpd->rev->lastsegmentflags&TCP_A_ZERO_WINDOW_PROBE)
     &&  (flags&(TH_SYN|TH_FIN|TH_RST))==0 ){
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_ZERO_WINDOW_PROBE_ACK;
         goto finished_fwd;
@@ -974,7 +988,7 @@ printf("REV list lastflags:0x%04x base_seq:0x%08x:\n",tcpd->rev->lastsegmentflag
     &&  (flags&(TH_SYN|TH_FIN|TH_RST))==0 ){
         tcpd->fwd->dupacknum++;
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_DUPLICATE_ACK;
         tcpd->ta->dupack_num=tcpd->fwd->dupacknum;
@@ -1004,7 +1018,7 @@ finished_fwd:
     &&  (flags&(TH_ACK))!=0 ){
 /*QQQ tested*/
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_ACK_LOST_PACKET;
         /* update 'max seq to be acked' in the other direction so we don't get
@@ -1044,7 +1058,7 @@ finished_fwd:
         &&  tcpd->rev->lastack==seq
         &&  t<20000000 ){
             if(!tcpd->ta){
-                tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+                tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
             }
             tcpd->ta->flags|=TCP_A_FAST_RETRANSMISSION;
             goto finished_checking_retransmission_type;
@@ -1060,7 +1074,7 @@ finished_fwd:
         if( t<3000000
         && tcpd->fwd->nextseq != seq + seglen ){
             if(!tcpd->ta){
-                tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+                tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
             }
             tcpd->ta->flags|=TCP_A_OUT_OF_ORDER;
             goto finished_checking_retransmission_type;
@@ -1068,7 +1082,7 @@ finished_fwd:
 
         /* Then it has to be a generic retransmission */
         if(!tcpd->ta){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
         }
         tcpd->ta->flags|=TCP_A_RETRANSMISSION;
         nstime_delta(&tcpd->ta->rto_ts, &pinfo->fd->abs_ts, &tcpd->fwd->nextseqtime);
@@ -1145,7 +1159,7 @@ finished_checking_retransmission_type:
 
         /* If this ack matches the segment, process accordingly */
         if(ack==ual->nextseq){
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
             tcpd->ta->frame_acked=ual->frame;
             nstime_delta(&tcpd->ta->ts, &pinfo->fd->abs_ts, &ual->ts);
         }
@@ -1206,7 +1220,7 @@ finished_checking_retransmission_type:
 
         if (in_flight>0 && in_flight<2000000000) {
             if(!tcpd->ta){
-                tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+                tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
             }
             tcpd->ta->bytes_in_flight = in_flight;
         }
@@ -1327,14 +1341,14 @@ tcp_sequence_number_analysis_print_lost(packet_info * pinfo,
         flags_item=proto_tree_add_none_format(flags_tree,
                                               hf_tcp_analysis_lost_packet,
                                               tvb, 0, 0,
-                                              "A segment before this frame was "
-                                              "lost"
+                                              "A segment before this frame "
+                                              "wasn't captured"
             );
         PROTO_ITEM_SET_GENERATED(flags_item);
         expert_add_info_format(pinfo, flags_item, PI_SEQUENCE, PI_WARN,
-                               "Previous segment lost (common at capture start)");
+                               "Previous segment not captured (common at capture start)");
         col_prepend_fence_fstr(pinfo->cinfo, COL_INFO,
-                               "[TCP Previous segment lost] ");
+                               "[TCP Previous segment not captured] ");
     }
     /* TCP Ack lost segment */
     if (ta->flags & TCP_A_ACK_LOST_PACKET) {
@@ -1342,13 +1356,13 @@ tcp_sequence_number_analysis_print_lost(packet_info * pinfo,
                                               hf_tcp_analysis_ack_lost_packet,
                                               tvb, 0, 0,
                                               "This frame ACKs a segment we have "
-                                              "not seen (lost?)"
+                                              "not seen"
             );
         PROTO_ITEM_SET_GENERATED(flags_item);
         expert_add_info_format(pinfo, flags_item, PI_SEQUENCE, PI_WARN,
-                               "ACKed lost segment (common at capture start)");
+                               "ACKed segment that wasn't captured (common at capture start)");
         col_prepend_fence_fstr(pinfo->cinfo, COL_INFO,
-                               "[TCP ACKed lost segment] ");
+                               "[TCP ACKed unseen segment] ");
     }
 }
 
@@ -1536,7 +1550,8 @@ tcp_sequence_number_analysis_print_bytes_in_flight(packet_info * pinfo _U_,
 }
 
 static void
-tcp_print_sequence_number_analysis(packet_info *pinfo, tvbuff_t *tvb, proto_tree *parent_tree, struct tcp_analysis *tcpd)
+tcp_print_sequence_number_analysis(packet_info *pinfo, tvbuff_t *tvb, proto_tree *parent_tree,
+                          struct tcp_analysis *tcpd, guint32 seq, guint32 ack)
 {
     struct tcp_acked *ta = NULL;
     proto_item *item;
@@ -1547,14 +1562,14 @@ tcp_print_sequence_number_analysis(packet_info *pinfo, tvbuff_t *tvb, proto_tree
         return;
     }
     if(!tcpd->ta){
-        tcp_analyze_get_acked_struct(pinfo->fd->num, FALSE, tcpd);
+        tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, FALSE, tcpd);
     }
     ta=tcpd->ta;
     if(!ta){
         return;
     }
 
-    item=proto_tree_add_text(parent_tree, tvb, 0, 0, "SEQ/ACK analysis");
+    item=proto_tree_add_item(parent_tree, hf_tcp_analysis, tvb, 0, 0, ENC_NA);
     PROTO_ITEM_SET_GENERATED(item);
     tree=proto_item_add_subtree(item, ett_tcp_analysis);
 
@@ -2822,27 +2837,6 @@ static void
 dissect_tcpopt_qs(const ip_tcp_opt *optp, tvbuff_t *tvb,
     int offset, guint optlen, packet_info *pinfo, proto_tree *opt_tree)
 {
-    /* Quick-Start TCP option, as defined by RFC4782 */
-    static const value_string qs_rates[] = {
-        { 0, "0 bit/s"},
-        { 1, "80 kbit/s"},
-        { 2, "160 kbit/s"},
-        { 3, "320 kbit/s"},
-        { 4, "640 kbit/s"},
-        { 5, "1.28 Mbit/s"},
-        { 6, "2.56 Mbit/s"},
-        { 7, "5.12 Mbit/s"},
-        { 8, "10.24 Mbit/s"},
-        { 9, "20.48 Mbit/s"},
-        {10, "40.96 Mbit/s"},
-        {11, "81.92 Mbit/s"},
-        {12, "163.84 Mbit/s"},
-        {13, "327.68 Mbit/s"},
-        {14, "655.36 Mbit/s"},
-        {15, "1.31072 Gbit/s"},
-        {0, NULL}
-    };
-    static value_string_ext qs_rates_ext = VALUE_STRING_EXT_INIT(qs_rates);
 
     proto_item *hidden_item;
 
@@ -2860,9 +2854,9 @@ dissect_tcpopt_qs(const ip_tcp_opt *optp, tvbuff_t *tvb,
     PROTO_ITEM_SET_HIDDEN(hidden_item);
     proto_tree_add_text(opt_tree, tvb, offset,      optlen,
                         "%s: Rate response, %s, TTL diff %u ", optp->name,
-                        val_to_str_ext(rate, &qs_rates_ext, "Unknown"),
+                        val_to_str_ext_const(rate, &qs_rate_vals_ext, "Unknown"),
                         tvb_get_guint8(tvb, offset + 3));
-    col_append_fstr(pinfo->cinfo, COL_INFO, " QSresp=%s", val_to_str_ext(rate, &qs_rates_ext, "Unknown"));
+    col_append_fstr(pinfo->cinfo, COL_INFO, " QSresp=%s", val_to_str_ext_const(rate, &qs_rate_vals_ext, "Unknown"));
 }
 
 
@@ -2933,7 +2927,7 @@ dissect_tcpopt_scps(const ip_tcp_opt *optp _U_, tvbuff_t *tvb,
             struct capvec
             {
                 guint8 mask;
-                gchar *str;
+                const gchar *str;
             } capvecs[] = {
                 {0x80, "BETS"},
                 {0x40, "SNACK1"},
@@ -3580,7 +3574,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_EOL,
         "End of Option List (EOL)",
         NULL,
-        NO_LENGTH,
+        OPT_LEN_NO_LENGTH,
         0,
         NULL,
     },
@@ -3588,7 +3582,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_NOP,
         "No-Operation (NOP)",
         NULL,
-        NO_LENGTH,
+        OPT_LEN_NO_LENGTH,
         0,
         NULL,
     },
@@ -3596,7 +3590,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_MSS,
         "Maximum segment size",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_MSS,
         dissect_tcpopt_mss
     },
@@ -3604,7 +3598,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_WINDOW,
         "Window scale",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_WINDOW,
         dissect_tcpopt_wscale
     },
@@ -3612,7 +3606,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_SACK_PERM,
         "SACK permitted",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_SACK_PERM,
         dissect_tcpopt_sack_perm,
     },
@@ -3620,7 +3614,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_SACK,
         "SACK",
         &ett_tcp_option_sack,
-        VARIABLE_LENGTH,
+        OPT_LEN_VARIABLE_LENGTH,
         TCPOLEN_SACK_MIN,
         dissect_tcpopt_sack
     },
@@ -3628,7 +3622,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_ECHO,
         "Echo",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_ECHO,
         dissect_tcpopt_echo
     },
@@ -3636,7 +3630,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_ECHOREPLY,
         "Echo reply",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_ECHOREPLY,
         dissect_tcpopt_echo
     },
@@ -3644,7 +3638,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_TIMESTAMP,
         "Timestamps",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_TIMESTAMP,
         dissect_tcpopt_timestamp
     },
@@ -3652,7 +3646,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_MPTCP,
         "Multipath TCP",
         NULL,
-        VARIABLE_LENGTH,
+        OPT_LEN_VARIABLE_LENGTH,
         TCPOLEN_MPTCP_MIN,
         dissect_tcpopt_mptcp
     },
@@ -3660,7 +3654,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_CC,
         "CC",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_CC,
         dissect_tcpopt_cc
     },
@@ -3668,7 +3662,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_CCNEW,
         "CC.NEW",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_CCNEW,
         dissect_tcpopt_cc
     },
@@ -3676,7 +3670,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_CCECHO,
         "CC.ECHO",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_CCECHO,
         dissect_tcpopt_cc
     },
@@ -3684,7 +3678,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_MD5,
         "TCP MD5 signature",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_MD5,
         NULL
     },
@@ -3692,7 +3686,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_SCPS,
         "SCPS capabilities",
         &ett_tcp_option_scps,
-        VARIABLE_LENGTH,
+        OPT_LEN_VARIABLE_LENGTH,
         TCPOLEN_SCPS,
         dissect_tcpopt_scps
     },
@@ -3700,7 +3694,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_SNACK,
         "Selective Negative Acknowledgment",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_SNACK,
         dissect_tcpopt_snack
     },
@@ -3708,7 +3702,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_RECBOUND,
         "SCPS record boundary",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_RECBOUND,
         NULL
     },
@@ -3716,7 +3710,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_CORREXP,
         "SCPS corruption experienced",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_CORREXP,
         NULL
     },
@@ -3724,7 +3718,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_QS,
         "Quick-Start",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_QS,
         dissect_tcpopt_qs
     },
@@ -3732,7 +3726,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_USER_TO,
         "User Timeout",
         &ett_tcp_option_user_to,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_USER_TO,
         dissect_tcpopt_user_to
   },
@@ -3740,7 +3734,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_RVBD_PROBE,
         "Riverbed Probe",
         NULL,
-        VARIABLE_LENGTH,
+        OPT_LEN_VARIABLE_LENGTH,
         TCPOLEN_RVBD_PROBE_MIN,
         dissect_tcpopt_rvbd_probe
   },
@@ -3748,7 +3742,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_RVBD_TRPY,
         "Riverbed Transparency",
         NULL,
-        FIXED_LENGTH,
+        OPT_LEN_FIXED_LENGTH,
         TCPOLEN_RVBD_TRPY_MIN,
         dissect_tcpopt_rvbd_trpy
   },
@@ -3756,7 +3750,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_EXP_FD,
         "Experimental",
         NULL,
-        VARIABLE_LENGTH,
+        OPT_LEN_VARIABLE_LENGTH,
         TCPOLEN_EXP_MIN,
         dissect_tcpopt_exp
   },
@@ -3764,7 +3758,7 @@ static const ip_tcp_opt tcpopts[] = {
         TCPOPT_EXP_FE,
         "Experimental",
         NULL,
-        VARIABLE_LENGTH,
+        OPT_LEN_VARIABLE_LENGTH,
         TCPOLEN_EXP_MIN,
         dissect_tcpopt_exp
   }
@@ -3806,6 +3800,13 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
     next_tvb = tvb_new_subset_remaining(tvb, offset);
 
+    if (tcp_no_subdissector_on_error && tcpd && tcpd->ta && tcpd->ta->flags & (TCP_A_RETRANSMISSION | TCP_A_OUT_OF_ORDER)) {
+        /* Don't try to dissect a retransmission high chance that it will mess
+         * subdissectors for protocols that require in-order delivery of the
+	 * PDUs. (i.e. DCE/RPCoverHTTP and encryption)
+         */
+        return FALSE;
+    }
 /* determine if this packet is part of a conversation and call dissector */
 /* for the conversation if available */
 
@@ -3835,7 +3836,8 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
     }
 
     /* Do lookups with the subdissector table.
-       We try the port number with the lower value first, followed by the
+       Try the server port captured on the SYN or SYN|ACK packet.  After that
+       try the port number with the lower value first, followed by the
        port number with the higher value.  This means that, for packets
        where a dissector is registered for *both* port numbers:
 
@@ -3849,12 +3851,26 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
        XXX - we ignore port numbers of 0, as some dissectors use a port
        number of 0 to disable the port. */
+
+    if (tcpd && tcpd->server_port != 0 &&
+        dissector_try_uint(subdissector_table, tcpd->server_port, next_tvb, pinfo, tree)){
+        pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
+        return TRUE;
+    }
+
     if (src_port > dst_port) {
         low_port = dst_port;
         high_port = src_port;
     } else {
         low_port = src_port;
         high_port = dst_port;
+    }
+    if (tcp_no_subdissector_on_error && tcpd && tcpd->ta && tcpd->ta->flags & (TCP_A_RETRANSMISSION | TCP_A_OUT_OF_ORDER)) {
+        /* Don't try to dissect a retransmission high chance that it will mess
+         * subdissectors for protocols that require in-order delivery of the
+	 * PDUs. (i.e. DCE/RPCoverHTTP and encryption)
+         */
+        return FALSE;
     }
     if (low_port != 0 &&
         dissector_try_uint(subdissector_table, low_port, next_tvb, pinfo, tree)){
@@ -4115,13 +4131,18 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
             tcpd=get_tcp_conversation_data(conv,pinfo);
         }
         if(!tcpd->ta)
-            tcp_analyze_get_acked_struct(pinfo->fd->num, TRUE, tcpd);
+            tcp_analyze_get_acked_struct(pinfo->fd->num, tcph->th_seq, tcph->th_ack, TRUE, tcpd);
         tcpd->ta->flags|=TCP_A_REUSED_PORTS;
     }
 
     if (tcpd) {
         item = proto_tree_add_uint(tcp_tree, hf_tcp_stream, tvb, offset, 0, tcpd->stream);
         PROTO_ITEM_SET_GENERATED(item);
+
+        /* Copy the stream index into the header as well to make it available
+         * to tap listeners.
+         */
+        tcph->th_stream = tcpd->stream;
     }
 
     /* Do we need to calculate timestamps relative to the tcp-stream? */
@@ -4337,12 +4358,18 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
     }
 
     if(tcph->th_flags & TH_SYN) {
-        if(tcph->th_flags & TH_ACK)
-            expert_add_info_format(pinfo, tf_syn, PI_SEQUENCE, PI_CHAT, "Connection establish acknowledge (SYN+ACK): server port %s",
+        if(tcph->th_flags & TH_ACK) {
+           expert_add_info_format(pinfo, tf_syn, PI_SEQUENCE, PI_CHAT, "Connection establish acknowledge (SYN+ACK): server port %s",
                                    get_tcp_port(tcph->th_sport));
-        else
-            expert_add_info_format(pinfo, tf_syn, PI_SEQUENCE, PI_CHAT, "Connection establish request (SYN): server port %s",
+           /* Save the server port to help determine dissector used */
+           tcpd->server_port = tcph->th_sport;
+        }
+        else {
+           expert_add_info_format(pinfo, tf_syn, PI_SEQUENCE, PI_CHAT, "Connection establish request (SYN): server port %s",
                                    get_tcp_port(tcph->th_dport));
+           /* Save the server port to help determine dissector used */
+           tcpd->server_port = tcph->th_dport;
+        }
     }
     if(tcph->th_flags & TH_FIN)
         /* XXX - find a way to know the server port and output only that one */
@@ -4606,7 +4633,14 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
     /* handle TCP seq# analysis, print any extra SEQ/ACK data for this segment*/
     if(tcp_analyze_seq){
-        tcp_print_sequence_number_analysis(pinfo, tvb, tcp_tree, tcpd);
+        guint32 use_seq = tcph->th_seq;
+        guint32 use_ack = tcph->th_ack;
+        /* May need to recover absolute values here... */
+        if (tcp_relative_seq) {
+            use_seq += tcpd->fwd->base_seq;
+            use_ack += tcpd->rev->base_seq;
+        }
+        tcp_print_sequence_number_analysis(pinfo, tvb, tcp_tree, tcpd, use_seq, use_ack);
     }
 
     /* handle conversation timestamps */
@@ -4832,6 +4866,10 @@ proto_register_tcp(void)
         { "Bad Checksum",       "tcp.checksum_bad", FT_BOOLEAN, BASE_NONE, NULL, 0x0,
             "True: checksum doesn't match packet content; False: matches content or not checked", HFILL }},
 
+        { &hf_tcp_analysis,
+        { "SEQ/ACK analysis",   "tcp.analysis", FT_NONE, BASE_NONE, NULL, 0x0,
+            "This frame has some of the TCP analysis shown", HFILL }},
+
         { &hf_tcp_analysis_flags,
         { "TCP Analysis Flags",     "tcp.analysis.flags", FT_NONE, BASE_NONE, NULL, 0x0,
             "This frame has some of the TCP analysis flags set", HFILL }},
@@ -4853,12 +4891,12 @@ proto_register_tcp(void)
             "A new tcp session has started with previously used port numbers", HFILL }},
 
         { &hf_tcp_analysis_lost_packet,
-        { "Previous Segment Lost",      "tcp.analysis.lost_segment", FT_NONE, BASE_NONE, NULL, 0x0,
-            "A segment before this one was lost from the capture", HFILL }},
+        { "Previous Segment Unseen",      "tcp.analysis.lost_segment", FT_NONE, BASE_NONE, NULL, 0x0,
+            "We may not have captured a segment before this one", HFILL }},
 
         { &hf_tcp_analysis_ack_lost_packet,
-        { "ACKed Lost Packet",      "tcp.analysis.ack_lost_segment", FT_NONE, BASE_NONE, NULL, 0x0,
-            "This frame ACKs a lost segment", HFILL }},
+        { "ACKed Unseen Packet",      "tcp.analysis.ack_lost_segment", FT_NONE, BASE_NONE, NULL, 0x0,
+            "This frame ACKs a segment that may not have been captured", HFILL }},
 
         { &hf_tcp_analysis_window_update,
         { "Window update",      "tcp.analysis.window_update", FT_NONE, BASE_NONE, NULL, 0x0,
@@ -5560,6 +5598,11 @@ proto_register_tcp(void)
         "Ignore TCP Timestamps in summary",
         "Do not place the TCP Timestamps in the summary line",
         &tcp_ignore_timestamps);
+
+    prefs_register_bool_preference(tcp_module, "no_subdissector_on_error",
+        "Do not call subdissectors for error packets",
+        "Do not call any subdissectors for Retransmitted or OutOfOrder segments",
+        &tcp_no_subdissector_on_error);
 
     register_init_routine(tcp_init);
 }

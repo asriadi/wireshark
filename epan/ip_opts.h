@@ -1,6 +1,6 @@
 /* ip_opts.h
  * Definitions of structures and routines for dissection of options that
- * work like IPv4 or IPv6 options
+ * work like IPv4 options
  *
  * $Id$
  *
@@ -30,18 +30,18 @@
  */
 
 typedef enum {
-  NO_LENGTH,                        /**< option has no data, hence no length */
-  FIXED_LENGTH,                     /**< option always has the same length */
-  VARIABLE_LENGTH                   /**< option is variable-length - optlen is minimum */
+  OPT_LEN_NO_LENGTH,                /**< option has no data, hence no length */
+  OPT_LEN_FIXED_LENGTH,             /**< option always has the same length */
+  OPT_LEN_VARIABLE_LENGTH           /**< option is variable-length - optlen is minimum */
 } opt_len_type;
 
 /** Member of table of IP or TCP options. */
 typedef struct ip_tcp_opt {
-  int   optcode;                    /**< code for option */
-  const char  *name;                /**< name of option */
-  int   *subtree_index;             /**< pointer to subtree index for option */
-  opt_len_type len_type;            /**< type of option length field */
-  int   optlen;                     /**< value length should be (minimum if VARIABLE) */
+  int           optcode;            /**< code for option */
+  const char   *name;               /**< name of option */
+  int          *subtree_index;      /**< pointer to subtree index for option */
+  opt_len_type  len_type;           /**< type of option length field */
+  int           optlen;             /**< value length should be (minimum if VARIABLE) */
   void  (*dissect)(const struct ip_tcp_opt *,
                    tvbuff_t *,
                    int,
@@ -57,11 +57,13 @@ extern void dissect_ip_tcp_options(tvbuff_t *, int, guint,
                                    const ip_tcp_opt *, int, int,
                                    packet_info *, proto_tree *, proto_item *);
 
-/** Routine to dissect options that work like IPv6 options, where the
-   length field in the option, if present, includes only the data, not
-   the type and length bytes. */
-extern void dissect_ipv6_options(tvbuff_t *, int, guint,
-                                 const ip_tcp_opt *, int, int,
-                                 packet_info *, proto_tree *);
+/* Quick-Start option, as defined by RFC4782 */
+#define QS_FUNC_MASK        0xf0
+#define QS_RATE_MASK        0x0f
+#define QS_RATE_REQUEST     0
+#define QS_RATE_REPORT      8
+
+WS_VAR_IMPORT const value_string qs_func_vals[];
+WS_VAR_IMPORT value_string_ext qs_rate_vals_ext;
 
 #endif

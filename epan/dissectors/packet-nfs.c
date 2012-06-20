@@ -402,6 +402,7 @@ static int hf_nfs_r_netid = -1;
 static int hf_nfs_gsshandle4 = -1;
 static int hf_nfs_r_addr = -1;
 static int hf_nfs_createmode4 = -1;
+static int hf_nfs_op_mask = -1;
 
 /* NFSv4.1 */
 static int hf_nfs_length4_minlength = -1;
@@ -2305,7 +2306,7 @@ dissect_fhandle_data_CELERRA(tvbuff_t* tvb, packet_info *pinfo _U_, proto_tree *
 		proto_tree_add_uint(obj_tree, hf_nfs_fh_obj_gen,    tvb, offset+36,  4, obj_gen);
 		}
 	}
-};
+}
 
 static void
 dissect_fhandle_data_unknown(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
@@ -4567,7 +4568,7 @@ static int
 dissect_nfs3_remove_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			 proto_tree *tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 	char *name=NULL;
 
 	offset = dissect_diropargs3(tvb, offset, pinfo, tree, "object", &hash, &name);
@@ -4600,7 +4601,7 @@ static int
 dissect_nfs3_rmdir_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	proto_tree *tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 	char *name=NULL;
 
 	offset = dissect_diropargs3(tvb, offset, pinfo, tree, "object", &hash, &name);
@@ -4618,7 +4619,7 @@ static int
 dissect_nfs3_getattr_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			  proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3(tvb, offset, pinfo, tree, "object", &hash);
 
@@ -4706,7 +4707,7 @@ static int
 dissect_nfs3_setattr_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			  proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3    (tvb, offset, pinfo, tree, "object", &hash);
 	offset = dissect_sattr3     (tvb, offset,        tree, "new_attributes");
@@ -4751,7 +4752,7 @@ static int
 dissect_nfs3_lookup_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			 proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 	char *name=NULL;
 
 	offset = dissect_diropargs3 (tvb, offset, pinfo, tree, "what", &hash, &name);
@@ -4770,7 +4771,7 @@ dissect_nfs3_lookup_reply(tvbuff_t *tvb, int offset, packet_info *pinfo,
 {
 	guint32 status;
 	const char *err;
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfsstat3(tvb, offset, tree, &status);
 	switch (status) {
@@ -4813,7 +4814,7 @@ static const true_false_string tfs_access_rights = {"allowed", "*Access Denied*"
 
 proto_tree*
 display_access_items(tvbuff_t* tvb, int offset, packet_info* pinfo, proto_tree* tree,
-		     guint32 amask, char mtype, int version, GString* optext, char* label)
+		     guint32 amask, char mtype, int version, GString* optext, const char* label)
 {
 	gboolean nfsv3 = (version==3 ? TRUE : FALSE);
 	proto_item* access_item = NULL;
@@ -4990,7 +4991,7 @@ dissect_access_reply(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree* 
 static int
 dissect_nfs3_access_call(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree* tree)
 {
-	guint32 fhhash, *acc_request, amask;
+	guint32 fhhash = 0, *acc_request, amask;
 	rpc_call_info_value *civ;
 
 	offset = dissect_nfs_fh3(tvb, offset, pinfo, tree, "object", &fhhash);
@@ -5040,7 +5041,7 @@ static int
 dissect_nfs3_readlink_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			   proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3(tvb, offset, pinfo, tree, "object", &hash);
 
@@ -5089,7 +5090,7 @@ dissect_nfs3_read_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 {
 	guint64 off;
 	guint32 len;
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3(tvb, offset, pinfo, tree, "file", &hash);
 
@@ -5178,7 +5179,7 @@ dissect_nfs3_write_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	guint64 off;
 	guint32 len;
 	guint32 stable;
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3   (tvb, offset, pinfo, tree, "file", &hash);
 
@@ -5271,7 +5272,7 @@ dissect_nfs3_create_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			 proto_tree* tree)
 {
 	guint32 mode;
-	guint32 hash;
+	guint32 hash = 0;
 	char *name=NULL;
 
 	offset = dissect_diropargs3 (tvb, offset, pinfo, tree, "where", &hash, &name);
@@ -5328,7 +5329,7 @@ static int
 dissect_nfs3_mkdir_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 	char *name=NULL;
 
 	offset = dissect_diropargs3(tvb, offset, pinfo, tree, "where", &hash, &name);
@@ -5374,7 +5375,7 @@ static int
 dissect_nfs3_symlink_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			  proto_tree* tree)
 {
-	guint32 from_hash;
+	guint32 from_hash = 0;
 	char *from_name=NULL;
 	char *to_name=NULL;
 
@@ -5422,7 +5423,7 @@ dissect_nfs3_mknod_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			proto_tree* tree)
 {
 	guint32 type;
-	guint32 hash;
+	guint32 hash = 0;
 	char *name=NULL;
 	const char *type_str;
 
@@ -5532,9 +5533,9 @@ static int
 dissect_nfs3_rename_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			 proto_tree* tree)
 {
-	guint32 from_hash;
+	guint32 from_hash = 0;
 	char *from_name=NULL;
-	guint32 to_hash;
+	guint32 to_hash = 0;
 	char *to_name=NULL;
 
 	offset = dissect_diropargs3(tvb, offset, pinfo, tree, "from", &from_hash, &from_name);
@@ -5581,8 +5582,8 @@ static int
 dissect_nfs3_link_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		       proto_tree* tree)
 {
-	guint32 from_hash;
-	guint32 to_hash;
+	guint32 from_hash = 0;
+	guint32 to_hash = 0;
 	char *to_name=NULL;
 
 	offset = dissect_nfs_fh3   (tvb, offset, pinfo, tree, "file", &from_hash);
@@ -5631,7 +5632,7 @@ static int
 dissect_nfs3_readdir_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			  proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3    (tvb, offset, pinfo, tree, "dir", &hash);
 	offset = dissect_rpc_uint64(tvb, tree, hf_nfs_cookie3, offset);
@@ -5847,7 +5848,7 @@ static int
 dissect_nfs3_fsstat_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			 proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3(tvb, offset, pinfo, tree, "object", &hash);
 
@@ -5915,7 +5916,7 @@ static int
 dissect_nfs3_fsinfo_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			 proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3(tvb, offset, pinfo, tree, "object", &hash);
 
@@ -6044,7 +6045,7 @@ static int
 dissect_nfs3_pathconf_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			   proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3(tvb, offset, pinfo, tree, "object", &hash);
 
@@ -6106,7 +6107,7 @@ static int
 dissect_nfs3_commit_call(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			 proto_tree* tree)
 {
-	guint32 hash;
+	guint32 hash = 0;
 
 	offset = dissect_nfs_fh3(tvb, offset, pinfo, tree, "file", &hash);
 	offset = dissect_rpc_uint64(tvb, tree, hf_nfs_offset3, offset);
@@ -8086,6 +8087,7 @@ static const value_string names_nfsv4_operation[] = {
 	{	NFS4_OP_VERIFY,			"VERIFY"		},
 	{	NFS4_OP_WRITE,			"WRITE"			},
 	{	NFS4_OP_RELEASE_LOCKOWNER,	"RELEASE_LOCKOWNER"	},
+	{       NFS4_OP_BACKCHANNEL_CTL,	"BACKCHANNEL_CTL"       },
 	{	NFS4_OP_BIND_CONN_TO_SESSION,	"BIND_CONN_TO_SESSION"	},
 	{	NFS4_OP_EXCHANGE_ID,		"EXCHANGE_ID"		},
 	{	NFS4_OP_CREATE_SESSION,		"CREATE_SESSION"	},
@@ -8359,7 +8361,7 @@ dissect_nfs_state_protect_bitmap4(tvbuff_t *tvb, int offset,
 	proto_item *op_fitem = NULL;
 	proto_tree *op_newftree = NULL;
 	guint32 *bitmap=NULL;
-	guint32 fattr;
+	guint32 op;
 	guint32 i;
 	gint j;
 	guint32 sl;
@@ -8387,10 +8389,10 @@ dissect_nfs_state_protect_bitmap4(tvbuff_t *tvb, int offset,
 		bitmap[i] = tvb_get_ntohl(tvb, offset);
 		sl = 0x00000001;
 		for (j = 0; j < 32; j++) {
-			fattr = 32 * i + j;
+			op = 32 * i + j;
 			if (bitmap[i] & sl) {
 				op_fitem = proto_tree_add_uint(newftree,
-				hf_nfs_recc_attr, tvb, offset, 4, fattr);
+				hf_nfs_op_mask, tvb, offset, 4, op);
 				if (op_fitem == NULL) break;
 					op_newftree = proto_item_add_subtree(op_fitem, ett_nfs_bitmap4);
 				if (op_newftree == NULL) break;
@@ -9050,7 +9052,7 @@ dissect_nfs_argop4(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		ops = MAX_NFSV4_OPS;
 	}
 
-	op_summary = g_malloc(sizeof(nfsv4_operation_summary) * ops);
+	op_summary = g_malloc0(sizeof(nfsv4_operation_summary) * ops);
 
 	if (fitem) {
 		ftree = proto_item_add_subtree(fitem, ett_nfs_argop4);
@@ -9624,6 +9626,13 @@ dissect_nfs_argop4(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		}
 	}
 
+	for (ops_counter=0; ops_counter<ops; ops_counter++)
+	{
+		if (op_summary[ops_counter].optext)
+			g_string_free(op_summary[ops_counter].optext, TRUE);
+	}
+
+	g_free(op_summary);
 
 	return offset;
 }
@@ -9707,7 +9716,7 @@ dissect_nfs_resop4(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		ops = MAX_NFSV4_OPS;
 	}
 
-	op_summary = g_malloc(sizeof(nfsv4_operation_summary) * ops);
+	op_summary = g_malloc0(sizeof(nfsv4_operation_summary) * ops);
 
 	if (fitem) {
 		ftree = proto_item_add_subtree(fitem, ett_nfs_resop4);
@@ -10041,6 +10050,13 @@ dissect_nfs_resop4(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		}
 	}
 
+	for (ops_counter=0; ops_counter<ops; ops_counter++)
+	{
+		if (op_summary[ops_counter].optext)
+			g_string_free(op_summary[ops_counter].optext, TRUE);
+	}
+
+	g_free(op_summary);
 
 	return offset;
 }
@@ -10645,7 +10661,7 @@ proto_register_nfs(void)
 			"V4 Procedure", "nfs.procedure_v4", FT_UINT32, BASE_DEC,
 			VALS(nfsv4_proc_vals), 0, NULL, HFILL }},
 		{ &hf_nfs_impl_id4_len, {
-			"Implemetation ID length", "nfs.impl_id4.length", FT_UINT32, BASE_DEC,
+			"Implementation ID length", "nfs.impl_id4.length", FT_UINT32, BASE_DEC,
 			NULL, 0, NULL, HFILL }},
 		{ &hf_nfs_fh_length, {
 			"length", "nfs.fh.length", FT_UINT32, BASE_DEC,
@@ -12261,6 +12277,10 @@ proto_register_nfs(void)
 		{ &hf_nfs_mode3_xoth, {
 			"S_IXOTH", "nfs.mode3.xoth", FT_BOOLEAN, 32,
 			TFS(&tfs_yes_no), 0x001, NULL, HFILL }},
+
+		{ &hf_nfs_op_mask, {
+			"op_mask", "nfs.op_mask", FT_UINT32, BASE_DEC,
+			VALS(names_nfsv4_operation), 0, "Operation Mask", HFILL }},
 
 	/* Hidden field for v2, v3, and v4 status */
 		{ &hf_nfs_nfsstat, {

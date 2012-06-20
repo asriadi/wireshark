@@ -286,7 +286,7 @@ static gint get_record(guint8** bufferp, FILE_T fh, gint64 file_offset,
 
     /* no buffer is given, lets create it */
     if (buffer == NULL) {
-        buffer = g_malloc(0x2000);
+        buffer = (guint8*)g_malloc(0x2000);
         buffer_len = 0x2000;
     }
 
@@ -342,7 +342,7 @@ static gint get_record(guint8** bufferp, FILE_T fh, gint64 file_offset,
         return -1;
     }
 
-    while (left > buffer_len) *bufferp = buffer = g_realloc(buffer,buffer_len*=2);
+    while (left > buffer_len) *bufferp = buffer = (guint8*)g_realloc(buffer,buffer_len*=2);
 
     writep = buffer + 4;
     left -= 4;
@@ -410,7 +410,7 @@ static gboolean k12_read(wtap *wth, int *err, gchar **err_info, gint64 *data_off
     guint64 ts;
     guint32 extra_len;
 
-    offset = wth->data_offset;
+    offset = file_tell(wth->fh);
 
     /* ignore the record if it isn't a packet */
     do {
@@ -431,7 +431,7 @@ static gboolean k12_read(wtap *wth, int *err, gchar **err_info, gint64 *data_off
         src_id = pntohl(buffer + K12_RECORD_SRC_ID);
 
 
-        if ( ! (src_desc = g_hash_table_lookup(k12->src_by_id,GUINT_TO_POINTER(src_id))) ) {
+        if ( ! (src_desc = (k12_src_desc_t*)g_hash_table_lookup(k12->src_by_id,GUINT_TO_POINTER(src_id))) ) {
             /*
              * Some records from K15 files have a port ID of an undeclared
              * interface which happens to be the only one with the first byte changed.
@@ -439,7 +439,7 @@ static gboolean k12_read(wtap *wth, int *err, gchar **err_info, gint64 *data_off
              * If the lookup of the interface record fails we'll mask it
              * and retry.
              */
-            src_desc = g_hash_table_lookup(k12->src_by_id,GUINT_TO_POINTER(src_id&K12_RECORD_SRC_ID_MASK));
+            src_desc = (k12_src_desc_t*)g_hash_table_lookup(k12->src_by_id,GUINT_TO_POINTER(src_id&K12_RECORD_SRC_ID_MASK));
         }
 
         K12_DBG(5,("k12_read: record type=%x src_id=%x",type,src_id));
@@ -447,8 +447,6 @@ static gboolean k12_read(wtap *wth, int *err, gchar **err_info, gint64 *data_off
         offset += len;
 
     } while ( ((type & K12_MASK_PACKET) != K12_REC_PACKET) || !src_id || !src_desc );
-
-    wth->data_offset = offset;
 
     wth->phdr.presence_flags = WTAP_HAS_TS;
 
@@ -484,17 +482,16 @@ static gboolean k12_read(wtap *wth, int *err, gchar **err_info, gint64 *data_off
 
     switch(src_desc->input_type) {
         case K12_PORT_ATMPVC:
-        if ((long)(K12_PACKET_FRAME + wth->phdr.len + K12_PACKET_OFFSET_CID) < len) {
-            wth->pseudo_header.k12.input_info.atm.vp =  pntohs(buffer + (K12_PACKET_FRAME + wth->phdr.caplen + K12_PACKET_OFFSET_VP));
-            wth->pseudo_header.k12.input_info.atm.vc =  pntohs(buffer + (K12_PACKET_FRAME + wth->phdr.caplen + K12_PACKET_OFFSET_VC));
-            wth->pseudo_header.k12.input_info.atm.cid =  *((unsigned char*)(buffer + K12_PACKET_FRAME + wth->phdr.len + K12_PACKET_OFFSET_CID));
-            break;
-        }
-        /* Fall through */
+            if ((long)(K12_PACKET_FRAME + wth->phdr.len + K12_PACKET_OFFSET_CID) < len) {
+                wth->pseudo_header.k12.input_info.atm.vp =  pntohs(buffer + (K12_PACKET_FRAME + wth->phdr.caplen + K12_PACKET_OFFSET_VP));
+                wth->pseudo_header.k12.input_info.atm.vc =  pntohs(buffer + (K12_PACKET_FRAME + wth->phdr.caplen + K12_PACKET_OFFSET_VC));
+                wth->pseudo_header.k12.input_info.atm.cid =  *((unsigned char*)(buffer + K12_PACKET_FRAME + wth->phdr.len + K12_PACKET_OFFSET_CID));
+                break;
+            }
+            /* Fall through */
         default:
-        memcpy(&(wth->pseudo_header.k12.input_info),&(src_desc->input_info),sizeof(src_desc->input_info));
-        break;
-
+            memcpy(&(wth->pseudo_header.k12.input_info),&(src_desc->input_info),sizeof(src_desc->input_info));
+            break;
     }
 
     wth->pseudo_header.k12.stuff = k12;
@@ -545,7 +542,7 @@ static gboolean k12_seek_read(wtap *wth, gint64 seek_off, union wtap_pseudo_head
     input = pntohl(buffer + K12_RECORD_SRC_ID);
     K12_DBG(5,("k12_seek_read: input=%.8x",input));
 
-    if ( ! (src_desc = g_hash_table_lookup(k12->src_by_id,GUINT_TO_POINTER(input))) ) {
+    if ( ! (src_desc = (k12_src_desc_t*)g_hash_table_lookup(k12->src_by_id,GUINT_TO_POINTER(input))) ) {
         /*
          * Some records from K15 files have a port ID of an undeclared
          * interface which happens to be the only one with the first byte changed.
@@ -553,7 +550,7 @@ static gboolean k12_seek_read(wtap *wth, gint64 seek_off, union wtap_pseudo_head
          * If the lookup of the interface record fails we'll mask it
          * and retry.
          */
-        src_desc = g_hash_table_lookup(k12->src_by_id,GUINT_TO_POINTER(input&K12_RECORD_SRC_ID_MASK));
+        src_desc = (k12_src_desc_t*)g_hash_table_lookup(k12->src_by_id,GUINT_TO_POINTER(input&K12_RECORD_SRC_ID_MASK));
     }
 
     if (src_desc) {
@@ -564,17 +561,17 @@ static gboolean k12_seek_read(wtap *wth, gint64 seek_off, union wtap_pseudo_head
             pseudo_header->k12.input_type = src_desc->input_type;
 
             switch(src_desc->input_type) {
-            case K12_PORT_ATMPVC:
-                if ((long)(K12_PACKET_FRAME + length + K12_PACKET_OFFSET_CID) < len) {
-                pseudo_header->k12.input_info.atm.vp =  pntohs(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_VP);
-                pseudo_header->k12.input_info.atm.vc =  pntohs(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_VC);
-                pseudo_header->k12.input_info.atm.cid =  *((unsigned char*)(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_CID));
-                break;
-                }
-                /* Fall through */
-            default:
-                memcpy(&(pseudo_header->k12.input_info),&(src_desc->input_info),sizeof(src_desc->input_info));
-                break;
+                case K12_PORT_ATMPVC:
+                    if ((long)(K12_PACKET_FRAME + length + K12_PACKET_OFFSET_CID) < len) {
+                        pseudo_header->k12.input_info.atm.vp =  pntohs(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_VP);
+                        pseudo_header->k12.input_info.atm.vc =  pntohs(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_VC);
+                        pseudo_header->k12.input_info.atm.cid =  *((unsigned char*)(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_CID));
+                        break;
+                    }
+                    /* Fall through */
+                default:
+                    memcpy(&(pseudo_header->k12.input_info),&(src_desc->input_info),sizeof(src_desc->input_info));
+                    break;
             }
         }
 
@@ -584,16 +581,16 @@ static gboolean k12_seek_read(wtap *wth, gint64 seek_off, union wtap_pseudo_head
 
         switch(src_desc->input_type) {
             case K12_PORT_ATMPVC:
-            if ((long)(K12_PACKET_FRAME + length + K12_PACKET_OFFSET_CID) < len) {
-                wth->pseudo_header.k12.input_info.atm.vp =  pntohs(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_VP);
-                wth->pseudo_header.k12.input_info.atm.vc =  pntohs(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_VC);
-                wth->pseudo_header.k12.input_info.atm.cid =  *((unsigned char*)(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_CID));
-            }
-            break;
-            /* Fall through */
+                if ((long)(K12_PACKET_FRAME + length + K12_PACKET_OFFSET_CID) < len) {
+                    wth->pseudo_header.k12.input_info.atm.vp =  pntohs(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_VP);
+                    wth->pseudo_header.k12.input_info.atm.vc =  pntohs(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_VC);
+                    wth->pseudo_header.k12.input_info.atm.cid =  *((unsigned char*)(buffer + K12_PACKET_FRAME + length + K12_PACKET_OFFSET_CID));
+                }
+                break;
+                /* Fall through */
             default:
-            memcpy(&(wth->pseudo_header.k12.input_info),&(src_desc->input_info),sizeof(src_desc->input_info));
-            break;
+                memcpy(&(wth->pseudo_header.k12.input_info),&(src_desc->input_info),sizeof(src_desc->input_info));
+                break;
         }
 
     } else {
@@ -626,7 +623,7 @@ static gboolean k12_seek_read(wtap *wth, gint64 seek_off, union wtap_pseudo_head
 
 
 static k12_t* new_k12_file_data(void) {
-    k12_t* fd = g_malloc(sizeof(k12_t));
+    k12_t* fd = g_new(k12_t,1);
 
     fd->file_len = 0;
     fd->num_of_records = 0;
@@ -639,7 +636,7 @@ static k12_t* new_k12_file_data(void) {
 }
 
 static gboolean destroy_srcdsc(gpointer k _U_, gpointer v, gpointer p _U_) {
-    k12_src_desc_t* rec = v;
+    k12_src_desc_t* rec = (k12_src_desc_t*)v;
 
     g_free(rec->input_name);
     g_free(rec->stack_file);
@@ -724,14 +721,12 @@ int k12_open(wtap *wth, int *err, gchar **err_info) {
         if ( len < 0 ) {
             K12_DBG(1,("k12_open: BAD HEADER RECORD",len));
             destroy_k12_file_data(file_data);
-            g_free(file_data);
             return -1;
         }
         if (len == 0) {
             K12_DBG(1,("k12_open: BAD HEADER RECORD",len));
             *err = WTAP_ERR_SHORT_READ;
             destroy_k12_file_data(file_data);
-            g_free(file_data);
             return -1;
         }
 
@@ -744,13 +739,12 @@ int k12_open(wtap *wth, int *err, gchar **err_info) {
              */
             if (file_seek(wth->fh, offset, SEEK_SET, err) == -1) {
                 destroy_k12_file_data(file_data);
-                g_free(file_data);
                 return -1;
             }
             K12_DBG(5,("k12_open: FIRST PACKET offset=%x",offset));
             break;
         } else if (type == K12_REC_SRCDSC || type == K12_REC_SRCDSC2 ) {
-            rec = g_malloc0(sizeof(k12_src_desc_t));
+            rec = g_new0(k12_src_desc_t,1);
 
             rec_len = pntohl( read_buffer + K12_RECORD_LEN );
             extra_len = pntohs( read_buffer + K12_SRCDESC_EXTRALEN );
@@ -767,7 +761,6 @@ int k12_open(wtap *wth, int *err, gchar **err_info) {
                 K12_DBG(5,("k12_open: failed (name_len == 0 || stack_len == 0 "
                         "|| 0x20 + extra_len + name_len + stack_len > rec_len)  extra_len=%i name_len=%i stack_len=%i"));
                 destroy_k12_file_data(file_data);
-                g_free(file_data);
                 return 0;
             }
 
@@ -803,8 +796,8 @@ int k12_open(wtap *wth, int *err, gchar **err_info) {
 	       Obviously not, as a corrupt file could contain anything
 	       here; the Tektronix document says the strings "must end
 	       with \0", but a bad file could fail to add the \0. */
-            rec->input_name = g_memdup(read_buffer + K12_SRCDESC_EXTRATYPE + extra_len, name_len);
-            rec->stack_file = g_memdup(read_buffer + K12_SRCDESC_EXTRATYPE + extra_len + name_len, stack_len);
+            rec->input_name = (gchar *)g_memdup(read_buffer + K12_SRCDESC_EXTRATYPE + extra_len, name_len);
+            rec->stack_file = (gchar *)g_memdup(read_buffer + K12_SRCDESC_EXTRATYPE + extra_len + name_len, stack_len);
 
             ascii_strdown_inplace (rec->stack_file);
 
@@ -819,7 +812,6 @@ int k12_open(wtap *wth, int *err, gchar **err_info) {
         }
     } while(1);
 
-    wth->data_offset = offset;
     wth->file_type = WTAP_FILE_K12;
     wth->file_encap = WTAP_ENCAP_K12;
     wth->snapshot_length = 0;
@@ -878,8 +870,8 @@ static gboolean k12_dump_record(wtap_dumper *wdh, guint32 len,  guint8* buffer, 
 }
 
 static void k12_dump_src_setting(gpointer k _U_, gpointer v, gpointer p) {
-    k12_src_desc_t* src_desc = v;
-    wtap_dumper *wdh = p;
+    k12_src_desc_t* src_desc = (k12_src_desc_t*)v;
+    wtap_dumper *wdh = (wtap_dumper *)p;
     guint32 len;
     guint offset;
     guint i;
@@ -959,7 +951,7 @@ static void k12_dump_src_setting(gpointer k _U_, gpointer v, gpointer p) {
                 obj.record.extra.desc.ds0mask.mask[i] =
                 (src_desc->input_info.ds0mask & (1 << i)) ? 0xff : 0x00;
             }
-                offset = 0x3c;
+            offset = 0x3c;
             break;
         default:
             obj.record.extra_len = g_htons(0x08);
@@ -1007,7 +999,7 @@ static gboolean k12_dump(wtap_dumper *wdh, const struct wtap_pkthdr *phdr,
     } obj;
 
     if (k12->num_of_records == 0) {
-        k12_t* file_data = pseudo_header->k12.stuff;
+        k12_t* file_data = (k12_t*)pseudo_header->k12.stuff;
         /* XXX: We'll assume that any fwrite errors in k12_dump_src_setting will    */
         /*      repeat during the final k12_dump_record at the end of k12_dump      */
         /*      (and thus cause an error return from k12_dump).                     */

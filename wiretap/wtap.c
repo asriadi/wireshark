@@ -78,6 +78,12 @@ wtap_file_type(wtap *wth)
 	return wth->file_type;
 }
 
+gboolean
+wtap_iscompressed(wtap *wth)
+{
+	return file_iscompressed((wth->fh == NULL) ? wth->random_fh : wth->fh);
+}
+
 guint
 wtap_snapshot_length(wtap *wth)
 {
@@ -96,7 +102,8 @@ wtap_file_tsprecision(wtap *wth)
 	return wth->tsprecision;
 }
 
-wtapng_section_t* wtap_file_get_shb_info(wtap *wth)
+wtapng_section_t *
+wtap_file_get_shb_info(wtap *wth)
 {
 	wtapng_section_t		*shb_hdr;
 
@@ -114,21 +121,23 @@ wtapng_section_t* wtap_file_get_shb_info(wtap *wth)
 	return shb_hdr;
 }
 
-void wtap_write_shb_comment(wtap *wth, gchar *comment)
+void
+wtap_write_shb_comment(wtap *wth, gchar *comment)
 {
 	g_free(wth->shb_hdr.opt_comment);
 	wth->shb_hdr.opt_comment = comment;
 
 }
 
-wtapng_iface_descriptions_t* wtap_file_get_idb_info(wtap *wth)
+wtapng_iface_descriptions_t *
+wtap_file_get_idb_info(wtap *wth)
 {
 	wtapng_iface_descriptions_t *idb_info;
 
 	idb_info = g_new(wtapng_iface_descriptions_t,1);
 
 	idb_info->number_of_interfaces	= wth->number_of_interfaces;
-	idb_info->interface_data		= wth->interface_data;
+	idb_info->interface_data	= wth->interface_data;
 
 	return idb_info;
 }
@@ -203,17 +212,17 @@ static struct encap_type_info encap_table_base[] = {
 	/* WTAP_ENCAP_IEEE_802_11 */
 	{ "IEEE 802.11 Wireless LAN", "ieee-802-11" },
 
-	/* WTAP_ENCAP_PRISM_HEADER */
-	{ "IEEE 802.11 plus Prism II monitor mode header", "prism" },
+	/* WTAP_ENCAP_IEEE_802_11_PRISM */
+	{ "IEEE 802.11 plus Prism II monitor mode radio header", "ieee-802-11-prism" },
 
 	/* WTAP_ENCAP_IEEE_802_11_WITH_RADIO */
 	{ "IEEE 802.11 Wireless LAN with radio information", "ieee-802-11-radio" },
 
-	/* WTAP_ENCAP_IEEE_802_11_WLAN_RADIOTAP */
-	{ "IEEE 802.11 plus radiotap WLAN header", "ieee-802-11-radiotap" },
+	/* WTAP_ENCAP_IEEE_802_11_RADIOTAP */
+	{ "IEEE 802.11 plus radiotap radio header", "ieee-802-11-radiotap" },
 
-	/* WTAP_ENCAP_IEEE_802_11_WLAN_AVS */
-	{ "IEEE 802.11 plus AVS WLAN header", "ieee-802-11-avs" },
+	/* WTAP_ENCAP_IEEE_802_11_AVS */
+	{ "IEEE 802.11 plus AVS radio header", "ieee-802-11-avs" },
 
 	/* WTAP_ENCAP_SLL */
 	{ "Linux cooked-mode capture", "linux-sll" },
@@ -378,7 +387,7 @@ static struct encap_type_info encap_table_base[] = {
 	{ "GCOM Serial", "gcom-serial" },
 
 	/* WTAP_ENCAP_NETTL_X25 */
-	{ "X25 with nettl headers", "x25-nettl" },
+	{ "X.25 with nettl headers", "x25-nettl" },
 
 	/* WTAP_ENCAP_K12 */
 	{ "K12 protocol analyzer", "k12" },
@@ -405,7 +414,7 @@ static struct encap_type_info encap_table_base[] = {
 	{ "Juniper GGSN", "juniper-ggsn" },
 
 	/* WTAP_ENCAP_LINUX_LAPD */
-	{ "LAPD", "lapd" },
+	{ "LAPD with Linux pseudo-header", "linux-lapd" },
 
 	/* WTAP_ENCAP_CATAPULT_DCT2000 */
 	{ "Catapult DCT2000", "dct2000" },
@@ -435,7 +444,7 @@ static struct encap_type_info encap_table_base[] = {
 	{ "Per-Packet Information header", "ppi" },
 
 	/* WTAP_ENCAP_ERF */
-	{ "Endace Record File", "erf" },
+	{ "Extensible Record Format", "erf" },
 
 	/* WTAP_ENCAP_BLUETOOTH_H4_WITH_PHDR */
 	{ "Bluetooth H4 with linux header", "bluetooth-h4-linux" },
@@ -518,7 +527,7 @@ static struct encap_type_info encap_table_base[] = {
 	/* WTAP_ENCAP_SOCKETCAN */
 	{ "SocketCAN", "socketcan" },
 
-	/* WTAP_ENCAP_IEEE802_11_NETMON_RADIO */
+	/* WTAP_ENCAP_IEEE_802_11_NETMON */
 	{ "IEEE 802.11 plus Network Monitor radio header", "ieee-802-11-netmon" },
 
 	/* WTAP_ENCAP_IEEE802_15_4_NOFCS */
@@ -534,7 +543,7 @@ static struct encap_type_info encap_table_base[] = {
 	{ "Raw IPv6", "rawip6" },
 
 	/* WTAP_ENCAP_LAPD */
-	{ "Lapd header", "lapd" },
+	{ "LAPD", "lapd" },
 
 	/* WTAP_ENCAP_DVBCI */
 	{ "DVB-CI (Common Interface)", "dvbci"},
@@ -561,7 +570,22 @@ static struct encap_type_info encap_table_base[] = {
 	{ "PPP-over-Ethernet session", "pppoes" },
 
 	/* WTAP_ENCAP_NFC_LLCP */
-	{ "LLCP", "llcp" }
+	{ "NFC LLCP", "nfc-llcp" },
+
+	/* WTAP_ENCAP_NFLOG */
+	{ "NFLOG", "nflog" },
+
+	/* WTAP_ENCAP_V5_EF */
+	{ "V5 Envelope Function", "v5-ef" },
+
+	/* WTAP_ENCAP_BACNET_MS_TP_WITH_PHDR */
+	{ "BACnet MS/TP with Directional Info", "bacnet-ms-tp-with-direction" },
+ 
+ 	/* WTAP_ENCAP_IXVERIWAVE */
+ 	{ "IxVeriWave header and stats block", "ixveriwave" },
+
+	/* WTAP_ENCAP_IEEE_802_11_AIROPEEK */
+	{ "IEEE 802.11 plus AiroPeek radio header", "ieee-802-11-airopeek" },
 };
 
 gint wtap_num_encap_types = sizeof(encap_table_base) / sizeof(struct encap_type_info);
@@ -601,8 +625,8 @@ int wtap_register_encap_type(char* name, char* short_name) {
 
 
 /* Name that should be somewhat descriptive. */
-const char
-*wtap_encap_string(int encap)
+const char *
+wtap_encap_string(int encap)
 {
 	if (encap < WTAP_ENCAP_PER_PACKET || encap >= WTAP_NUM_ENCAP_TYPES)
 		return "Illegal";
@@ -613,8 +637,8 @@ const char
 }
 
 /* Name to use in, say, a command-line flag specifying the type. */
-const char
-*wtap_encap_short_string(int encap)
+const char *
+wtap_encap_short_string(int encap)
 {
 	if (encap < WTAP_ENCAP_PER_PACKET || encap >= WTAP_NUM_ENCAP_TYPES)
 		return "illegal";
@@ -664,8 +688,8 @@ static const char *wtap_errlist[] = {
 };
 #define	WTAP_ERRLIST_SIZE	(sizeof wtap_errlist / sizeof wtap_errlist[0])
 
-const char
-*wtap_strerror(int err)
+const char *
+wtap_strerror(int err)
 {
 	static char errbuf[128];
 	unsigned int wtap_errlist_index;
@@ -715,9 +739,28 @@ g_fast_seek_item_free(gpointer data, gpointer user_data _U_)
 	g_free(data);
 }
 
+/*
+ * Close the file descriptors for the sequential and random streams, but
+ * don't discard any information about those streams.  Used on Windows if
+ * we need to rename a file that we have open or if we need to rename on
+ * top of a file we have open.
+ */
+void
+wtap_fdclose(wtap *wth)
+{
+	if (wth->fh != NULL)
+		file_fdclose(wth->fh);
+	if (wth->random_fh != NULL)
+		file_fdclose(wth->random_fh);
+}
+
 void
 wtap_close(wtap *wth)
 {
+	gint i, j;
+	wtapng_if_descr_t *wtapng_if_descr;
+	wtapng_if_stats_t *if_stats;
+
 	wtap_sequential_close(wth);
 
 	if (wth->subtype_close != NULL)
@@ -732,6 +775,39 @@ wtap_close(wtap *wth)
 	if (wth->fast_seek != NULL) {
 		g_ptr_array_foreach(wth->fast_seek, g_fast_seek_item_free, NULL);
 		g_ptr_array_free(wth->fast_seek, TRUE);
+	}
+	for(i = 0; i < (gint)wth->number_of_interfaces; i++) {
+		wtapng_if_descr = &g_array_index(wth->interface_data, wtapng_if_descr_t, i);
+		if(wtapng_if_descr->opt_comment != NULL){
+			g_free(wtapng_if_descr->opt_comment);
+		}
+		if(wtapng_if_descr->if_name != NULL){
+			g_free(wtapng_if_descr->if_name);
+		}
+		if(wtapng_if_descr->if_description != NULL){
+			g_free(wtapng_if_descr->if_description);
+		}
+		if(wtapng_if_descr->if_filter_str != NULL){
+			g_free(wtapng_if_descr->if_filter_str);
+		}
+		if(wtapng_if_descr->if_filter_bpf_bytes != NULL){
+			g_free(wtapng_if_descr->if_filter_bpf_bytes);
+		}
+		if(wtapng_if_descr->if_os != NULL){
+			g_free(wtapng_if_descr->if_os);
+		}
+		for(j = 0; j < (gint)wtapng_if_descr->num_stat_entries; j++) {
+			if_stats = &g_array_index(wtapng_if_descr->interface_statistics, wtapng_if_stats_t, j);
+			if(if_stats->opt_comment != NULL){
+				g_free(if_stats->opt_comment);
+			}
+		}
+		if(wtapng_if_descr->num_stat_entries != 0){
+			 g_array_free(wtapng_if_descr->interface_statistics, TRUE);
+		}
+	}
+	if(wth->number_of_interfaces != 0){
+		 g_array_free(wth->interface_data, TRUE);
 	}
 	g_free(wth);
 }
@@ -808,19 +884,19 @@ wtap_read_so_far(wtap *wth)
 	return file_tell_raw(wth->fh);
 }
 
-struct wtap_pkthdr*
+struct wtap_pkthdr *
 wtap_phdr(wtap *wth)
 {
 	return &wth->phdr;
 }
 
-union wtap_pseudo_header*
+union wtap_pseudo_header *
 wtap_pseudoheader(wtap *wth)
 {
 	return &wth->pseudo_header;
 }
 
-guint8*
+guint8 *
 wtap_buf_ptr(wtap *wth)
 {
 	return buffer_start_ptr(wth->frame_buffer);

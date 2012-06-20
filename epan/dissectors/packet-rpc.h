@@ -38,7 +38,7 @@
 #define AUTH_SHORT 2
 #define AUTH_DES 3
 #define AUTH_KRB4 4
-#define AUTH_DH 5
+#define AUTH_RSA 5
 #define RPCSEC_GSS 6
 #define AUTH_GSSAPI 300001
 /* Pseudo-flavors used for security mechanisms while using 
@@ -53,6 +53,11 @@
 #define RPCSEC_GSS_SPKM3 390009
 #define RPCSEC_GSS_SPKM3I 390010
 #define RPCSEC_GSS_SPKM3P 390011
+/* GlusterFS requested an RPC-AUTH number from IANA,
+ * until a number has been granted 390039 is used.
+ * See also: http://review.gluster.com/3230
+ */
+#define AUTH_GLUSTERFS 390039
 
 #define MSG_ACCEPTED 0
 #define MSG_DENIED 1

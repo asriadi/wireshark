@@ -28,12 +28,10 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
-#include <string.h>
 #include <glib.h>
+
 #include <epan/packet.h>
 
-#include <epan/emem.h>
 #include <epan/strutil.h>
 #include <epan/asn1.h>
 
@@ -366,7 +364,7 @@ dissect_gsm_cell_broadcast(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
                                             frag_data, &gsm_page_items, NULL, cbs_page_tree);
      }
    }
-   if ((tree != NULL) && (cbs_msg_tvb != NULL))
+   if (cbs_msg_tvb != NULL)
    {
       guint16 len;
       proto_item     *cbs_msg_item = NULL;
@@ -562,9 +560,4 @@ proto_register_cbs(void)
 
     /* subtree array */
     proto_register_subtree_array(ett, array_length(ett));
-}
-
-void
-proto_reg_handoff_gsm_cbs(void)
-{
 }

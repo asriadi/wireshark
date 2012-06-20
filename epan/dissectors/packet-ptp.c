@@ -45,9 +45,7 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
 #include <math.h>
-
 
 #include <glib.h>
 
@@ -3927,12 +3925,12 @@ proto_register_ptp(void)
             NULL, HFILL }
         },
         { &hf_ptp_fu_preciseorigintimestamp,
-          { "preciseOriginTimestamp",    "ptp.fu.hf_ptp_fu_preciseorigintimestamp",
+          { "preciseOriginTimestamp",    "ptp.fu.preciseorigintimestamp",
             FT_RELATIVE_TIME, BASE_NONE, NULL, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_fu_preciseorigintimestamp_seconds,
-          { "preciseOriginTimestamp (seconds)",    "ptp.fu.hf_ptp_fu_preciseorigintimestamp_seconds",
+          { "preciseOriginTimestamp (seconds)",    "ptp.fu.preciseorigintimestamp_seconds",
             FT_UINT32, BASE_DEC, NULL, 0x00,
             NULL, HFILL }
         },

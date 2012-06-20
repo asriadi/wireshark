@@ -30,10 +30,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
 #include <gtk/gtk.h>
 
 #include <epan/stat_cmd_args.h>
@@ -80,11 +76,14 @@ register_dfilter_stat(tap_param_dlg *info, const char *name _U_,
 void tap_param_dlg_update (void)
 {
     tap_param_dlg_list_item *dialog = start_dlg_list;
+    char *display_name;
     char *title;
 
     while(dialog != NULL) {
         if(dialog->dlg) {
-            title = g_strdup_printf("Wireshark: %s: %s", dialog->cont.win_title , cf_get_display_name(&cfile));
+            display_name = cf_get_display_name(&cfile);
+            title = g_strdup_printf("Wireshark: %s: %s", dialog->cont.win_title , display_name);
+            g_free(display_name);
             gtk_window_set_title(GTK_WINDOW(dialog->dlg), title);
             g_free(title);
         }
@@ -135,6 +134,7 @@ void
 tap_param_dlg_cb(GtkAction *action _U_, gpointer data)
 {
     const char *filter;
+    char *display_name;
     char *title;
     GtkWidget *dlg_box;
     GtkWidget *item_box, *item, *label, *filter_bt;
@@ -191,13 +191,15 @@ tap_param_dlg_cb(GtkAction *action _U_, gpointer data)
         return;
     }
 
-    title = g_strdup_printf("Wireshark: %s: %s", current_dlg->cont.win_title , cf_get_display_name(&cfile));
+    display_name = cf_get_display_name(&cfile);
+    title = g_strdup_printf("Wireshark: %s: %s", current_dlg->cont.win_title , display_name);
+    g_free(display_name);
 
     current_dlg->dlg=dlg_window_new(title);
     gtk_window_set_default_size(GTK_WINDOW(current_dlg->dlg), 300, -1);
     g_free(title);
 
-    dlg_box=gtk_vbox_new(FALSE, 10);
+    dlg_box=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 10, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(dlg_box), 10);
     gtk_container_add(GTK_CONTAINER(current_dlg->dlg), dlg_box);
     gtk_widget_show(dlg_box);
@@ -205,7 +207,7 @@ tap_param_dlg_cb(GtkAction *action _U_, gpointer data)
     /* Parameter items */
     for(i=0;i<current_dlg->cont.nparams;i++) {
         /* Item box */
-        item_box=gtk_hbox_new(FALSE, 3);
+        item_box=ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3, FALSE);
 
         switch (current_dlg->cont.params[i].type) {
 

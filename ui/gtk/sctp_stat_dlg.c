@@ -567,7 +567,7 @@ gtk_sctpstat_dlg(void)
 	g_signal_connect(sctp_stat_dlg_w, "destroy", G_CALLBACK(dlg_destroy), NULL);
 
 	/* Container for each row of widgets */
-	vbox1 = gtk_vbox_new(FALSE, 2);
+	vbox1 = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 2, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(vbox1), 8);
 	gtk_container_add(GTK_CONTAINER(sctp_stat_dlg_w), vbox1);
 	gtk_widget_show(vbox1);
@@ -583,7 +583,7 @@ gtk_sctpstat_dlg(void)
 
 	gtk_widget_show(sctp_stat_dlg_w);
 
-	hbuttonbox2 = gtk_hbutton_box_new();
+	hbuttonbox2 = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_box_pack_start(GTK_BOX(vbox1), hbuttonbox2, FALSE, FALSE, 0);
 	gtk_container_set_border_width(GTK_CONTAINER(hbuttonbox2), 10);
 	gtk_button_box_set_layout(GTK_BUTTON_BOX (hbuttonbox2), GTK_BUTTONBOX_SPREAD);

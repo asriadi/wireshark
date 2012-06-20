@@ -49,10 +49,11 @@
 #include "u3.h"
 
 #include <wsutil/file_util.h>
+#include <wsutil/str_util.h>
 
 #define RECENT_KEY_MAIN_TOOLBAR_SHOW        "gui.toolbar_main_show"
 #define RECENT_KEY_FILTER_TOOLBAR_SHOW      "gui.filter_toolbar_show"
-#define RECENT_KEY_AIRPCAP_TOOLBAR_SHOW     "gui.airpcap_toolbar_show"
+#define RECENT_KEY_WIRELESS_TOOLBAR_SHOW    "gui.wireless_toolbar_show"
 #define RECENT_KEY_DRIVER_CHECK_SHOW        "gui.airpcap_driver_check_show"
 #define RECENT_KEY_PACKET_LIST_SHOW         "gui.packet_list_show"
 #define RECENT_KEY_TREE_VIEW_SHOW           "gui.tree_view_show"
@@ -304,12 +305,10 @@ write_profile_recent(void)
   fprintf(rf, RECENT_KEY_FILTER_TOOLBAR_SHOW ": %s\n",
 		  recent.filter_toolbar_show == TRUE ? "TRUE" : "FALSE");
 
-#ifdef HAVE_AIRPCAP
   fprintf(rf, "\n# Wireless Settings Toolbar show (hide).\n");
   fprintf(rf, "# TRUE or FALSE (case-insensitive).\n");
-  fprintf(rf, RECENT_KEY_AIRPCAP_TOOLBAR_SHOW ": %s\n",
-		  recent.airpcap_toolbar_show == TRUE ? "TRUE" : "FALSE");
-#endif
+  fprintf(rf, RECENT_KEY_WIRELESS_TOOLBAR_SHOW ": %s\n",
+		  recent.wireless_toolbar_show == TRUE ? "TRUE" : "FALSE");
 
 #ifdef HAVE_AIRPCAP
   fprintf(rf, "\n# Show (hide) old AirPcap driver warning dialog box.\n");
@@ -547,12 +546,13 @@ read_set_recent_pair_static(gchar *key, gchar *value, void *private_data _U_,
     else {
         recent.filter_toolbar_show = FALSE;
     }
-  } else if (strcmp(key, RECENT_KEY_AIRPCAP_TOOLBAR_SHOW) == 0) {
+  /* check both the old and the new keyword */
+  } else if (strcmp(key, RECENT_KEY_WIRELESS_TOOLBAR_SHOW) == 0 || (strcmp(key, "gui.airpcap_toolbar_show") == 0)) {
     if (g_ascii_strcasecmp(value, "true") == 0) {
-        recent.airpcap_toolbar_show = TRUE;
+        recent.wireless_toolbar_show = TRUE;
     }
     else {
-        recent.airpcap_toolbar_show = FALSE;
+        recent.wireless_toolbar_show = FALSE;
     }
   } else if (strcmp(key, RECENT_KEY_DRIVER_CHECK_SHOW) == 0) {
     if (g_ascii_strcasecmp(value, "true") == 0) {
@@ -728,6 +728,9 @@ static prefs_set_pref_e
 read_set_recent_pair_dynamic(gchar *key, gchar *value, void *private_data _U_,
 			     gboolean return_range_errors _U_)
 {
+  if (!isprint_string(value)) {
+    return PREFS_SET_SYNTAX_ERR;
+  }
   if (strcmp(key, RECENT_KEY_CAPTURE_FILE) == 0) {
     if(u3_active())
       add_menu_recent_capture_file(u3_expand_device_path(value));
@@ -848,7 +851,7 @@ recent_read_profile_static(char **rf_path_return, int *rf_errno_return)
   /* set defaults */
   recent.main_toolbar_show      = TRUE;
   recent.filter_toolbar_show    = TRUE;
-  recent.airpcap_toolbar_show   = FALSE;
+  recent.wireless_toolbar_show   = FALSE;
   recent.airpcap_driver_check_show   = TRUE;
   recent.packet_list_show       = TRUE;
   recent.tree_view_show         = TRUE;

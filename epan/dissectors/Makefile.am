@@ -47,7 +47,7 @@ libdissectors_la_CFLAGS = $(AM_CLEAN_CFLAGS)
 DIST_SUBDIRS = dcerpc pidl
 
 EXTRA_DIST = \
-	Custom.nmake		\
+	Custom.common		\
 	Makefile.common		\
 	Makefile.nmake		\
 	packet-ncp2222.inc	\
@@ -143,6 +143,6 @@ MAINTAINERCLEANFILES =	\
 	Makefile.in
 
 checkapi:
-	$(PERL) ../../tools/checkAPIs.pl -g abort -g termoutput \
+	$(PERL) ../../tools/checkAPIs.pl -g abort -g termoutput -build \
 		$(ALL_DISSECTORS_SRC) $(DISSECTOR_INCLUDES) \
 		packet-dcerpc-nt.c

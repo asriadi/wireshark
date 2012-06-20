@@ -218,7 +218,7 @@ dissect_lower_address(proto_item *ti_arg, gint ett_arg,
 
         /* SUFFIX */
         suffix = tvb_get_string(tvb, offset+1, len2);
-        ti = proto_tree_add_item(tree, hf_suff, tvb, offset, 1, TRUE);
+        ti = proto_tree_add_item(tree, hf_suff, tvb, offset, 1, ENC_ASCII|ENC_LITTLE_ENDIAN);
         offset += len2+1;
 
         if (!(suffix[0] == 'A' || suffix[0] == 'B')) {
@@ -388,7 +388,7 @@ dissect_datarequest(proto_item *ti_arg, gint ett_arg, tvbuff_t *tvb, gint arg_of
                         break;
                 if (tvb_length_remaining(tvb, offset+oidlen+1) <= 0)
                         return offset;
-                proto_tree_add_item(tree, hf_elcom_datarequest_oid, tvb, offset, 1, ENC_ASCII|ENC_BIG_ENDIAN);
+                proto_tree_add_item(tree, hf_elcom_datarequest_oid, tvb, offset, 1, ENC_ASCII|ENC_NA);
                 offset += oidlen+1;
         }
         offset += 1;             /* the loop exited at the 0 length byte */

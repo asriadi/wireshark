@@ -39,10 +39,6 @@
 #include <stdio.h>
 #include <math.h>
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
 #include <string.h>
 #include "epan/packet_info.h"
 #include <epan/in_cksum.h>
@@ -315,7 +311,7 @@ call_foreach_merge_settings(gpointer value, gpointer arg)
 	if((fInfo->num==tot_packet_amount)&&(cs->stop_packet_nr_first!=G_MAXINT32)){
 		/* calculate missing stop number */
 		swap=cs->stop_packet_nr_first;
-		cs->stop_packet_nr_first=tot_packet_amount-cs->second_file_amount;;
+		cs->stop_packet_nr_first=tot_packet_amount-cs->second_file_amount;
 		cs->stop_packet_nr_second=swap;
 	}
 

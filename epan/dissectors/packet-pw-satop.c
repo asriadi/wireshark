@@ -35,8 +35,8 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
 #include <glib.h>
+
 #include <epan/packet.h>
 #include <epan/expert.h>
 
@@ -83,8 +83,6 @@ void dissect_pw_satop(tvbuff_t * tvb_original
 		,PAY_LIKE_OCTET_ALIGNED_T1
 	} payload_properties;
 
-	properties = PWC_PACKET_PROPERTIES_T_INITIALIZER;
-	payload_properties = PAY_NO_IDEA;
 	packet_size = tvb_reported_length_remaining(tvb_original, 0);
 	/*
 	 * FIXME

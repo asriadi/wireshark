@@ -1088,7 +1088,7 @@ dissect_ospf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
         if (ospf_msg_type_to_filter(packet_type) != -1) {
             hidden_item = proto_tree_add_item(ospf_header_tree,
                                               hf_ospf_filter[ospf_msg_type_to_filter(packet_type)],
-                                              tvb, 1, 1, FALSE);
+                                              tvb, 1, 1, ENC_BIG_ENDIAN);
             PROTO_ITEM_SET_HIDDEN(hidden_item);
         }
         proto_tree_add_text(ospf_header_tree, tvb, 2, 2, "Packet Length: %u",
@@ -2550,7 +2550,7 @@ dissect_ospf_v2_lsa(tvbuff_t *tvb, int offset, proto_tree *tree,
     if (ospf_ls_type_to_filter(ls_type) != -1) {
         hidden_item = proto_tree_add_item(ospf_lsa_tree,
                                           hf_ospf_filter[ospf_ls_type_to_filter(ls_type)], tvb,
-                                          offset + 3, 1, FALSE);
+                                          offset + 3, 1, ENC_BIG_ENDIAN);
         PROTO_ITEM_SET_HIDDEN(hidden_item);
     }
 
@@ -3363,7 +3363,7 @@ proto_register_ospf(void)
            BASE_HEX, NULL, 0x0, NULL, HFILL }},
         {&hf_ospf_filter[OSPFF_LS_MPLS_BC_MODEL_ID],
          { "MPLS/DSTE Bandwidth Constraints Model Id", "ospf.mpls.bc", FT_UINT8,
-           BASE_RANGE_STRING | BASE_DEC, RVALS(&mpls_link_stlv_bcmodel_rvals), 0x0,
+           BASE_RANGE_STRING | BASE_DEC, RVALS(mpls_link_stlv_bcmodel_rvals), 0x0,
            NULL, HFILL }},
 
         {&hf_ospf_filter[OSPFF_LS_OIF_LOCAL_NODE_ID],

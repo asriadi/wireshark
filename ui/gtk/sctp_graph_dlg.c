@@ -42,7 +42,7 @@
 #include "ui/gtk/dlg_utils.h"
 #include "ui/gtk/main.h"
 #include "ui/gtk/sctp_stat.h"
-
+#include "ui/gtk/gui_utils.h"
 #include "ui/gtk/old-gtk-compat.h"
 
 #define DEFAULT_PIXELS_PER_TICK 2
@@ -63,7 +63,7 @@
 #define BOTTOM_BORDER 50
 
 #define SUB_32(a, b)	((a)-(b))
-#define POINT_SIZE	3
+#define POINT_SIZE	1
 
 static GtkWidget * sack_bt;
 
@@ -296,7 +296,7 @@ draw_sack_graph(struct sctp_udata *u_data)
 								if (xvalue >= LEFT_BORDER+u_data->io->offset &&
 								    xvalue <= u_data->io->surface_width-RIGHT_BORDER+u_data->io->offset &&
 								    yvalue >= TOP_BORDER-u_data->io->offset-POINT_SIZE &&
-								    yvalue <= u_data->io->surface_height-BOTTOM_BORDER-u_data->io->offset)
+								    yvalue <= u_data->io->surface_height-BOTTOM_BORDER-u_data->io->offset) {
 #if GTK_CHECK_VERSION(2,22,0)
 									cr = cairo_create (u_data->io->surface);
 #else
@@ -311,6 +311,7 @@ draw_sack_graph(struct sctp_udata *u_data)
 										2 * G_PI);
 									cairo_fill(cr);
 									cairo_destroy(cr);
+								}
 							}
 						}
 					}
@@ -499,7 +500,7 @@ draw_nr_sack_graph(struct sctp_udata *u_data)
 						if (xvalue >= LEFT_BORDER+u_data->io->offset &&
 						    xvalue <= u_data->io->surface_width-RIGHT_BORDER+u_data->io->offset &&
 						    yvalue >= TOP_BORDER-u_data->io->offset-POINT_SIZE &&
-						    yvalue <= u_data->io->surface_height-BOTTOM_BORDER-u_data->io->offset)
+						    yvalue <= u_data->io->surface_height-BOTTOM_BORDER-u_data->io->offset) {
 #if GTK_CHECK_VERSION(2,22,0)
 							cr = cairo_create (u_data->io->surface);
 #else
@@ -514,6 +515,7 @@ draw_nr_sack_graph(struct sctp_udata *u_data)
 								2 * G_PI);
 							cairo_fill(cr);
 							cairo_destroy(cr);
+						}
 					}
 				}
 			}
@@ -689,7 +691,6 @@ sctp_graph_draw(struct sctp_udata *u_data)
 	cairo_fill (cr);
 	cairo_destroy (cr);
 
-	distance=5;
 	/* x_axis */
 #if GTK_CHECK_VERSION(2,22,0)
 	cr = cairo_create (u_data->io->surface);
@@ -1672,7 +1673,7 @@ init_sctp_graph_window(struct sctp_udata *u_data)
 	u_data->io->window= dlg_window_new("WSCTP Graphics");  /* transient_for top_level */
 	gtk_window_set_destroy_with_parent (GTK_WINDOW(u_data->io->window), TRUE);
 
-	vbox=gtk_vbox_new(FALSE, 0);
+	vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_add(GTK_CONTAINER(u_data->io->window), vbox);
 	gtk_widget_show(vbox);
 
@@ -1680,7 +1681,7 @@ init_sctp_graph_window(struct sctp_udata *u_data)
 
 	sctp_graph_set_title(u_data);
 
-	hbox = gtk_hbutton_box_new();
+	hbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 	gtk_container_set_border_width(GTK_CONTAINER(hbox), 10);
 	gtk_button_box_set_layout(GTK_BUTTON_BOX (hbox), GTK_BUTTONBOX_SPREAD);
@@ -1730,14 +1731,17 @@ init_sctp_graph_window(struct sctp_udata *u_data)
 static void
 sctp_graph_set_title(struct sctp_udata *u_data)
 {
+	char *display_name;
 	char *title;
 
 	if(!u_data->io->window)
 	{
 		return;
 	}
+	display_name = cf_get_display_name(&cfile);
 	title = g_strdup_printf("SCTP TSNs and Sacks over Time: %s Port1 %u Port2 %u Endpoint %u",
-	                        cf_get_display_name(&cfile), u_data->parent->assoc->port1, u_data->parent->assoc->port2, u_data->dir);
+	                        display_name, u_data->parent->assoc->port1, u_data->parent->assoc->port2, u_data->dir);
+	g_free(display_name);
 	gtk_window_set_title(GTK_WINDOW(u_data->io->window), title);
 	g_free(title);
 }

@@ -29,9 +29,8 @@
 # include "config.h"
 #endif
 
-#include <string.h>
-#include <time.h>
 #include <math.h>
+
 #include <glib.h>
 
 #include <epan/packet.h>
@@ -585,11 +584,11 @@ static tvbparse_wanted_t* want_ignore;
 const char *
 tvb_ntp_fmt_ts(tvbuff_t *tvb, gint offset)
 {
-	guint32 tempstmp, tempfrac;
-	time_t temptime;
-	struct tm *bd;
-	double fractime;
-	char *buff;
+	guint32		 tempstmp, tempfrac;
+	time_t		 temptime;
+	struct tm	*bd;
+	double		 fractime;
+	char		*buff;
 
 	tempstmp = tvb_get_ntohl(tvb, offset);
 	tempfrac = tvb_get_ntohl(tvb, offset+4);
@@ -606,7 +605,7 @@ tvb_ntp_fmt_ts(tvbuff_t *tvb, gint offset)
 	fractime = bd->tm_sec + tempfrac / NTP_FLOAT_DENOM;
 	buff=ep_alloc(NTP_TS_SIZE);
 	g_snprintf(buff, NTP_TS_SIZE,
-                 "%s %2d, %d %02d:%02d:%09.6f UTC",
+		 "%s %2d, %d %02d:%02d:%09.6f UTC",
 		 mon_names[bd->tm_mon],
 		 bd->tm_mday,
 		 bd->tm_year + 1900,
@@ -635,7 +634,7 @@ dissect_ntp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
 	proto_tree      *ntp_tree;
 	proto_item      *ti = NULL;
-	guint8          flags;
+	guint8		 flags;
 	void (*dissector)(tvbuff_t *, proto_item *, guint8);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "NTP");
@@ -679,17 +678,17 @@ dissect_ntp_std(tvbuff_t *tvb, proto_tree *ntp_tree, guint8 flags)
 {
 	proto_tree      *flags_tree;
 	proto_item	*tf;
-	guint8		stratum;
-	guint8		ppoll;
-	gint8		precision;
-	double		rootdelay;
-	double		rootdispersion;
-	guint32		refid_addr;
+	guint8		 stratum;
+	guint8		 ppoll;
+	gint8		 precision;
+	double		 rootdelay;
+	double		 rootdispersion;
+	guint32		 refid_addr;
 	const gchar	*buffc;
 	gchar           *buff;
-	int		i;
-	int		macofs;
-	gint            maclen;
+	int		 i;
+	int		 macofs;
+	gint		 maclen;
 
 	tf = proto_tree_add_uint(ntp_tree, hf_ntp_flags, tvb, 0, 1, flags);
 
@@ -845,10 +844,10 @@ dissect_ntp_ext(tvbuff_t *tvb, proto_tree *ntp_tree, int offset)
 {
 	proto_tree      *ext_tree, *flags_tree;
 	proto_item	*tf;
-	guint16         extlen;
-	int             endoffset;
-	guint8          flags;
-	guint32         vallen, vallen_round, siglen;
+	guint16		 extlen;
+	int		 endoffset;
+	guint8		 flags;
+	guint32		 vallen, vallen_round, siglen;
 
 	extlen = tvb_get_ntohs(tvb, offset+2);
 	if (extlen < 8) {
@@ -1031,18 +1030,18 @@ dissect_ntp_ctrl_clockstatus(tvbuff_t *tvb, proto_tree *status_tree, guint16 off
 static void
 dissect_ntp_ctrl(tvbuff_t *tvb, proto_tree *ntp_tree, guint8 flags)
 {
-	proto_tree *flags_tree;
-	proto_item *tf;
-	guint8 flags2;
+	proto_tree	*flags_tree;
+	proto_item	*tf;
+	guint8		 flags2;
 
-	proto_tree *status_tree, *data_tree, *item_tree;
-	proto_item *ts, *td, *ti;
-	guint16 status;
-	guint16 associd;
-	guint16 datalen;
-	guint16 data_offset;
+	proto_tree	*status_tree, *data_tree, *item_tree;
+	proto_item	*ts, *td, *ti;
+	guint16		 status;
+	guint16		 associd;
+	guint16		 datalen;
+	guint16		 data_offset;
 
-	tvbparse_t *tt;
+	tvbparse_t	*tt;
 	tvbparse_elem_t *element;
 
 	tf = proto_tree_add_uint(ntp_tree, hf_ntp_flags, tvb, 0, 1, flags);
@@ -1194,7 +1193,7 @@ dissect_ntp_priv(tvbuff_t *tvb, proto_tree *ntp_tree, guint8 flags)
 {
 	proto_tree      *flags_tree;
 	proto_item	*tf;
-	guint8		auth_seq, impl, reqcode;
+	guint8		 auth_seq, impl, reqcode;
 
 	tf = proto_tree_add_uint(ntp_tree, hf_ntp_flags, tvb, 0, 1, flags);
 
@@ -1317,88 +1316,88 @@ proto_register_ntp(void)
 			NULL, 0, NULL, HFILL }},
 
 		{ &hf_ntpctrl_flags2, {
-			"Flags 2", "ntpctrl.flags2", FT_UINT8, BASE_HEX,
+			"Flags 2", "ntp.ctrl.flags2", FT_UINT8, BASE_HEX,
 			NULL, 0, "Flags (Response/Error/More/Opcode)", HFILL }},
 		{ &hf_ntpctrl_flags2_r, {
-			"Response bit", "ntpctrl.flags2.r", FT_UINT8, BASE_DEC,
+			"Response bit", "ntp.ctrl.flags2.r", FT_UINT8, BASE_DEC,
 			VALS(ctrl_r_types), NTPCTRL_R_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_flags2_error, {
-			"Error bit", "ntpctrl.flags2.error", FT_UINT8, BASE_DEC,
+			"Error bit", "ntp.ctrl.flags2.error", FT_UINT8, BASE_DEC,
 			NULL, NTPCTRL_ERROR_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_flags2_more, {
-			"More bit", "ntpctrl.flags2.more", FT_UINT8, BASE_DEC,
+			"More bit", "ntp.ctrl.flags2.more", FT_UINT8, BASE_DEC,
 			NULL, NTPCTRL_MORE_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_flags2_opcode, {
-			"Opcode", "ntpctrl.flags2.opcode", FT_UINT8, BASE_DEC,
+			"Opcode", "ntp.ctrl.flags2.opcode", FT_UINT8, BASE_DEC,
 			VALS(ctrl_op_types), NTPCTRL_OP_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_sequence, {
-			"Sequence", "ntpctrl.sequence", FT_UINT16, BASE_DEC,
+			"Sequence", "ntp.ctrl.sequence", FT_UINT16, BASE_DEC,
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntpctrl_status, {
-			"Status", "ntpctrl.status", FT_UINT16, BASE_DEC,
+			"Status", "ntp.ctrl.status", FT_UINT16, BASE_DEC,
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntpctrl_error_status_word, {
-			"Error Status Word", "ntpctrl.err_status", FT_UINT16, BASE_DEC,
+			"Error Status Word", "ntp.ctrl.err_status", FT_UINT16, BASE_DEC,
 			VALS(ctrl_err_status_types), NTP_CTRL_ERRSTATUS_CODE_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_sys_status_li, {
-			"Leap Indicator", "ntpctrl.sys_status.li", FT_UINT16, BASE_DEC,
+			"Leap Indicator", "ntp.ctrl.sys_status.li", FT_UINT16, BASE_DEC,
 			VALS(li_types), NTPCTRL_SYSSTATUS_LI_MASK, "Warning of an impending leap second to be inserted or deleted in the last minute of the current month", HFILL }},
 		{ &hf_ntpctrl_sys_status_clksrc, {
-			"Clock Source", "ntpctrl.sys_status.clksrc", FT_UINT16, BASE_DEC,
+			"Clock Source", "ntp.ctrl.sys_status.clksrc", FT_UINT16, BASE_DEC,
 			VALS(ctrl_sys_status_clksource_types), NTPCTRL_SYSSTATUS_CLK_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_sys_status_count, {
-			"System Event Counter", "ntpctrl.sys_status.count", FT_UINT16, BASE_DEC,
+			"System Event Counter", "ntp.ctrl.sys_status.count", FT_UINT16, BASE_DEC,
 			NULL, NTPCTRL_SYSSTATUS_COUNT_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_sys_status_code, {
-			"System Event Code", "ntpctrl.sys_status.code", FT_UINT16, BASE_DEC,
+			"System Event Code", "ntp.ctrl.sys_status.code", FT_UINT16, BASE_DEC,
 			VALS(ctrl_sys_status_event_types), NTPCTRL_SYSSTATUS_CODE_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_b0, {
-			"Peer Status", "ntpctrl.peer_status.config", FT_UINT16, BASE_DEC,
+			"Peer Status", "ntp.ctrl.peer_status.config", FT_UINT16, BASE_DEC,
 			VALS(ctrl_peer_status_config_types), NTPCTRL_PEERSTATUS_CONFIG_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_b1, {
-			"Peer Status", "ntpctrl.peer_status.authenable", FT_UINT16, BASE_DEC,
+			"Peer Status", "ntp.ctrl.peer_status.authenable", FT_UINT16, BASE_DEC,
 			VALS(ctrl_peer_status_authenable_types), NTPCTRL_PEERSTATUS_AUTHENABLE_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_b2, {
-			"Peer Status", "ntpctrl.peer_status.authentic", FT_UINT16, BASE_DEC,
+			"Peer Status", "ntp.ctrl.peer_status.authentic", FT_UINT16, BASE_DEC,
 			VALS(ctrl_peer_status_authentic_types), NTPCTRL_PEERSTATUS_AUTHENTIC_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_b3, {
-			"Peer Status", "ntpctrl.peer_status.reach", FT_UINT16, BASE_DEC,
+			"Peer Status", "ntp.ctrl.peer_status.reach", FT_UINT16, BASE_DEC,
 			VALS(ctrl_peer_status_reach_types), NTPCTRL_PEERSTATUS_REACH_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_b4, {
-			"Peer Status: reserved", "ntpctrl.peer_status.reserved", FT_UINT16, BASE_DEC,
+			"Peer Status: reserved", "ntp.ctrl.peer_status.reserved", FT_UINT16, BASE_DEC,
 			NULL, NTPCTRL_PEERSTATUS_RESERVED_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_selection, {
-			"Peer Selection", "ntpctrl.peer_status.selection", FT_UINT16, BASE_DEC,
+			"Peer Selection", "ntp.ctrl.peer_status.selection", FT_UINT16, BASE_DEC,
 			VALS(ctrl_peer_status_selection_types), NTPCTRL_PEERSTATUS_SEL_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_count, {
-			"Peer Event Counter", "ntpctrl.peer_status.count", FT_UINT16, BASE_DEC,
+			"Peer Event Counter", "ntp.ctrl.peer_status.count", FT_UINT16, BASE_DEC,
 			NULL, NTPCTRL_PEERSTATUS_COUNT_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_peer_status_code, {
-			"Peer Event Code", "ntpctrl.peer_status.code", FT_UINT16, BASE_DEC,
+			"Peer Event Code", "ntp.ctrl.peer_status.code", FT_UINT16, BASE_DEC,
 			VALS(ctrl_peer_status_event_types), NTPCTRL_PEERSTATUS_CODE_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_clk_status, {
-			"Clock Status", "ntpctrl.clock_status.status", FT_UINT16, BASE_DEC,
+			"Clock Status", "ntp.ctrl.clock_status.status", FT_UINT16, BASE_DEC,
 			VALS(ctrl_clk_status_types), NTPCTRL_CLKSTATUS_STATUS_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_clk_status_code, {
-			"Clock Event Code", "ntpctrl.clock_status.code", FT_UINT16, BASE_DEC,
+			"Clock Event Code", "ntp.ctrl.clock_status.code", FT_UINT16, BASE_DEC,
 			NULL, NTPCTRL_CLKSTATUS_CODE_MASK, NULL, HFILL }},
 		{ &hf_ntpctrl_data, {
-			"Data", "ntpctrl.data", FT_NONE, BASE_NONE,
+			"Data", "ntp.ctrl.data", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntpctrl_item, {
-			"Item", "ntpctrl.item", FT_NONE, BASE_NONE,
+			"Item", "ntp.ctrl.item", FT_NONE, BASE_NONE,
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntpctrl_associd, {
-			"AssociationID", "ntpctrl.associd", FT_UINT16, BASE_DEC,
+			"AssociationID", "ntp.ctrl.associd", FT_UINT16, BASE_DEC,
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntpctrl_offset, {
-			"Offset", "ntpctrl.offset", FT_UINT16, BASE_DEC,
+			"Offset", "ntp.ctrl.offset", FT_UINT16, BASE_DEC,
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntpctrl_count, {
-			"Count", "ntpctrl.count", FT_UINT16, BASE_DEC,
+			"Count", "ntp.ctrl.count", FT_UINT16, BASE_DEC,
 			NULL, 0, NULL, HFILL }},
 		{ &hf_ntpctrl_trapmsg, {
-			"Trap message", "ntpctrl.trapmsg", FT_STRING, BASE_NONE,
+			"Trap message", "ntp.ctrl.trapmsg", FT_STRING, BASE_NONE,
 			NULL, 0, NULL, HFILL }},
 
 		{ &hf_ntppriv_flags_r, {
@@ -1422,7 +1421,7 @@ proto_register_ntp(void)
 		{ &hf_ntppriv_reqcode, {
 			"Request code", "ntppriv.reqcode", FT_UINT8, BASE_DEC,
 			VALS(priv_rc_types), 0, NULL, HFILL }}
-        };
+	};
 	static gint *ett[] = {
 		&ett_ntp,
 		&ett_ntp_flags,

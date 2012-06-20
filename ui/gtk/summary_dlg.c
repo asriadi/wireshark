@@ -26,9 +26,6 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
 #include <string.h>
 #include <time.h>
 
@@ -44,20 +41,19 @@
 #include "../capture-pcap-util.h"
 #ifdef HAVE_LIBPCAP
 #include "../capture.h"
-#include "ui/gtk/main.h"
 #include "ui/gtk/capture_globals.h"
 #endif
-
+#include "ui/gtk/main.h"
 #include "ui/gtk/summary_dlg.h"
 #include "ui/gtk/dlg_utils.h"
 #include "ui/gtk/gui_utils.h"
 #include "ui/gtk/help_dlg.h"
-#include "ui/gtk/menus.h"
 
 #define SUM_STR_MAX     1024
 #define FILTER_SNIP_LEN 50
 #define SHB_STR_SNIP_LEN 50
 
+static GtkWidget *summary_dlg = NULL;
 
 static void
 add_string_to_table_sensitive(GtkWidget *list, guint *row, const gchar *title, const gchar *value, gboolean sensitive)
@@ -90,14 +86,14 @@ add_string_to_table_sensitive(GtkWidget *list, guint *row, const gchar *title, c
 }
 
 static void
-add_string_to_table(GtkWidget *list, guint *row, gchar *title, gchar *value)
+add_string_to_table(GtkWidget *list, guint *row, const gchar *title, const gchar *value)
 {
     add_string_to_table_sensitive(list, row, title, value, TRUE);
 }
 
 
 static void
-add_string_to_list(GtkWidget *list, gchar *title, gchar *captured, gchar *displayed, gchar *marked)
+add_string_to_list(GtkWidget *list, const gchar *title, gchar *captured, gchar *displayed, gchar *marked)
 {
     simple_list_append(list, 0, title, 1, captured, 2, displayed, 3, marked, -1);
 }
@@ -131,7 +127,7 @@ time_to_string(char *string_buff, gulong string_buff_size, time_t ti_time)
 }
 
 static void
-summary_comment_text_buff_save_cb(GtkWidget *w _U_, GtkWidget *view)
+summary_ok_cb(GtkWidget *w _U_, GtkWidget *view)
 {
   GtkTextBuffer *buffer;
   GtkTextIter start_iter;
@@ -144,38 +140,35 @@ summary_comment_text_buff_save_cb(GtkWidget *w _U_, GtkWidget *view)
 
   new_comment = gtk_text_buffer_get_text (buffer, &start_iter, &end_iter, FALSE /* whether to include invisible text */);
 
-  /*g_warning("The new comment is '%s'",new_packet_comment);*/
+  cf_update_capture_comment(&cfile, new_comment);
 
-  summary_update_comment(&cfile, new_comment);
-  /* Mark the file as unsaved, caues a popup asking to save the file if we quit the file */
-  cfile.user_saved = FALSE;
-  set_menus_for_capture_file(&cfile);
+  /* Update the main window */
+  main_update_for_unsaved_changes(&cfile);
 
+  window_destroy(summary_dlg);
 }
 
 static void
-summary_comment_text_buff_clear_cb(GtkWidget *w _U_, GtkWidget *view)
+summary_destroy_cb(GtkWidget *win _U_, gpointer user_data _U_)
 {
-  GtkTextBuffer *buffer;
-
-  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
-  gtk_text_buffer_set_text (buffer, "", -1);
-
+  /* Note that we no longer have a Summary dialog box. */
+  summary_dlg = NULL;
 }
 
 void
 summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
 {
   summary_tally summary;
-  GtkWidget     *sum_open_w,
-                *main_vb, *bbox, *close_bt, *help_bt;
+  GtkWidget     *main_vb, *bbox, *cancel_bt, *ok_bt, *help_bt;
   GtkWidget     *table, *scrolled_window;
   GtkWidget     *list, *treeview;
+  GtkWidget     *comment_view, *comment_frame, *comment_vbox;
+  GtkTextBuffer *buffer = NULL;
+  gchar *buf_str;
   GtkListStore  *store;
   GtkTreeIter    iter;
   GtkCellRenderer *renderer;
   GtkTreeViewColumn *column;
-  const char    *dl_description;
   static const char *titles[] = { "Traffic", "Captured", "Displayed", "Marked" };
 
   gchar         string_buff[SUM_STR_MAX];
@@ -197,6 +190,12 @@ summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
   iface_options iface;
   unsigned int  i;
 
+  if (summary_dlg != NULL) {
+    /* There's already a Summary dialog box; reactivate it. */
+    reactivate_window(summary_dlg);
+    return;
+  }
+
   /* initial computations */
   summary_fill_in(&cfile, &summary);
 #ifdef HAVE_LIBPCAP
@@ -214,12 +213,12 @@ summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
   disp_seconds = summary.filtered_stop - summary.filtered_start;
   marked_seconds = summary.marked_stop - summary.marked_start;
 
-  sum_open_w = window_new(GTK_WINDOW_TOPLEVEL, "Wireshark: Summary");
+  summary_dlg = window_new(GTK_WINDOW_TOPLEVEL, "Wireshark: Summary");
 
   /* Container for each row of widgets */
-  main_vb = gtk_vbox_new(FALSE, 12);
+  main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 12, FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(main_vb), 12);
-  gtk_container_add(GTK_CONTAINER(sum_open_w), main_vb);
+  gtk_container_add(GTK_CONTAINER(summary_dlg), main_vb);
 
   /* table */
   table = gtk_table_new(1, 2, FALSE);
@@ -237,76 +236,56 @@ summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
   add_string_to_table(table, &row, "Name:", string_buff);
 
   /* length */
-  g_snprintf(string_buff, SUM_STR_MAX, "%" G_GINT64_MODIFIER "d bytes", summary.file_length);
+  g_snprintf(string_buff, SUM_STR_MAX, "%" G_GINT64_MODIFIER "d bytes",
+             summary.file_length);
   add_string_to_table(table, &row, "Length:", string_buff);
 
   /* format */
-  g_snprintf(string_buff, SUM_STR_MAX, "%s", wtap_file_type_string(summary.file_type));
+  g_snprintf(string_buff, SUM_STR_MAX, "%s%s",
+             wtap_file_type_string(summary.file_type),
+             summary.iscompressed? " (gzip compressed)" : "");
   add_string_to_table(table, &row, "Format:", string_buff);
 
   /* encapsulation */
-  g_snprintf(string_buff, SUM_STR_MAX, "%s", wtap_encap_string(summary.encap_type));
-  add_string_to_table(table, &row, "Encapsulation:", string_buff);
-
+  if (summary.file_encap_type == WTAP_ENCAP_PER_PACKET) {
+    for (i = 0; i < summary.packet_encap_types->len; i++) {
+      g_snprintf(string_buff, SUM_STR_MAX, "%s",
+                 wtap_encap_string(g_array_index(summary.packet_encap_types, int, i)));
+      add_string_to_table(table, &row, (i == 0) ? "Encapsulation:" : "",
+                          string_buff);
+    }
+  } else {
+    g_snprintf(string_buff, SUM_STR_MAX, "%s", wtap_encap_string(summary.file_encap_type));
+    add_string_to_table(table, &row, "Encapsulation:", string_buff);
+  }
   if (summary.has_snap) {
     /* snapshot length */
     g_snprintf(string_buff, SUM_STR_MAX, "%u bytes", summary.snap);
     add_string_to_table(table, &row, "Packet size limit:", string_buff);
   }
 
-  /* Only allow editing of comment if filetype is PCAPNG */
-  if(summary.file_type == WTAP_FILE_PCAPNG){
-	  GtkWidget *frame;
-	  GtkWidget *comment_vbox;
-	  GtkWidget *view;
-	  GtkTextBuffer *buffer = NULL;
-	  const gchar *buf_str;
-	  GtkWidget *ok_bt, *clear_bt;
+  /* Capture file comment area */
+  comment_frame = gtk_frame_new ("Capture file comments");
+  gtk_frame_set_shadow_type (GTK_FRAME (comment_frame), GTK_SHADOW_ETCHED_IN);
+  gtk_container_add (GTK_CONTAINER (main_vb), comment_frame);
+  gtk_widget_show (comment_frame);
 
-	  frame = gtk_frame_new ("Capture comments");
-	  gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_ETCHED_IN);
-	  gtk_container_add (GTK_CONTAINER (main_vb), frame);
-	  gtk_widget_show (frame);
+  comment_vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
+  gtk_container_add (GTK_CONTAINER (comment_frame), comment_vbox);
+  gtk_widget_show (comment_vbox);
 
-	  comment_vbox = gtk_vbox_new (FALSE, 0);
-	  gtk_container_add (GTK_CONTAINER (frame), comment_vbox);
-	  gtk_widget_show (comment_vbox);
-
-	  view = gtk_text_view_new ();
-	  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
-	  if(summary.opt_comment == NULL){
-		  buf_str = g_strdup_printf("[None]");
-	  }else{
-		  buf_str = g_strdup_printf("%s", summary.opt_comment);
-	  }
-	  gtk_text_buffer_set_text (buffer, buf_str, -1);
-	  gtk_container_add(GTK_CONTAINER(comment_vbox), view);
-	  gtk_widget_show (view);
-
-	  /* Button row. */
-	  bbox = dlg_button_row_new (GTK_STOCK_OK, GTK_STOCK_CLEAR, NULL);
-	  gtk_box_pack_end (GTK_BOX(comment_vbox), bbox, FALSE, FALSE, 0);
-
-	  ok_bt = g_object_get_data (G_OBJECT(bbox), GTK_STOCK_OK);
-	  g_signal_connect (ok_bt, "clicked", G_CALLBACK(summary_comment_text_buff_save_cb), view);
-	  gtk_widget_set_sensitive (ok_bt, TRUE);
-	  gtk_widget_set_tooltip_text(ok_bt,
-			     "Updates the comment, you need to save the the capture file as well to save the updated comment");
-
-
-	  clear_bt = g_object_get_data(G_OBJECT(bbox), GTK_STOCK_CLEAR);
-	  g_signal_connect(clear_bt, "clicked", G_CALLBACK(summary_comment_text_buff_clear_cb), view);
-	  gtk_widget_set_tooltip_text(clear_bt,
-			     "Clears the text from the box, not the capture");
-
-	  gtk_widget_grab_default (ok_bt);
-
-  }else{
-	  if (summary.opt_comment != NULL) {
-		/* comment */
-		add_string_to_table(table, &row, "Comment:", summary.opt_comment);
-	  }
- }
+  comment_view = gtk_text_view_new ();
+  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(comment_view), GTK_WRAP_WORD);
+  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (comment_view));
+  if(summary.opt_comment == NULL) {
+    gtk_text_buffer_set_text (buffer, "", -1);
+  } else {
+    buf_str = g_strdup_printf("%s", summary.opt_comment);
+    gtk_text_buffer_set_text (buffer, buf_str, -1);
+    g_free(buf_str);
+  }
+  gtk_container_add(GTK_CONTAINER(comment_vbox), comment_view);
+  gtk_widget_show (comment_view);
 
   /*
    * We must have no un-time-stamped packets (i.e., the number of
@@ -350,19 +329,19 @@ summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
   add_string_to_table(table, &row, "", "");
   add_string_to_table_sensitive(table, &row, "Capture", "", (summary.ifaces->len > 0));
   if(summary.shb_hardware){
-	  /* trucate the string to a reasonable length */
-	  g_snprintf(string_buff, SHB_STR_SNIP_LEN, "%s",summary.shb_hardware);
-      add_string_to_table(table, &row, "Capture HW:",string_buff);
+    /* trucate the string to a reasonable length */
+    g_snprintf(string_buff, SHB_STR_SNIP_LEN, "%s",summary.shb_hardware);
+    add_string_to_table(table, &row, "Capture HW:",string_buff);
   }
   if(summary.shb_os){
-	  /* trucate the strings to a reasonable length */
-	  g_snprintf(string_buff, SHB_STR_SNIP_LEN, "%s",summary.shb_os);
-      add_string_to_table(table, &row, "OS:", string_buff);
+    /* trucate the strings to a reasonable length */
+    g_snprintf(string_buff, SHB_STR_SNIP_LEN, "%s",summary.shb_os);
+    add_string_to_table(table, &row, "OS:", string_buff);
   }
   if(summary.shb_user_appl){
-	  /* trucate the string to a reasonable length */
-	  g_snprintf(string_buff, SHB_STR_SNIP_LEN, "%s",summary.shb_user_appl);
-      add_string_to_table(table, &row, "Capture application:", string_buff);
+    /* trucate the string to a reasonable length */
+    g_snprintf(string_buff, SHB_STR_SNIP_LEN, "%s",summary.shb_user_appl);
+    add_string_to_table(table, &row, "Capture application:", string_buff);
   }
   scrolled_window = gtk_scrolled_window_new (NULL, NULL);
   gtk_container_set_border_width (GTK_CONTAINER (scrolled_window), 5);
@@ -414,13 +393,8 @@ summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
         g_snprintf(string_buff3, SUM_STR_MAX, "unknown");
       }
     }
-    dl_description = wtap_encap_string(iface.linktype);
-    if (dl_description != NULL)
-      g_snprintf(string_buff4, SUM_STR_MAX, "%s", dl_description);
-    else
-      g_snprintf(string_buff4, SUM_STR_MAX, "DLT %d", iface.linktype);
-
-	g_snprintf(string_buff5, SUM_STR_MAX, "%u bytes", iface.snap);
+    g_snprintf(string_buff4, SUM_STR_MAX, "%s", wtap_encap_string(iface.encap_type));
+    g_snprintf(string_buff5, SUM_STR_MAX, "%u bytes", iface.snap);
     gtk_list_store_append(store, &iter);
     gtk_list_store_set(store, &iter, 0, string_buff, 1, string_buff2, 2, string_buff3, 3, string_buff4, 4, string_buff5,-1);
   }
@@ -523,22 +497,22 @@ summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
   /* Packet size */
   if (summary.packet_count > 1) {
     g_snprintf(string_buff, SUM_STR_MAX, "%.3f bytes",
-	       /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
-	       (float) ((gint64) summary.bytes)/summary.packet_count);
+               /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
+               (float) ((gint64) summary.bytes)/summary.packet_count);
   } else {
     string_buff[0] = '\0';
   }
   if (summary.dfilter && summary.filtered_count > 1) {
     g_snprintf(string_buff2, SUM_STR_MAX, "%.3f bytes",
-	       /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
-	       (float) ((gint64) summary.filtered_bytes)/summary.filtered_count);
+               /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
+               (float) ((gint64) summary.filtered_bytes)/summary.filtered_count);
   } else {
     string_buff2[0] = '\0';
   }
   if (summary.marked_count > 1) {
     g_snprintf(string_buff3, SUM_STR_MAX, "%.3f bytes",
-	       /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
-	       (float) ((gint64) summary.marked_bytes)/summary.marked_count);
+               /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
+               (float) ((gint64) summary.marked_bytes)/summary.marked_count);
   } else {
     string_buff3[0] = '\0';
   }
@@ -585,22 +559,22 @@ summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
   /* MBit per second */
   if (seconds > 0) {
     g_snprintf(string_buff, SUM_STR_MAX, "%.3f",
-	       /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
-	       ((gint64) summary.bytes) * 8.0 / (seconds * 1000.0 * 1000.0));
+               /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
+               ((gint64) summary.bytes) * 8.0 / (seconds * 1000.0 * 1000.0));
   } else {
     string_buff[0] = '\0';
   }
   if (summary.dfilter && disp_seconds > 0) {
     g_snprintf(string_buff2, SUM_STR_MAX, "%.3f",
-	       /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
-	       ((gint64) summary.filtered_bytes) * 8.0 / (disp_seconds * 1000.0 * 1000.0));
+               /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
+               ((gint64) summary.filtered_bytes) * 8.0 / (disp_seconds * 1000.0 * 1000.0));
   } else {
     string_buff2[0] = '\0';
   }
   if (summary.marked_count && marked_seconds > 0) {
     g_snprintf(string_buff3, SUM_STR_MAX, "%.3f",
-	       /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
-	       ((gint64) summary.marked_bytes) * 8.0 / (marked_seconds * 1000.0 * 1000.0));
+               /* MSVC cannot convert from unsigned __int64 to float, so first convert to signed __int64 */
+               ((gint64) summary.marked_bytes) * 8.0 / (marked_seconds * 1000.0 * 1000.0));
   } else {
     string_buff3[0] = '\0';
   }
@@ -609,19 +583,24 @@ summary_open_cb(GtkWidget *w _U_, gpointer d _U_)
 
 
   /* Button row. */
-  bbox = dlg_button_row_new(GTK_STOCK_CLOSE, GTK_STOCK_HELP, NULL);
+  bbox = dlg_button_row_new(GTK_STOCK_CANCEL, GTK_STOCK_OK, GTK_STOCK_HELP, NULL);
   gtk_container_add(GTK_CONTAINER(main_vb), bbox);
 
-  close_bt = g_object_get_data(G_OBJECT(bbox), GTK_STOCK_CLOSE);
-  window_set_cancel_button(sum_open_w, close_bt, window_cancel_button_cb);
+  cancel_bt = g_object_get_data(G_OBJECT(bbox), GTK_STOCK_CANCEL);
+  window_set_cancel_button(summary_dlg, cancel_bt, window_cancel_button_cb);
+
+  ok_bt = g_object_get_data(G_OBJECT(bbox), GTK_STOCK_OK);
+  g_signal_connect (ok_bt, "clicked",
+                    G_CALLBACK(summary_ok_cb), comment_view);
+  gtk_widget_grab_focus(ok_bt);
 
   help_bt = g_object_get_data(G_OBJECT(bbox), GTK_STOCK_HELP);
   g_signal_connect(help_bt, "clicked", G_CALLBACK(topic_cb), (gpointer)HELP_STATS_SUMMARY_DIALOG);
 
-  gtk_widget_grab_focus(close_bt);
 
-  g_signal_connect(sum_open_w, "delete_event", G_CALLBACK(window_delete_event_cb), NULL);
+  g_signal_connect(summary_dlg, "delete_event", G_CALLBACK(window_delete_event_cb), NULL);
+  g_signal_connect(summary_dlg, "destroy", G_CALLBACK(summary_destroy_cb), NULL);
 
-  gtk_widget_show_all(sum_open_w);
-  window_present(sum_open_w);
+  gtk_widget_show_all(summary_dlg);
+  window_present(summary_dlg);
 }

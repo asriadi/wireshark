@@ -223,7 +223,9 @@ static int hf_isakmp_tf_attr_format = -1;
 static int hf_isakmp_tf_attr_length = -1;
 static int hf_isakmp_tf_attr_value = -1;
 static int hf_isakmp_tf_attr_life_type = -1;
-static int hf_isakmp_tf_attr_life_duration = -1;
+static int hf_isakmp_tf_attr_life_duration_uint32 = -1;
+static int hf_isakmp_tf_attr_life_duration_uint64 = -1;
+static int hf_isakmp_tf_attr_life_duration_bytes = -1;
 static int hf_isakmp_tf_attr_group_description = -1;
 static int hf_isakmp_tf_attr_encap_mode = -1;
 static int hf_isakmp_tf_attr_auth_algorithm = -1;
@@ -254,7 +256,9 @@ static int hf_isakmp_ike_attr_group_generator_two = -1;
 static int hf_isakmp_ike_attr_group_curve_a = -1;
 static int hf_isakmp_ike_attr_group_curve_b = -1;
 static int hf_isakmp_ike_attr_life_type = -1;
-static int hf_isakmp_ike_attr_life_duration = -1;
+static int hf_isakmp_ike_attr_life_duration_uint32 = -1;
+static int hf_isakmp_ike_attr_life_duration_uint64 = -1;
+static int hf_isakmp_ike_attr_life_duration_bytes = -1;
 static int hf_isakmp_ike_attr_prf = -1;
 static int hf_isakmp_ike_attr_key_length = -1;
 static int hf_isakmp_ike_attr_field_size = -1;
@@ -1872,7 +1876,7 @@ static void dissect_sig(tvbuff_t *, int, int, proto_tree *);
 static void dissect_nonce(tvbuff_t *, int, int, proto_tree *);
 static void dissect_notif(tvbuff_t *, int, int, proto_tree *, int);
 static void dissect_delete(tvbuff_t *, int, int, proto_tree *, int);
-static void dissect_vid(tvbuff_t *, int, int, proto_tree *);
+static int dissect_vid(tvbuff_t *, int, int, proto_tree *);
 static void dissect_config(tvbuff_t *, int, int, proto_tree *, int);
 static void dissect_nat_discovery(tvbuff_t *, int, int, proto_tree * );
 static void dissect_nat_original_address(tvbuff_t *, int, int, proto_tree *, int );
@@ -3090,7 +3094,7 @@ dissect_rohc_supported(tvbuff_t *tvb, proto_tree *rohc_tree, int offset )
  * life duration according to the attribute classes table in Appendix A of
  * RFC2409: http://tools.ietf.org/html/rfc2409#page-33 */
 static void
-dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf, int offset, guint len)
+dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf_uint32, int hf_uint64, int hf_bytes, int offset, guint len)
 {
 	switch (len) {
 		case 0:
@@ -3099,7 +3103,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf, i
 			guint8 val;
 			val = tvb_get_guint8(tvb, offset);
 
-			proto_tree_add_uint_format_value(tree, hf, tvb, offset, len, val, "%u", val);
+			proto_tree_add_uint_format_value(tree, hf_uint32, tvb, offset, len, val, "%u", val);
 			proto_item_append_text(ti, " : %u", val);
 			break;
 		}
@@ -3107,7 +3111,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf, i
 			guint16 val;
 			val = tvb_get_ntohs(tvb, offset);
 
-			proto_tree_add_uint_format_value(tree, hf, tvb, offset, len, val, "%u", val);
+			proto_tree_add_uint_format_value(tree, hf_uint32, tvb, offset, len, val, "%u", val);
 			proto_item_append_text(ti, " : %u", val);
 			break;
 		}
@@ -3115,7 +3119,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf, i
 			guint32 val;
 			val = tvb_get_ntoh24(tvb, offset);
 
-			proto_tree_add_uint_format_value(tree, hf, tvb, offset, len, val, "%u", val);
+			proto_tree_add_uint_format_value(tree, hf_uint32, tvb, offset, len, val, "%u", val);
 			proto_item_append_text(ti, " : %u", val);
 			break;
 		}
@@ -3123,7 +3127,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf, i
 			guint32 val;
 			val = tvb_get_ntohl(tvb, offset);
 
-			proto_tree_add_uint_format_value(tree, hf, tvb, offset, len, val, "%u", val);
+			proto_tree_add_uint_format_value(tree, hf_uint32, tvb, offset, len, val, "%u", val);
 			proto_item_append_text(ti, " : %u", val);
 			break;
 		}
@@ -3131,7 +3135,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf, i
 			guint64 val;
 			val = tvb_get_ntoh40(tvb, offset);
 
-			proto_tree_add_uint64_format_value(tree, hf, tvb, offset, len, val, "%" G_GINT64_MODIFIER "u", val);
+			proto_tree_add_uint64_format_value(tree, hf_uint64, tvb, offset, len, val, "%" G_GINT64_MODIFIER "u", val);
 			proto_item_append_text(ti, " : %" G_GINT64_MODIFIER "u", val);
 			break;
 		}
@@ -3139,7 +3143,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf, i
 			guint64 val;
 			val = tvb_get_ntoh48(tvb, offset);
 
-			proto_tree_add_uint64_format_value(tree, hf, tvb, offset, len, val, "%" G_GINT64_MODIFIER "u", val);
+			proto_tree_add_uint64_format_value(tree, hf_uint64, tvb, offset, len, val, "%" G_GINT64_MODIFIER "u", val);
 			proto_item_append_text(ti, " : %" G_GINT64_MODIFIER "u", val);
 			break;
 		}
@@ -3147,7 +3151,7 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf, i
 			guint64 val;
 			val = tvb_get_ntoh56(tvb, offset);
 
-			proto_tree_add_uint64_format_value(tree, hf, tvb, offset, len, val, "%" G_GINT64_MODIFIER "u", val);
+			proto_tree_add_uint64_format_value(tree, hf_uint64, tvb, offset, len, val, "%" G_GINT64_MODIFIER "u", val);
 			proto_item_append_text(ti, " : %" G_GINT64_MODIFIER "u", val);
 			break;
 		}
@@ -3155,12 +3159,12 @@ dissect_life_duration(tvbuff_t *tvb, proto_tree *tree, proto_item *ti, int hf, i
 			guint64 val;
 			val = tvb_get_ntoh64(tvb, offset);
 
-			proto_tree_add_uint64_format_value(tree, hf, tvb, offset, len, val, "%" G_GINT64_MODIFIER "u", val);
+			proto_tree_add_uint64_format_value(tree, hf_uint64, tvb, offset, len, val, "%" G_GINT64_MODIFIER "u", val);
 			proto_item_append_text(ti, " : %" G_GINT64_MODIFIER "u", val);
 			break;
 		}
 		default:
-			proto_tree_add_item(tree, hf, tvb, offset, len, ENC_NA);
+			proto_tree_add_item(tree, hf_bytes, tvb, offset, len, ENC_NA);
 			proto_item_append_text(ti, " : %" G_GINT64_MODIFIER "x ...", tvb_get_ntoh64(tvb, offset));
 			break;
 	}
@@ -3210,7 +3214,7 @@ dissect_transform_attribute(tvbuff_t *tvb, proto_tree *transform_attr_type_tree,
                 proto_item_append_text(transform_attr_type_item," : %s", val_to_str(tvb_get_ntohs(tvb, offset), transform_attr_sa_life_type, "Unknown %d"));
 		break;
 		case ISAKMP_ATTR_LIFE_DURATION:
-		dissect_life_duration(tvb, sub_transform_attr_type_tree, transform_attr_type_item, hf_isakmp_tf_attr_life_duration, offset, optlen);
+		dissect_life_duration(tvb, sub_transform_attr_type_tree, transform_attr_type_item, hf_isakmp_tf_attr_life_duration_uint32, hf_isakmp_tf_attr_life_duration_uint64, hf_isakmp_tf_attr_life_duration_bytes , offset, optlen);
 		break;
 		case ISAKMP_ATTR_GROUP_DESC:
 		proto_tree_add_item(sub_transform_attr_type_tree, hf_isakmp_tf_attr_group_description, tvb, offset, optlen, ENC_BIG_ENDIAN);
@@ -3366,7 +3370,7 @@ dissect_transform_ike_attribute(tvbuff_t *tvb, proto_tree *transform_attr_type_t
                 proto_item_append_text(transform_attr_type_item," : %s", val_to_str(tvb_get_ntohs(tvb, offset), transform_attr_sa_life_type, "Unknown %d"));
 		break;
 		case IKE_ATTR_LIFE_DURATION:
-		dissect_life_duration(tvb, sub_transform_attr_type_tree, transform_attr_type_item, hf_isakmp_ike_attr_life_duration, offset, optlen);
+		dissect_life_duration(tvb, sub_transform_attr_type_tree, transform_attr_type_item, hf_isakmp_ike_attr_life_duration_uint32, hf_isakmp_ike_attr_life_duration_uint64, hf_isakmp_ike_attr_life_duration_bytes, offset, optlen);
 		break;
 		case IKE_ATTR_PRF:
 		proto_tree_add_item(sub_transform_attr_type_tree, hf_isakmp_ike_attr_prf, tvb, offset, optlen, ENC_NA);
@@ -3430,7 +3434,6 @@ dissect_transform_ike2_attribute(tvbuff_t *tvb, proto_tree *transform_attr_type_
 		case IKE2_ATTR_KEY_LENGTH:
 		proto_tree_add_item(sub_transform_attr_type_tree, hf_isakmp_ike2_attr_key_length, tvb, offset, optlen, ENC_BIG_ENDIAN);
                 proto_item_append_text(transform_attr_type_item," : %d", tvb_get_ntohs(tvb, offset));
-		break;
 		break;
 	default:
 		/* No Default Action */
@@ -3676,7 +3679,7 @@ dissect_id(tvbuff_t *tvb, int offset, int length, proto_tree *tree, int isakmp_v
 }
 
 static void
-dissect_cert(tvbuff_t *tvb, int offset, int length, proto_tree *tree, int isakmp_version, packet_info *pinfo )
+dissect_cert(tvbuff_t *tvb, int offset, int length _U_, proto_tree *tree, int isakmp_version, packet_info *pinfo )
 {
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
@@ -3690,7 +3693,6 @@ dissect_cert(tvbuff_t *tvb, int offset, int length, proto_tree *tree, int isakmp
   }
 
   offset += 1;
-  length -= 1;
 
   dissect_x509af_Certificate(FALSE, tvb, offset, &asn1_ctx, tree, hf_isakmp_cert_data);
 }
@@ -3785,7 +3787,7 @@ dissect_cisco_fragmentation(tvbuff_t *tvb, int offset, int length, proto_tree *t
   last = tvb_get_guint8(tvb, offset);
   proto_tree_add_item(tree, hf_isakmp_cisco_frag_last, tvb, offset, 1, ENC_BIG_ENDIAN);
   offset += 1;
-  length-=4;
+  /*length-=4;*/
 
   /* Start Reassembly stuff for Cisco IKE fragmentation */
   {
@@ -3934,8 +3936,6 @@ dissect_notif(tvbuff_t *tvb, int offset, int length, proto_tree *tree, int isakm
                   proto_tree_add_item(tree, hf_isakmp_notify_data_redirect_org_resp_gw_ident, tvb, offset+2, tvb_get_guint8(tvb,offset+1), ENC_NA);
                 break;
                }
-               length -= tvb_get_guint8(tvb, offset+1) - 2;
-               offset += tvb_get_guint8(tvb, offset+1) + 2;
           break;
           case 16409: /* TICKET_LT_OPAQUE */
                proto_tree_add_item(tree, hf_isakmp_notify_data_ticket_lifetime, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -4018,7 +4018,7 @@ dissect_delete(tvbuff_t *tvb, int offset, int length, proto_tree *tree, int isak
 }
 
 
-static void
+static int
 dissect_vid(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
 {
   const guint8 * pVID;
@@ -4032,7 +4032,7 @@ dissect_vid(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
   proto_item_append_text(tree," : %s", vendorstring);
 
   /* Check Point VID */
-  if (length >= 20 && memcmp(pVID, VID_CP, 20) == 0)
+  if (length >= 24 && memcmp(pVID, VID_CP, 20) == 0)
   {
     offset += 20;
     proto_tree_add_item(tree, hf_isakmp_vid_cp_product, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -4074,6 +4074,7 @@ dissect_vid(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
     proto_tree_add_item(tree, hf_isakmp_vid_aruba_via_auth_profile, tvb, offset, length-19, ENC_ASCII|ENC_NA);
     offset += 4;
   }
+  return offset;
 }
 /* Returns the number of bytes consumed by this option. */
 static int
@@ -4282,7 +4283,6 @@ dissect_config_attribute(tvbuff_t *tvb, proto_tree *cfg_attr_type_tree, int offs
 		proto_tree_add_item(sub_cfg_attr_type_tree, hf_isakmp_cfg_attr_internal_ip6_link_interface, tvb, offset, 8, ENC_BIG_ENDIAN);
 		offset += 8;
 		proto_tree_add_item(sub_cfg_attr_type_tree, hf_isakmp_cfg_attr_internal_ip6_link_id, tvb, offset, optlen-8, ENC_NA);
-		offset += optlen-8;
 		break;
 	case INTERNAL_IP6_PREFIX: /* 18 */
 		offset_end = offset + optlen;
@@ -4388,7 +4388,7 @@ dissect_nat_discovery(tvbuff_t *tvb, int offset, int length, proto_tree *tree )
 }
 
 static void
-dissect_nat_original_address(tvbuff_t *tvb, int offset, int length, proto_tree *tree, int isakmp_version)
+dissect_nat_original_address(tvbuff_t *tvb, int offset, int length _U_, proto_tree *tree, int isakmp_version)
 {
   guint8 id_type;
 
@@ -4401,7 +4401,6 @@ dissect_nat_original_address(tvbuff_t *tvb, int offset, int length, proto_tree *
      proto_tree_add_item(tree, hf_isakmp_id_type_v2, tvb, offset, 1, ENC_BIG_ENDIAN);
   }
   offset += 1;
-  length -= 1;
 
   offset += 3;		/* reserved */
 
@@ -4655,7 +4654,6 @@ dissect_enc(tvbuff_t *tvb,
       } else {
         proto_item_append_text(icd_item, "[not validated]");
       }
-      offset += icd_len;
     }
 
     /*
@@ -4992,11 +4990,11 @@ proto_register_isakmp(void)
         "ISAKMP Responder Cookie", HFILL }},
     { &hf_isakmp_typepayload,
       { "Type Payload", "isakmp.typepayload",
-        FT_UINT8,BASE_RANGE_STRING | BASE_DEC, RVALS(&payload_type), 0x0,
+        FT_UINT8,BASE_RANGE_STRING | BASE_DEC, RVALS(payload_type), 0x0,
         "ISAKMP Type Payload", HFILL }},
     { &hf_isakmp_nextpayload,
       { "Next payload", "isakmp.nextpayload",
-        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&payload_type), 0x0,
+        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(payload_type), 0x0,
         "ISAKMP Next Payload", HFILL }},
     { &hf_isakmp_criticalpayload,
       { "Critical Bit", "isakmp.criticalpayload",
@@ -5116,11 +5114,11 @@ proto_register_isakmp(void)
         "ISAKMP Transform ID", HFILL }},
     { &hf_isakmp_id_type_v1,
       { "ID type", "isakmp.id.type",
-        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&vs_v1_id_type), 0x0,
+        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(vs_v1_id_type), 0x0,
         "ISAKMP (v1) ID Type", HFILL }},
     { &hf_isakmp_id_type_v2,
       { "ID type", "isakmp.id.type",
-        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&vs_v2_id_type), 0x0,
+        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(vs_v2_id_type), 0x0,
         "ISAKMP (v2) ID Type", HFILL }},
     { &hf_isakmp_id_protoid,
       { "Protocol ID", "isakmp.id.protoid",
@@ -5184,11 +5182,11 @@ proto_register_isakmp(void)
         NULL, HFILL } },
     { &hf_isakmp_cert_encoding_v1,
       { "Certificate Encoding", "isakmp.cert.encoding",
-        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&cert_v1_type), 0x0,
+        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(cert_v1_type), 0x0,
         "ISAKMP Certificate Encoding", HFILL }},
     { &hf_isakmp_cert_encoding_v2,
       { "Certificate Encoding", "isakmp.cert.encoding",
-        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&cert_v2_type), 0x0,
+        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(cert_v2_type), 0x0,
         "IKEv2 Certificate Encoding", HFILL }},
     { &hf_isakmp_cert_data,
       { "Certificate Data", "isakmp.cert.data",
@@ -5196,15 +5194,15 @@ proto_register_isakmp(void)
         "ISAKMP Certificate Data", HFILL }},
     { &hf_isakmp_certreq_type_v1,
       { "Certificate Type", "isakmp.certreq.type",
-        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&cert_v1_type), 0x0,
+        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(cert_v1_type), 0x0,
         "ISAKMP Certificate Type", HFILL }},
     { &hf_isakmp_certreq_type_v2,
       { "Certificate Type", "isakmp.certreq.type",
-        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&cert_v2_type), 0x0,
+        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(cert_v2_type), 0x0,
         "IKEv2 Certificate Type", HFILL }},
     { &hf_isakmp_auth_meth,
       { "Authentication Method", "isakmp.auth.method",
-        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&authmeth_v2_type), 0x0,
+        FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(authmeth_v2_type), 0x0,
         "IKEv2 Authentication Method", HFILL }},
     { &hf_isakmp_auth_data,
       { "Authentication Data", "isakmp.auth.data",
@@ -5619,7 +5617,15 @@ proto_register_isakmp(void)
       { "Life Type",	"isakmp.tf.attr.life_type",
 	FT_UINT16, BASE_DEC, VALS(transform_attr_sa_life_type), 0x00,
 	NULL, HFILL }},
-   { &hf_isakmp_tf_attr_life_duration,
+   { &hf_isakmp_tf_attr_life_duration_uint32,
+      { "Life Duration",	"isakmp.tf.attr.life_duration",
+	FT_UINT32, BASE_DEC, NULL, 0x00,
+	NULL, HFILL }},
+   { &hf_isakmp_tf_attr_life_duration_uint64,
+      { "Life Duration",	"isakmp.tf.attr.life_duration",
+	FT_UINT64, BASE_DEC, NULL, 0x00,
+	NULL, HFILL }},
+   { &hf_isakmp_tf_attr_life_duration_bytes,
       { "Life Duration",	"isakmp.tf.attr.life_duration",
 	FT_BYTES, BASE_NONE, NULL, 0x00,
 	NULL, HFILL }},
@@ -5741,7 +5747,15 @@ proto_register_isakmp(void)
       { "Life Type",	"isakmp.ike.attr.life_type",
 	FT_UINT16, BASE_DEC, VALS(transform_attr_sa_life_type), 0x00,
 	NULL, HFILL }},
-   { &hf_isakmp_ike_attr_life_duration,
+   { &hf_isakmp_ike_attr_life_duration_uint32,
+      { "Life Duration",	"isakmp.ike.attr.life_duration",
+	FT_UINT32, BASE_DEC, NULL, 0x00,
+	NULL, HFILL }},
+   { &hf_isakmp_ike_attr_life_duration_uint64,
+      { "Life Duration",	"isakmp.ike.attr.life_duration",
+	FT_UINT64, BASE_DEC, NULL, 0x00,
+	NULL, HFILL }},
+   { &hf_isakmp_ike_attr_life_duration_bytes,
       { "Life Duration",	"isakmp.ike.attr.life_duration",
 	FT_BYTES, BASE_NONE, NULL, 0x00,
 	NULL, HFILL }},
@@ -5837,7 +5851,7 @@ proto_register_isakmp(void)
 
     { &hf_isakmp_cfg_type_v1,
       { "Type", "isakmp.cfg.type",
-         FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&vs_v1_cfgtype), 0x0,
+         FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(vs_v1_cfgtype), 0x0,
          "ISAKMP (v1) Config Type", HFILL }},
     { &hf_isakmp_cfg_identifier,
       { "Identifier", "isakmp.cfg.identifier",
@@ -5845,7 +5859,7 @@ proto_register_isakmp(void)
          "ISAKMP (v1) Config Identifier", HFILL }},
     { &hf_isakmp_cfg_type_v2,
       { "Type", "isakmp.cfg.type",
-         FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(&vs_v2_cfgtype), 0x0,
+         FT_UINT8, BASE_RANGE_STRING | BASE_DEC, RVALS(vs_v2_cfgtype), 0x0,
          "ISAKMP (v2) Config Type", HFILL }},
 	/* Config Attributes Type */
    { &hf_isakmp_cfg_attr,
@@ -5854,11 +5868,11 @@ proto_register_isakmp(void)
 	"ISAKMP Config Attribute", HFILL }},
    { &hf_isakmp_cfg_attr_type_v1,
       { "Type",	"isakmp.cfg.attr.type",
-	FT_UINT16, BASE_RANGE_STRING | BASE_DEC, RVALS(&vs_v1_cfgattr), 0x00,
+	FT_UINT16, BASE_RANGE_STRING | BASE_DEC, RVALS(vs_v1_cfgattr), 0x00,
 	"ISAKMP (v1) Config Attribute type", HFILL }},
    { &hf_isakmp_cfg_attr_type_v2,
       { "Type",	"isakmp.cfg.attr.type",
-	FT_UINT16, BASE_RANGE_STRING | BASE_DEC, RVALS(&vs_v2_cfgattr), 0x00,
+	FT_UINT16, BASE_RANGE_STRING | BASE_DEC, RVALS(vs_v2_cfgattr), 0x00,
 	"ISAKMP (v2) Config Attribute type", HFILL }},
    { &hf_isakmp_cfg_attr_format,
       { "Config Attribute Format",	"isakmp.cfg.attr.format",

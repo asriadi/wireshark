@@ -35,10 +35,6 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #if GTK_CHECK_VERSION(3,0,0)
@@ -69,7 +65,7 @@
 #include "ui/gtk/font_utils.h"
 #include "ui/gtk/main.h"
 #include "ui/gtk/packet_win.h"
-#include "ui/gtk/main_proto_draw.h"
+#include "ui/gtk/packet_panes.h"
 #include "ui/gtk/keys.h"
 #include "ui/gtk/gtkglobals.h"
 #include "ui/gtk/gui_utils.h"
@@ -612,7 +608,7 @@ not_supported:
 	DataPtr->repr = native_repr;
 
 	frame = gtk_frame_new("Hex edit");
-	frame_vbox = gtk_vbox_new(TRUE, 1);
+	frame_vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 1, TRUE);
 
 	/* raw hex edit */
 	if (finfo->start >= 0 && finfo->length > 0) {
@@ -688,6 +684,7 @@ edit_pkt_tree_row_activated_cb(GtkTreeView *tree_view, GtkTreePath *path, GtkTre
 			/* DataPtr->pseudo_header = data.pseudo_header; */
 			memcpy(DataPtr->pd, data.pd, DataPtr->frame->cap_len);
 
+			proto_tree_draw(NULL, DataPtr->tree_view);
 			epan_dissect_cleanup(&(DataPtr->edt));
 			epan_dissect_init(&(DataPtr->edt), TRUE, TRUE);
 			epan_dissect_run(&(DataPtr->edt), &DataPtr->pseudo_header, DataPtr->pd, DataPtr->frame, NULL);
@@ -810,6 +807,7 @@ edit_pkt_win_key_pressed_cb(GtkWidget *win _U_, GdkEventKey *event, gpointer use
 	/* redissect if changed */
 	if (data.val != -1) {
 		/* XXX, can be optimized? */
+		proto_tree_draw(NULL, DataPtr->tree_view);
 		epan_dissect_cleanup(&(DataPtr->edt));
 		epan_dissect_init(&(DataPtr->edt), TRUE, TRUE);
 		epan_dissect_run(&(DataPtr->edt), &DataPtr->pseudo_header, DataPtr->pd, DataPtr->frame, NULL);
@@ -845,6 +843,7 @@ edit_pkt_destroy_new_window(GObject *object _U_, gpointer user_data)
 	struct PacketWinData *DataPtr = user_data;
 
 	detail_windows = g_list_remove(detail_windows, DataPtr);
+	proto_tree_draw(NULL, DataPtr->tree_view);
 	epan_dissect_cleanup(&(DataPtr->edt));
 	g_free(DataPtr);
 
@@ -920,18 +919,18 @@ void new_packet_window(GtkWidget *w _U_, gboolean editable _U_)
 	gtk_window_set_default_size(GTK_WINDOW(main_w), DEF_WIDTH, -1);
 
 	/* Container for paned windows  */
-	main_vbox = gtk_vbox_new(FALSE, 1);
+	main_vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 1, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(main_vbox), 1);
 	gtk_container_add(GTK_CONTAINER(main_w), main_vbox);
 	gtk_widget_show(main_vbox);
 
 	/* Panes for the tree and byte view */
-	pane = gtk_vpaned_new();
+	pane = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
 	gtk_container_add(GTK_CONTAINER(main_vbox), pane);
 	gtk_widget_show(pane);
 
 	/* Tree view */
-	tv_scrollw = main_tree_view_new(&prefs, &tree_view);
+	tv_scrollw = proto_tree_view_new(&prefs, &tree_view);
 	gtk_paned_pack1(GTK_PANED(pane), tv_scrollw, TRUE, TRUE);
 	gtk_widget_set_size_request(tv_scrollw, -1, TV_SIZE);
 	gtk_widget_show(tv_scrollw);
@@ -994,6 +993,7 @@ destroy_new_window(GObject *object _U_, gpointer user_data)
 	struct PacketWinData *DataPtr = user_data;
 
 	detail_windows = g_list_remove(detail_windows, DataPtr);
+	proto_tree_draw(NULL, DataPtr->tree_view);
 	epan_dissect_cleanup(&(DataPtr->edt));
 	g_free(DataPtr->pd);
 	g_free(DataPtr);

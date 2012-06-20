@@ -121,6 +121,7 @@ struct wtap_reader {
 	gint64 start;           /* where the gzip data started, for rewinding */
 	gint64 raw;             /* where the raw data started, for seeking */
 	int compression;        /* 0: ?, 1: uncompressed, 2: zlib */
+	gboolean is_compressed; /* FALSE if completely uncompressed, TRUE otherwise */
 	/* seek request */
 	gint64 skip;            /* amount to skip (already rewound if backwards) */
 	int seek;               /* true if seek request pending */
@@ -128,8 +129,8 @@ struct wtap_reader {
 	int err;                /* error code */
 	const char *err_info;   /* additional error information string for some errors */
 
-	unsigned int  avail_in;  /* number of bytes available at next_in */
-	unsigned char *next_in;  /* next input byte */
+	unsigned int  avail_in; /* number of bytes available at next_in */
+	unsigned char *next_in; /* next input byte */
 #ifdef HAVE_LIBZ
 	/* zlib inflate stream */
 	z_stream strm;          /* stream structure in-place (not a pointer) */
@@ -140,7 +141,7 @@ struct wtap_reader {
 	void *fast_seek_cur;
 };
 
-/* values for gz_state compression */
+/* values for wtap_reader compression */
 #define UNKNOWN		0	/* look for a gzip header */
 #define UNCOMPRESSED	1	/* copy input directly */
 #ifdef HAVE_LIBZ
@@ -224,7 +225,7 @@ fast_seek_find(FILE_T file, gint64 pos)
 
 	for (low = 0, max = file->fast_seek->len; low < max; ) {
 		i = (low + max) / 2;
-		item = file->fast_seek->pdata[i];
+		item = (struct fast_seek_point *)file->fast_seek->pdata[i];
 
 		if (pos < item->out)
 			max = i;
@@ -244,10 +245,10 @@ fast_seek_header(FILE_T file, gint64 in_pos, gint64 out_pos, int compression)
 	struct fast_seek_point *item = NULL;
 
 	if (file->fast_seek->len != 0)
-		item = file->fast_seek->pdata[file->fast_seek->len - 1];
+		item = (struct fast_seek_point *)file->fast_seek->pdata[file->fast_seek->len - 1];
 
 	if (!item || item->out < out_pos) {
-		struct fast_seek_point *val = g_malloc(sizeof(struct fast_seek_point));
+		struct fast_seek_point *val = g_new(struct fast_seek_point,1);
 		val->in = in_pos;
 		val->out = out_pos;
 		val->compression = compression;
@@ -401,7 +402,7 @@ static void
 zlib_fast_seek_add(FILE_T file, struct zlib_cur_seek_point *point, int bits, gint64 in_pos, gint64 out_pos)
 {
 	/* it's for sure after gzip header, so file->fast_seek->len != 0 */
-	struct fast_seek_point *item = file->fast_seek->pdata[file->fast_seek->len - 1];;
+	struct fast_seek_point *item = (struct fast_seek_point *)file->fast_seek->pdata[file->fast_seek->len - 1];
 
 #ifndef HAVE_INFLATEPRIME
 	if (bits)
@@ -413,7 +414,7 @@ zlib_fast_seek_add(FILE_T file, struct zlib_cur_seek_point *point, int bits, gin
 	 *      It's not big deal, cause first-read don't usually invoke seeking
 	 */
 	if (item->out + SPAN < out_pos) {
-		struct fast_seek_point *val = g_malloc(sizeof(struct fast_seek_point));
+		struct fast_seek_point *val = g_new(struct fast_seek_point,1);
 		val->in = in_pos;
 		val->out = out_pos;
 		val->compression = ZLIB;
@@ -462,8 +463,11 @@ zlib_read(FILE_T state, unsigned char *buf, unsigned int count)
 		strm->avail_in = state->avail_in;
 		strm->next_in = state->next_in;
 		/* decompress and handle errors */
-		/* ret = inflate(strm, Z_NO_FLUSH); */
+#ifdef Z_BLOCK
 		ret = inflate(strm, Z_BLOCK);
+#else
+		ret = inflate(strm, Z_NO_FLUSH);
+#endif
 		state->avail_in = strm->avail_in;
 		state->next_in = strm->next_in;
 		if (ret == Z_STREAM_ERROR) {
@@ -492,6 +496,7 @@ zlib_read(FILE_T state, unsigned char *buf, unsigned int count)
 		 */
 
 		strm->adler = crc32(strm->adler, buf2, count2 - strm->avail_out);
+#ifdef Z_BLOCK
 		if (state->fast_seek_cur) {
 			struct zlib_cur_seek_point *cur = (struct zlib_cur_seek_point *) state->fast_seek_cur;
 			unsigned int ready = count2 - strm->avail_out;
@@ -524,6 +529,7 @@ zlib_read(FILE_T state, unsigned char *buf, unsigned int count)
 			if (cur->have >= ZLIB_WINSIZE && ret != Z_STREAM_END && (strm->data_type & 128) && !(strm->data_type & 64))
 				zlib_fast_seek_add(state, cur, (strm->data_type & 7), state->raw_pos - strm->avail_in, state->pos + (count - strm->avail_out));
 		}
+#endif
 		buf2 = (buf2 + count2 - strm->avail_out);
 		count2 = strm->avail_out;
 
@@ -541,15 +547,6 @@ zlib_read(FILE_T state, unsigned char *buf, unsigned int count)
 	if (ret == Z_STREAM_END) {
 		if (gz_next4(state, &crc) != -1 &&
 		    gz_next4(state, &len) != -1) {
-			/*
-			 * XXX - compressed Windows Sniffer don't
-			 * all have the same CRC value; is it just
-			 * random crap, or are they running the
-			 * CRC on a different set of data than
-			 * you're supposed to (e.g., not CRCing
-			 * some of the data), or something such
-			 * as that?
-			 */
 			if (crc != strm->adler && !state->dont_check_crc) {
 				state->err = WTAP_ERR_DECOMPRESS;
 				state->err_info = "bad CRC";
@@ -655,15 +652,17 @@ gz_head(FILE_T state)
 			inflateReset(&(state->strm));
 			state->strm.adler = crc32(0L, Z_NULL, 0);
 			state->compression = ZLIB;
-
+			state->is_compressed = TRUE;
+#ifdef Z_BLOCK
 			if (state->fast_seek) {
-				struct zlib_cur_seek_point *cur = g_malloc(sizeof(struct zlib_cur_seek_point));
+				struct zlib_cur_seek_point *cur = g_new(struct zlib_cur_seek_point,1);
 
 				cur->pos = cur->have = 0;
 				g_free(state->fast_seek_cur);
 				state->fast_seek_cur = cur;
 				fast_seek_header(state, state->raw_pos - state->avail_in, state->pos, GZIP_AFTER_HEADER);
 			}
+#endif
 			return 0;
 		}
 		else {
@@ -767,7 +766,7 @@ gz_reset(FILE_T state)
 }
 
 FILE_T
-filed_open(int fd)
+file_fdopen(int fd)
 {
 #ifdef _STATBUF_ST_BLKSIZE	/* XXX, _STATBUF_ST_BLKSIZE portable? */
 	struct stat st;
@@ -779,7 +778,7 @@ filed_open(int fd)
 		return NULL;
 
 	/* allocate FILE_T structure to return */
-	state = g_try_malloc(sizeof *state);
+	state = (FILE_T)g_try_malloc(sizeof *state);
 	if (state == NULL)
 		return NULL;
 
@@ -788,6 +787,9 @@ filed_open(int fd)
 
 	/* open the file with the appropriate mode (or just use fd) */
 	state->fd = fd;
+
+	/* we don't yet know whether it's compressed */
+	state->is_compressed = FALSE;
 
 	/* save the current position for rewinding (only if reading) */
 	state->start = ws_lseek64(state->fd, 0, SEEK_CUR);
@@ -805,8 +807,8 @@ filed_open(int fd)
 #endif
 
 	/* allocate buffers */
-	state->in = g_try_malloc(want);
-	state->out = g_try_malloc(want << 1);
+	state->in = (unsigned char *)g_try_malloc(want);
+	state->out = (unsigned char *)g_try_malloc(want << 1);
 	state->size = want;
 	if (state->in == NULL || state->out == NULL) {
 		g_free(state->out);
@@ -860,7 +862,7 @@ file_open(const char *path)
 		return NULL;
 
 	/* open file handle */
-	ft = filed_open(fd);
+	ft = file_fdopen(fd);
 	if (ft == NULL) {
 		ws_close(fd);
 		return NULL;
@@ -869,8 +871,16 @@ file_open(const char *path)
 #ifdef HAVE_LIBZ
 	/*
 	 * If this file's name ends in ".caz", it's probably a compressed
-	 * Windows Sniffer file.  The compression is gzip, but they don't
-	 * bother filling in the CRC; we set a flag to ignore CRC errors.
+	 * Windows Sniffer file.  The compression is gzip, but if we
+	 * process the CRC as specified by RFC 1952, the computed CRC
+	 * doesn't match the stored CRC.
+	 *
+	 * Compressed Windows Sniffer files don't all have the same CRC
+	 * value; is it just random crap, or are they running the CRC on
+	 * a different set of data than you're supposed to (e.g., not
+	 * CRCing some of the data), or something such as that?
+	 *
+	 * For now, we just set a flag to ignore CRC errors.
 	 */
 	suffixp = strrchr(path, '.');
 	if (suffixp != NULL) {
@@ -909,6 +919,34 @@ file_seek(FILE_T file, gint64 offset, int whence, int *err)
 	else if (file->seek)
 		offset += file->skip;
 	file->seek = 0;
+
+	if (offset < 0 && file->next) {
+		/*
+		 * This is guaranteed to fit in an unsigned int.
+		 * To squelch compiler warnings, we cast the
+		 * result.
+		 */
+		unsigned had = (unsigned)(file->next - file->out);
+		if (-offset <= had) {
+			/*
+			 * Offset is negative, so -offset is
+			 * non-negative, and -offset is
+			 * <= an unsigned and thus fits in an
+			 * unsigned.  Get that value and
+			 * adjust appropriately.
+			 *
+			 * (Casting offset to unsigned makes
+			 * it positive, which is not what we
+			 * would want, so we cast -offset
+			 * instead.)
+			 */
+			unsigned adjustment = (unsigned)(-offset);
+			file->have += adjustment;
+			file->next -= adjustment;
+			file->pos -= adjustment;
+			return file->pos;
+		}
+	}
 
 	/* XXX, profile */
 	if ((here = fast_seek_find(file, file->pos + offset)) && (offset < 0 || offset > SPAN || here->compression == UNCOMPRESSED)) {
@@ -993,7 +1031,9 @@ file_seek(FILE_T file, gint64 offset, int whence, int *err)
 	}
 
 	/* if within raw area while reading, just go there */
-	if (file->compression == UNCOMPRESSED && file->pos + offset >= file->raw) {
+	if (file->compression == UNCOMPRESSED && file->pos + offset >= file->raw 
+			&& (offset < 0 || offset >= file->have) /* seek only when we don't have that offset in buffer */)
+	{
 		if (ws_lseek64(file->fd, offset - file->have, SEEK_CUR) == -1) {
 			*err = errno;
 			return -1;
@@ -1043,6 +1083,19 @@ file_seek(FILE_T file, gint64 offset, int whence, int *err)
 	return file->pos + offset;
 }
 
+/*
+ * Skip forward the specified number of bytes in the file.
+ * Currently implemented as a wrapper around file_seek(),
+ * but if, for example, we ever add support for reading
+ * sequentially from a pipe, this could instead just skip
+ * forward by reading the bytes in question.
+ */
+gint64
+file_skip(FILE_T file, gint64 delta, int *err)
+{
+	return file_seek(file, delta, SEEK_CUR, err);
+}
+
 gint64
 file_tell(FILE_T stream)
 {
@@ -1065,6 +1118,12 @@ file_fstat(FILE_T stream, ws_statb64 *statb, int *err)
 		return -1;
 	}
 	return 0;
+}
+
+gboolean
+file_iscompressed(FILE_T stream)
+{
+	return stream->is_compressed;
 }
 
 int 
@@ -1196,7 +1255,7 @@ file_gets(char *buf, int len, FILE_T file)
 
 		/* look for end-of-line in current output buffer */
 		n = file->have > left ? left : file->have;
-		eol = memchr(file->next, '\n', n);
+		eol = (unsigned char *)memchr(file->next, '\n', n);
 		if (eol != NULL)
 			n = (unsigned)(eol - file->next) + 1;
 
@@ -1245,7 +1304,25 @@ file_clearerr(FILE_T stream)
 	stream->eof = 0;
 }
 
-int 
+void
+file_fdclose(FILE_T file)
+{
+	ws_close(file->fd);
+	file->fd = -1;
+}
+
+gboolean
+file_fdreopen(FILE_T file, const char *path)
+{
+	int fd;
+
+	if ((fd = ws_open(path, O_RDONLY|O_BINARY, 0000)) == -1)
+		return FALSE;
+	file->fd = fd;
+	return TRUE;
+}
+
+void
 file_close(FILE_T file)
 {
 	int fd = file->fd;
@@ -1262,7 +1339,13 @@ file_close(FILE_T file)
 	file->err = 0;
 	file->err_info = NULL;
 	g_free(file);
-	return ws_close(fd);
+	/*
+	 * If fd is -1, somebody's done a file_closefd() on us, so
+	 * we don't need to close the FD itself, and shouldn't do
+	 * so.
+	 */
+	if (fd != -1)
+		ws_close(fd);
 }
 
 #ifdef HAVE_LIBZ
@@ -1307,7 +1390,7 @@ gzwfile_fdopen(int fd)
     GZWFILE_T state;
 
     /* allocate wtap_writer structure to return */
-    state = g_try_malloc(sizeof *state);
+    state = (GZWFILE_T)g_try_malloc(sizeof *state);
     if (state == NULL)
         return NULL;
     state->fd = fd;
@@ -1336,8 +1419,8 @@ gz_init(GZWFILE_T state)
     z_streamp strm = &(state->strm);
 
     /* allocate input and output buffers */
-    state->in = g_try_malloc(state->want);
-    state->out = g_try_malloc(state->want);
+    state->in = (unsigned char *)g_try_malloc(state->want);
+    state->out = (unsigned char *)g_try_malloc(state->want);
     if (state->in == NULL || state->out == NULL) {
         g_free(state->out);
         g_free(state->in);

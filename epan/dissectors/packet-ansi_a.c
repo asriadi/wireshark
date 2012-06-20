@@ -46,6 +46,7 @@
 #include <epan/tap.h>
 #include <epan/strutil.h>
 #include <epan/emem.h>
+#include <epan/expert.h>
 
 #include "packet-rtp.h"
 #include "packet-bssap.h"
@@ -916,6 +917,16 @@ ansi_a_so_int_to_str(
     { \
         proto_tree_add_text(tree, tvb, \
             curr_offset, (edc_len) - (edc_max_len), "Extraneous Data"); \
+        curr_offset += ((edc_len) - (edc_max_len)); \
+    }
+
+#define EXTRANEOUS_DATA_CHECK_EXPERT(edc_len, edc_max_len) \
+    if ((edc_len) > (edc_max_len)) \
+    { \
+        proto_item *expert_item; \
+        expert_item = proto_tree_add_text(tree, tvb, \
+            curr_offset, (edc_len) - (edc_max_len), "Extraneous Data, dissector bug or later version spec(report to wireshark.org)"); \
+        expert_add_info_format(pinfo, expert_item, PI_PROTOCOL, PI_NOTE, "Extraneous Data, dissector bug or later version spec(report to wireshark.org)"); \
         curr_offset += ((edc_len) - (edc_max_len)); \
     }
 
@@ -2734,7 +2745,7 @@ static guint8
 elem_cell_id_list(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset, guint len, gchar *add_string, int string_len)
 {
     guint8      oct;
-    guint8      consumed;
+    guint16     consumed;
     guint8      num_cells;
     guint32     curr_offset;
     proto_item  *item = NULL;
@@ -2953,7 +2964,7 @@ elem_downlink_re_aux(tvbuff_t *tvb, proto_tree *tree, guint32 offset, guint len,
 {
     guint8      oct;
     guint8      disc;
-    guint8      consumed;
+    guint16     consumed;
     guint8      num_cells;
     guint8      curr_cell;
     guint32     value;
@@ -3081,7 +3092,7 @@ elem_downlink_re(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint3
 static guint8
 elem_downlink_re_list(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset, guint len, gchar *add_string, int string_len)
 {
-    guint8      consumed;
+    guint16     consumed;
     guint8      num_envs;
     guint8      oct_len;
     guint32     curr_offset;
@@ -3203,7 +3214,7 @@ static guint8
 elem_ho_pow_lev(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset, guint len, gchar *add_string, int string_len)
 {
     guint8      oct;
-    guint8      consumed;
+    guint16     consumed;
     guint8      num_cells;
     proto_item  *item = NULL;
     proto_tree  *subtree = NULL;
@@ -4549,7 +4560,7 @@ elem_cause_l3(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 o
     case 7: str = "International network"; break;
     case 10: str = "Network beyond interworking point"; break;
     default:
-        str = "Reserved"; break;
+        str = "Reserved";
         break;
     }
 
@@ -5294,7 +5305,6 @@ elem_adds_user_part(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, gui
     proto_item  *item;
 
     curr_offset = offset;
-    adds_app = 0;
 
     oct = tvb_get_guint8(tvb, curr_offset);
 
@@ -5805,7 +5815,7 @@ elem_is2000_scr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32
         }
     }
 
-    EXTRANEOUS_DATA_CHECK(len, curr_offset - offset);
+    EXTRANEOUS_DATA_CHECK_EXPERT(len, curr_offset - offset);
 
     return(curr_offset - offset);
 }
@@ -8688,11 +8698,11 @@ static guint8 (*elem_1_fcn[])(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 /*
  * Type Length Value (TLV) element dissector
  */
-static guint8
+static guint16
 elem_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, elem_idx_t idx, guint32 offset, guint len _U_, const gchar *name_add)
 {
     guint8      oct, parm_len;
-    guint8      consumed;
+    guint16     consumed;
     guint32     curr_offset;
     proto_tree  *subtree;
     proto_item  *item;
@@ -8770,11 +8780,11 @@ elem_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, elem_idx_t idx, gu
  * Length cannot be used in these functions, big problem if a element dissector
  * is not defined for these.
  */
-static guint8
+static guint16
 elem_tv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, elem_idx_t idx, guint32 offset, const gchar *name_add)
 {
     guint8      oct;
-    guint8      consumed;
+    guint16     consumed;
     guint32     curr_offset;
     proto_tree  *subtree;
     proto_item  *item;
@@ -8847,12 +8857,12 @@ elem_tv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, elem_idx_t idx, gui
  * Length cannot be used in these functions, big problem if a element dissector
  * is not defined for these.
  */
-static guint8
+static guint16
 elem_t(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, elem_idx_t idx, guint32 offset, const gchar *name_add)
 {
     guint8      oct;
     guint32     curr_offset;
-    guint8      consumed;
+    guint16     consumed;
 
 
     curr_offset = offset;
@@ -8882,11 +8892,11 @@ elem_t(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, elem_idx_t idx, 
 /*
  * Length Value (LV) element dissector
  */
-static guint8
+static guint16
 elem_lv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, elem_idx_t idx, guint32 offset, guint len _U_, const gchar *name_add)
 {
     guint8      parm_len;
-    guint8      consumed;
+    guint16     consumed;
     guint32     curr_offset;
     proto_tree  *subtree;
     proto_item  *item;
@@ -8954,15 +8964,14 @@ elem_lv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, elem_idx_t idx, gui
  * Length cannot be used in these functions, big problem if a element dissector
  * is not defined for these.
  */
-static guint8
+static guint16
 elem_v(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, elem_idx_t idx, guint32 offset)
 {
-    guint8      consumed;
+    guint16     consumed;
     guint32     curr_offset;
     gint        dec_idx;
 
     curr_offset = offset;
-    consumed = 0;
 
     if ((int)idx < 0 || idx >= ansi_a_elem_1_max-1)
     {
@@ -9100,7 +9109,7 @@ elem_v(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, elem_idx_t idx, guin
 static void
 bsmap_cl3_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, guint len)
 {
-    guint8      consumed;
+    guint16      consumed;
     guint32     curr_offset;
     guint       curr_len;
 
@@ -9457,7 +9466,7 @@ dtap_srvc_release_complete(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 static void
 bsmap_ass_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, guint len)
 {
-    guint8      consumed;
+    guint16      consumed;
     guint32     curr_offset;
     guint       curr_len;
 
@@ -9510,7 +9519,7 @@ bsmap_ass_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offse
 static void
 bsmap_ass_complete(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, guint len)
 {
-    guint8      consumed;
+    guint16     consumed;
     guint32     curr_offset;
     guint       curr_len;
 
@@ -9545,7 +9554,7 @@ bsmap_ass_complete(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 
 static void
 bsmap_ass_failure(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, guint len)
 {
-    guint8      consumed;
+    guint16     consumed;
     guint32     curr_offset;
     guint       curr_len;
 
@@ -9565,7 +9574,7 @@ bsmap_ass_failure(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 static void
 bsmap_clr_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, guint len)
 {
-    guint8      consumed;
+    guint16     consumed;
     guint32     curr_offset;
     guint       curr_len;
 
@@ -9585,7 +9594,7 @@ bsmap_clr_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offse
 static void
 bsmap_clr_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, guint len)
 {
-    guint8      consumed;
+    guint16     consumed;
     guint32     curr_offset;
     guint       curr_len;
 
@@ -9605,7 +9614,7 @@ bsmap_clr_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 o
 static void
 bsmap_clr_complete(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, guint len)
 {
-    guint8      consumed;
+    guint16     consumed;
     guint32     curr_offset;
     guint       curr_len;
 
@@ -11623,7 +11632,7 @@ dissect_cdma2000_a1_elements(tvbuff_t *tvb, _U_ packet_info *pinfo, proto_tree *
         }
     }
 
-    EXTRANEOUS_DATA_CHECK(curr_len, 0);
+    EXTRANEOUS_DATA_CHECK_EXPERT(curr_len, 0);
 }
 
 /* GENERIC DISSECTOR FUNCTIONS */
@@ -11783,7 +11792,6 @@ dissect_dtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
     /*
      * add DTAP message name
      */
-    saved_offset = offset;
     oct = tvb_get_guint8(tvb, offset++);
 
     msg_str = my_match_strval_idx((guint32) oct, ansi_a_dtap_strings, &idx, &dec_idx);

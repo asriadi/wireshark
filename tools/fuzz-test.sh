@@ -28,6 +28,9 @@ ERR_FILE=$BASE_NAME.err
 # Loop this many times (< 1 loops forever)
 MAX_PASSES=0
 
+# Did we catch a signal?
+DONE=0
+
 # Perform a two pass analysis on the capture file?
 TWO_PASS=
 
@@ -137,7 +140,7 @@ echo "Running $TSHARK with args: $TSHARK_ARGS ($HOWMANY)"
 echo ""
 
 # Clean up on <ctrl>C, etc
-trap "rm -f $TMP_DIR/$TMP_FILE $TMP_DIR/$ERR_FILE; echo ""; exit 0" HUP INT TERM
+trap "DONE=1; echo 'Caught signal'" HUP INT TERM
 
 
 ##############################################################################
@@ -179,12 +182,15 @@ export MallocBadFreeAbort=1
 
 # Iterate over our capture files.
 PASS=0
-while [ $PASS -lt $MAX_PASSES -o $MAX_PASSES -lt 1 ] ; do
+while [ \( $PASS -lt $MAX_PASSES -o $MAX_PASSES -lt 1 \) -a $DONE -ne 1 ] ; do
     PASS=`expr $PASS + 1`
     echo "Starting pass $PASS:"
     RUN=0
 
     for CF in "$@" ; do
+	if [ $DONE -eq 1 ]; then
+	    break # We caught a signal
+	fi
         RUN=$(( $RUN + 1 ))
         if [ $(( $RUN % 50 )) -eq 0 ] ; then
             echo "    [Pass $PASS]"
@@ -200,7 +206,7 @@ while [ $PASS -lt $MAX_PASSES -o $MAX_PASSES -lt 1 ] ; do
 	    echo "Not a valid capture file"
 	    rm -f $TMP_DIR/$ERR_FILE
 	    continue
-	elif [ $RETVAL -ne 0 ] ; then
+	elif [ $RETVAL -ne 0 -a $DONE -ne 1 ] ; then
 	    # Some other error
 	    echo ""
 	    echo " ERROR"
@@ -230,8 +236,8 @@ while [ $PASS -lt $MAX_PASSES -o $MAX_PASSES -lt 1 ] ; do
 	# checking.
 	#grep -i "dissector bug" $TMP_DIR/$ERR_FILE \
 	#    > /dev/null 2>&1 && DISSECTOR_BUG=1
-	if [ $RETVAL -ne 0 -o $DISSECTOR_BUG -ne 0 ] ; then
-		echo ""
+	if [ \( $RETVAL -ne 0 -o $DISSECTOR_BUG -ne 0 \) -a $DONE -ne 1 ] ; then
+	    echo ""
 	    echo " ERROR"
 	    echo -e "Processing failed.  Capture info follows:\n"
 	    echo "  Output file: $TMP_DIR/$TMP_FILE"
@@ -239,7 +245,8 @@ while [ $PASS -lt $MAX_PASSES -o $MAX_PASSES -lt 1 ] ; do
 	    cat $TMP_DIR/$ERR_FILE
 	    exit 1
 	fi
+
 	echo " OK"
-	    rm -f $TMP_DIR/$TMP_FILE $TMP_DIR/$ERR_FILE
+	rm -f $TMP_DIR/$TMP_FILE $TMP_DIR/$ERR_FILE
     done
 done

@@ -37,10 +37,7 @@
 # include "config.h"
 #endif
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
-#include <time.h>
 
 #include <glib.h>
 
@@ -804,17 +801,19 @@ ucp_handle_string(proto_tree *tree, tvbuff_t *tvb, int field, int *offset)
         *offset += 1;   /* skip terminating '/' */
 }
 
+#define UCP_BUFSIZ 512
+
 static void
 ucp_handle_IRAstring(proto_tree *tree, tvbuff_t *tvb, int field, int *offset)
 {
-    char         strval[BUFSIZ + 1],
+    char         strval[UCP_BUFSIZ + 1],
                 *p_dst = strval;
     guint8       byte;
     int          idx = 0;
     int          tmpoff = *offset;
 
     while (((byte = tvb_get_guint8(tvb, tmpoff++)) != '/') &&
-           (idx < BUFSIZ))
+           (idx < UCP_BUFSIZ))
     {
         if (byte >= '0' && byte <= '9')
         {
@@ -839,7 +838,7 @@ ucp_handle_IRAstring(proto_tree *tree, tvbuff_t *tvb, int field, int *offset)
         idx++;
     }
     strval[idx] = '\0';
-    if (idx == BUFSIZ)
+    if (idx == UCP_BUFSIZ)
     {
         /*
          * Data clipped, eat rest of field
@@ -926,7 +925,20 @@ ucp_handle_data(proto_tree *tree, tvbuff_t *tvb, int field, int *offset)
         ;
     if ((tmpoff - *offset) > 1)
         proto_tree_add_item(tree, field, tvb, *offset,
-                            tmpoff - *offset - 1, FALSE);
+                            tmpoff - *offset - 1, ENC_NA);
+    *offset = tmpoff;
+}
+
+static void
+ucp_handle_data_string(proto_tree *tree, tvbuff_t *tvb, int field, int *offset)
+{
+    int          tmpoff = *offset;
+
+    while (tvb_get_guint8(tvb, tmpoff++) != '/')
+        ;
+    if ((tmpoff - *offset) > 1)
+        proto_tree_add_item(tree, field, tvb, *offset,
+                            tmpoff - *offset - 1, ENC_ASCII|ENC_NA);
     *offset = tmpoff;
 }
 
@@ -1024,6 +1036,9 @@ ucp_handle_XSer(proto_tree *tree, tvbuff_t *tvb)
 #define UcpHandleTime(field)    ucp_handle_time(tree, tvb, (field), &offset)
 
 #define UcpHandleData(field)    ucp_handle_data(tree, tvb, (field), &offset)
+
+#define UcpHandleDataString(field)\
+                        ucp_handle_data_string(tree, tvb, (field), &offset)
 
 /*!
  * The next set of routines handle the different operation types,
@@ -1648,7 +1663,7 @@ add_5xO(proto_tree *tree, tvbuff_t *tvb)
         ;
     if ((tmpoff - offset) > 1) {
         int      len = tmpoff - offset - 1;
-	proto_tree *subtree;
+        proto_tree *subtree;
 
         ti = proto_tree_add_item(tree, hf_ucp_parm_XSer, tvb, offset, len, ENC_NA);
         tmptvb = tvb_new_subset(tvb, offset, len + 1, len + 1);
@@ -1656,8 +1671,8 @@ add_5xO(proto_tree *tree, tvbuff_t *tvb)
         ucp_handle_XSer(subtree, tmptvb);
     }
     offset = tmpoff;
-    UcpHandleData(hf_ucp_parm_RES4);
-    UcpHandleData(hf_ucp_parm_RES5);
+    UcpHandleDataString(hf_ucp_parm_RES4);
+    UcpHandleDataString(hf_ucp_parm_RES5);
 }
 
 #define add_5xR(a, b,c ) add_30R(a, b, c)
@@ -1684,9 +1699,9 @@ add_6xO(proto_tree *tree, tvbuff_t *tvb, guint8 OT)
     if (OT == 60) {
         UcpHandleInt(hf_ucp_parm_OPID);
     }
-    UcpHandleData(hf_ucp_parm_RES1);
+    UcpHandleDataString(hf_ucp_parm_RES1);
     if (OT == 61) {
-        UcpHandleData(hf_ucp_parm_RES2);
+        UcpHandleDataString(hf_ucp_parm_RES2);
     }
 }
 
@@ -2761,7 +2776,7 @@ proto_reg_handoff_ucp(void)
     heur_dissector_add("tcp", dissect_ucp_heur, proto_ucp);
 
     /*
-     * Also register as a dissectoir that can be selected by a TCP port number via "decode as".
+     * Also register as a dissector that can be selected by a TCP port number via "decode as".
      */
     ucp_handle = create_dissector_handle(dissect_ucp_tcp, proto_ucp);
     dissector_add_handle("tcp.port", ucp_handle);

@@ -32,16 +32,12 @@
  *
  * (From original checkin message:
  * The funneled GUI mini API.
- * A very reduced set of gui ops (by now just a text window) 
+ * A very reduced set of gui ops (by now just a text window)
  * that can be funneled to dissectors (even plugins) via epan.
  */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
-#endif
-
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
 #endif
 
 #include <stdio.h>
@@ -169,7 +165,7 @@ static funnel_text_window_t* new_text_window(const gchar* title) {
     g_signal_connect(tw->win, "delete-event", G_CALLBACK(text_window_delete_event_cb), tw);
 
     txt_scrollw = scrolled_window_new(NULL, NULL);
-    main_vb = gtk_vbox_new(FALSE, 3);
+    main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 3, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(main_vb), 6);
     gtk_container_add(GTK_CONTAINER(tw->win), main_vb);
 
@@ -188,10 +184,10 @@ static funnel_text_window_t* new_text_window(const gchar* title) {
     gtk_text_view_set_left_margin(GTK_TEXT_VIEW(tw->txt), 4);
     gtk_text_view_set_right_margin(GTK_TEXT_VIEW(tw->txt), 4);
 
-    hbox = gtk_hbox_new(FALSE, 0);
+    hbox = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
     gtk_widget_show(hbox);
 
-    tw->button_hbox = gtk_hbutton_box_new();
+    tw->button_hbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_button_box_set_layout(GTK_BUTTON_BOX(tw->button_hbox), GTK_BUTTONBOX_START);
 
     gtk_box_pack_start(GTK_BOX(hbox), tw->button_hbox, TRUE, TRUE, 0);
@@ -440,7 +436,7 @@ static void funnel_new_dialog(const gchar* title,
 
     gtk_window_resize(GTK_WINDOW(win),400,10*(i+2));
 
-    main_vb = gtk_vbox_new(TRUE,5);
+    main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
     gtk_container_add(GTK_CONTAINER(win), main_vb);
     gtk_container_set_border_width(GTK_CONTAINER(main_vb), 6);
 
@@ -608,19 +604,20 @@ static void our_menu_callback(void* unused _U_, gpointer data) {
 }
 
 static const char* stat_group_name(register_stat_group_t group _U_) {
+    /* See make_menu_xml() for an explanation of the string format */
     static const value_string VALS_GROUP_NAMES[] = {
-        {REGISTER_ANALYZE_GROUP_UNSORTED,            "/Menubar/AnalyzeMenu|_Analyze"},               /* unsorted analyze stuff */
-        {REGISTER_ANALYZE_GROUP_CONVERSATION_FILTER, "/Menubar/AnalyzeMenu/ConversationFilterMenu|Conversation Filter"}, /* conversation filters */
+        {REGISTER_ANALYZE_GROUP_UNSORTED,            "/Menubar/AnalyzeMenu|Analyze"},               /* unsorted analyze stuff */
+        {REGISTER_ANALYZE_GROUP_CONVERSATION_FILTER, "/Menubar/AnalyzeMenu|Analyze/ConversationFilterMenu|Analyze#ConversationFilter"}, /* conversation filters */
         {REGISTER_STAT_GROUP_UNSORTED,               "/Menubar/StatisticsMenu|Statistics"},          /* unsorted statistic function */
         {REGISTER_STAT_GROUP_GENERIC,                "/Menubar/StatisticsMenu|Statistics"},          /* generic statistic function, not specific to a protocol */
-        {REGISTER_STAT_GROUP_CONVERSATION_LIST,      "/Menubar/StatisticsMenu|Statistics/ConversationListMenu|_Conversation List"},        /* member of the conversation list */
-        {REGISTER_STAT_GROUP_ENDPOINT_LIST,          "/Menubar/StatisticsMenu|Statistics/EndpointListMenu|_Endpoint List"},                /* member of the endpoint list */
-        {REGISTER_STAT_GROUP_RESPONSE_TIME,          "/Menubar/StatisticsMenu|Statistics/ServiceResponseTimeMenu|Service _Response Time"}, /* member of the service response time list */
-        {REGISTER_STAT_GROUP_TELEPHONY,              "/Menubar/TelephonyMenu|Telephon_y"},           /* telephony specific */
-        {REGISTER_TOOLS_GROUP_UNSORTED,              "/Menubar/ToolsMenu|_Tools"},                   /* unsorted tools */
+        {REGISTER_STAT_GROUP_CONVERSATION_LIST,      "/Menubar/StatisticsMenu|Statistics/ConversationListMenu|Statistics#ConversationList"},        /* member of the conversation list */
+        {REGISTER_STAT_GROUP_ENDPOINT_LIST,          "/Menubar/StatisticsMenu|Statistics/EndpointListMenu|Statistics#EndpointList"},                /* member of the endpoint list */
+        {REGISTER_STAT_GROUP_RESPONSE_TIME,          "/Menubar/StatisticsMenu|Statistics/ServiceResponseTimeMenu|Statistics#ServiceResponseTime"}, /* member of the service response time list */
+        {REGISTER_STAT_GROUP_TELEPHONY,              "/Menubar/TelephonyMenu|Telephony"},           /* telephony specific */
+        {REGISTER_TOOLS_GROUP_UNSORTED,              "/Menubar/ToolsMenu|Tools"},                   /* unsorted tools */
         {0, NULL}
     };
-    return val_to_str_const(group, VALS_GROUP_NAMES, "/Menubar/ToolsMenu|_Tools");
+    return val_to_str_const(group, VALS_GROUP_NAMES, "/Menubar/ToolsMenu|Tools");
 }
 
 static void register_menu_cb(const char *name,

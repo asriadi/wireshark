@@ -55,6 +55,7 @@
 #include "ui/gtk/proto_dlg.h"
 #include "ui/gtk/filter_dlg.h"
 #include "ui/gtk/dfilter_expr_dlg.h"
+#include "ui/gtk/proto_hier_tree_model.h"
 
 #include "ui/gtk/old-gtk-compat.h"
 
@@ -70,11 +71,6 @@
 #define E_DFILTER_EXPR_VALUE_LIST_SW_KEY	"dfilter_expr_value_list_sw"
 #define E_DFILTER_EXPR_OK_BT_KEY		"dfilter_expr_accept_bt"
 #define E_DFILTER_EXPR_VALUE_KEY		"dfilter_expr_value"
-
-typedef struct protocol_data {
-  char 	*abbrev;
-  int  	hfinfo_index;
-} protocol_data_t;
 
 static void show_relations(GtkWidget *relation_list, ftenum_t ftype);
 static gboolean relation_is_presence_test(const char *string);
@@ -129,7 +125,7 @@ field_select_row_cb(GtkTreeSelection *sel, gpointer tree)
 
     if (!gtk_tree_selection_get_selected(sel, &model, &iter))
         return;
-    gtk_tree_model_get(model, &iter, 1, &hfinfo, -1);
+    gtk_tree_model_get(model, &iter, 0, &hfinfo, -1);
 
     /*
      * What was the item that was last selected?
@@ -193,7 +189,7 @@ field_select_row_cb(GtkTreeSelection *sel, gpointer tree)
          * fill up the list of values, otherwise clear the list of values.
          */
 	/* XXX: ToDo: Implement "range-string" filter ?   */
-        if ((hfinfo->strings != NULL) && !(hfinfo->display & BASE_RANGE_STRING)) {
+        if ((hfinfo->strings != NULL) && !(hfinfo->display & BASE_RANGE_STRING) && !(hfinfo->display & BASE_CUSTOM)) {
             const value_string *vals = hfinfo->strings;
             if (hfinfo->display & BASE_EXT_STRING)
                 vals = VALUE_STRING_EXT_VS_P((value_string_ext *) vals);
@@ -796,7 +792,7 @@ dfilter_expr_dlg_accept_cb(GtkWidget *w, gpointer filter_te_arg)
         gtk_editable_insert_text(GTK_EDITABLE(filter_te), "]", 1, &pos);
         g_free(range_str);
     }
-    if (item_str != NULL && !relation_is_presence_test(item_str)) {
+    if (!relation_is_presence_test(item_str)) {
         gtk_editable_insert_text(GTK_EDITABLE(filter_te), " ", 1, &pos);
         gtk_editable_insert_text(GTK_EDITABLE(filter_te), item_str,
                                  (gint) strlen(item_str), &pos);
@@ -899,6 +895,34 @@ dfilter_expr_dlg_destroy_cb(GtkWidget *w, gpointer filter_te)
  */
 #define TAG_STRING_LEN	256
 
+static void
+show_hfinfo_name_func(GtkTreeViewColumn *col _U_, GtkCellRenderer *renderer,
+			GtkTreeModel *model, GtkTreeIter *iter, gpointer data _U_)
+{
+	char str[TAG_STRING_LEN+1];
+	header_field_info *hfinfo;
+
+	gtk_tree_model_get(model, iter, 0, &hfinfo, -1);
+
+	if (hfinfo->parent == -1) {
+    	protocol_t *protocol = find_protocol_by_id(hfinfo->id);
+
+		g_snprintf(str, TAG_STRING_LEN, "%s - %s",
+		   proto_get_protocol_short_name(protocol),
+		   proto_get_protocol_long_name(protocol));
+
+	} else {
+		if (hfinfo->blurb != NULL && hfinfo->blurb[0] != '\0') {
+			g_snprintf(str, TAG_STRING_LEN, "%s - %s (%s)", 
+				hfinfo->abbrev, hfinfo->name, hfinfo->blurb);
+		} else {
+			g_snprintf(str, TAG_STRING_LEN, "%s - %s", 
+				hfinfo->abbrev, hfinfo->name);
+		}
+	}
+	g_object_set(renderer, "text", str, NULL);
+}
+
 GtkWidget *
 dfilter_expr_dlg_new(GtkWidget *filter_te)
 {
@@ -917,10 +941,7 @@ dfilter_expr_dlg_new(GtkWidget *filter_te)
     GtkWidget *range_label, *range_entry;
 
     GtkWidget *list_bb, *ok_bt, *cancel_bt;
-    header_field_info       *hfinfo;
-    int i;
-    protocol_t *protocol;
-    GtkTreeStore *store;
+    ProtoHierTreeModel *store;
     GtkTreeSelection *selection;
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *column;
@@ -933,15 +954,15 @@ dfilter_expr_dlg_new(GtkWidget *filter_te)
     gtk_window_set_default_size(GTK_WINDOW(window), 500, 400);
     gtk_container_set_border_width(GTK_CONTAINER(window), 5);
 
-    main_vb = gtk_vbox_new(FALSE, 5);
+    main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(main_vb), 5);
     gtk_container_add(GTK_CONTAINER(window), main_vb);
 
-    main_hb = gtk_hbox_new(FALSE, 5);
+    main_hb = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(main_hb), 5);
     gtk_container_add(GTK_CONTAINER(main_vb), main_hb);
 
-    field_vb = gtk_vbox_new(FALSE, 5);
+    field_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(field_vb), 5);
     gtk_container_add(GTK_CONTAINER(main_hb), field_vb);
 
@@ -956,21 +977,23 @@ dfilter_expr_dlg_new(GtkWidget *filter_te)
     gtk_widget_set_size_request(tree_scrolled_win, 300, -1);
 
 
-    store = gtk_tree_store_new(2, G_TYPE_STRING, G_TYPE_POINTER);
-    field_tree = tree_view_new(GTK_TREE_MODEL(store));
+    field_tree = tree_view_new(GTK_TREE_MODEL(NULL));
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(field_tree), FALSE);
     selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(field_tree));
     gtk_tree_selection_set_mode(selection, GTK_SELECTION_BROWSE);
     renderer = gtk_cell_renderer_text_new();
-    column = gtk_tree_view_column_new_with_attributes("Field name", renderer,
-                                                      "text", 0, NULL);
+    column = gtk_tree_view_column_new();
+    gtk_tree_view_column_pack_start(column, renderer, TRUE);
+    gtk_tree_view_column_set_title(column, "Field name");
+    gtk_tree_view_column_set_cell_data_func(column, renderer, 
+                                    show_hfinfo_name_func, NULL, NULL);
     gtk_tree_view_append_column(GTK_TREE_VIEW(field_tree), column);
     gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
     gtk_tree_view_column_set_sort_column_id(column, 0);
     g_signal_connect(selection, "changed", G_CALLBACK(field_select_row_cb), field_tree);
     gtk_container_add(GTK_CONTAINER(tree_scrolled_win), field_tree);
 
-    relation_vb = gtk_vbox_new(FALSE, 5);
+    relation_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(relation_vb), 5);
     gtk_container_add(GTK_CONTAINER(main_hb), relation_vb);
 
@@ -1045,7 +1068,7 @@ dfilter_expr_dlg_new(GtkWidget *filter_te)
     gtk_box_pack_start(GTK_BOX(relation_vb), relation_matches_rb, FALSE, FALSE, 0);
 */
     /* value column */
-    value_vb = gtk_vbox_new(FALSE, 5);
+    value_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(value_vb), 5);
     gtk_container_add(GTK_CONTAINER(main_hb), value_vb);
 
@@ -1098,51 +1121,9 @@ dfilter_expr_dlg_new(GtkWidget *filter_te)
      * we're ready to cope with the selection signal.
      */
 
-{
-    /* GTK2 code using two levels iterator to enumerate all protocol fields */
-
-    GtkTreeIter iter, child_iter;
-    void *cookie, *cookie2;
-
-    for (i = proto_get_first_protocol(&cookie); i != -1;
-	 i = proto_get_next_protocol(&cookie)) {
-	char *strp, str[TAG_STRING_LEN+1];
-
-        protocol = find_protocol_by_id(i);
-
-	if (!proto_is_protocol_enabled(protocol)) {
-	    continue;
-	}
-
-	g_snprintf(str, TAG_STRING_LEN, "%s - %s",
-		   proto_get_protocol_short_name(protocol),
-		   proto_get_protocol_long_name(protocol));
-	strp=str;
-
-	hfinfo = proto_registrar_get_nth(i);
-
-	gtk_tree_store_append(store, &iter, NULL);
-	gtk_tree_store_set(store, &iter, 0, strp, 1, hfinfo, -1);
-
-	for (hfinfo = proto_get_first_protocol_field(i, &cookie2); hfinfo != NULL;
-             hfinfo = proto_get_next_protocol_field(&cookie2)) {
-
-            if (hfinfo->same_name_prev != NULL) /* ignore duplicate names */
-                continue;
-
-            if (hfinfo->blurb != NULL && hfinfo->blurb[0] != '\0') {
-                g_snprintf(str, TAG_STRING_LEN, "%s - %s (%s)",
-                           hfinfo->abbrev, hfinfo->name, hfinfo->blurb);
-            } else {
-                g_snprintf(str, TAG_STRING_LEN, "%s - %s", hfinfo->abbrev,
-                           hfinfo->name);
-            }
-            gtk_tree_store_append(store, &child_iter, &iter);
-            gtk_tree_store_set(store, &child_iter, 0, strp, 1, hfinfo, -1);
-	}
-    }
+    store = proto_hier_tree_model_new();
+    gtk_tree_view_set_model(GTK_TREE_VIEW(field_tree), GTK_TREE_MODEL(store));
     g_object_unref(G_OBJECT(store));
-}
 
     range_label = gtk_label_new("Range (offset:length)");
     gtk_misc_set_alignment(GTK_MISC(range_label), 0.0f, 0.0f);

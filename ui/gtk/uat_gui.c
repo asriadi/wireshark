@@ -69,6 +69,7 @@
 #include "ui/gtk/gui_stat_menu.h"
 #include "ui/gtk/main.h"
 #include "ui/gtk/uat_gui.h"
+#include "ui/gtk/new_packet_list.h"
 #include "ui/gtk/old-gtk-compat.h"
 
 # define BUTTON_SIZE_X -1
@@ -445,7 +446,7 @@ static void uat_edit_dialog(uat_t* uat, gint row, gboolean copy) {
 	gtk_window_set_resizable(GTK_WINDOW(win),FALSE);
 	gtk_window_resize(GTK_WINDOW(win),400, 30*(uat->ncols+2));
 
-	main_vb = gtk_vbox_new(FALSE,5);
+	main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
 	gtk_container_add(GTK_CONTAINER(win), main_vb);
 	gtk_container_set_border_width(GTK_CONTAINER(main_vb), 6);
 
@@ -594,7 +595,7 @@ static void uat_del_dlg(uat_t* uat, int idx) {
 	gtk_window_set_resizable(GTK_WINDOW(win),FALSE);
 	gtk_window_resize(GTK_WINDOW(win),400,25*(uat->ncols+2));
 
-	main_vb = gtk_vbox_new(FALSE,5);
+	main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
 	gtk_container_add(GTK_CONTAINER(win), main_vb);
 	gtk_container_set_border_width(GTK_CONTAINER(main_vb), 6);
 
@@ -714,6 +715,15 @@ static void uat_down_cb(GtkButton *button _U_, gpointer u) {
 	set_buttons(uat,row);
 }
 
+static void uat_apply_changes(uat_t *uat) {
+	if(strcmp(uat->category, UAT_CAT_FIELDS) == 0) {
+		/* Recreate list with new fields and redissect packets */
+		new_packet_list_recreate ();
+	} else if(cfile.state != FILE_CLOSED) {
+		redissect_packets ();
+	}
+}
+
 static void uat_cancel_cb(GtkWidget *button _U_, gpointer u) {
 	uat_t* uat = u;
 	gchar* err = NULL;
@@ -726,7 +736,7 @@ static void uat_cancel_cb(GtkWidget *button _U_, gpointer u) {
 			report_failure("Error while loading %s: %s",uat->name,err);
 		}
 
-		redissect_packets ();
+		uat_apply_changes (uat);
 	}
 
 	g_signal_handlers_disconnect_by_func(uat->rep->window, uat_window_delete_event_cb, uat);
@@ -741,7 +751,7 @@ static void uat_apply_cb(GtkButton *button _U_, gpointer u) {
 
 	if (uat->changed) {
 		if (uat->post_update_cb) uat->post_update_cb();
-		redissect_packets ();
+		uat_apply_changes (uat);
 	}
 }
 
@@ -757,7 +767,7 @@ static void uat_ok_cb(GtkButton *button _U_, gpointer u) {
 		}
 
 		if (uat->post_update_cb) uat->post_update_cb();
-		redissect_packets ();
+		uat_apply_changes (uat);
 	}
 
 	g_signal_handlers_disconnect_by_func(uat->rep->window, uat_window_delete_event_cb, uat);
@@ -858,7 +868,7 @@ static gboolean unsaved_dialog(GtkWindow *w _U_, GdkEvent* e _U_, gpointer u) {
 	gtk_window_set_default_size(GTK_WINDOW(win), 360, 140);
 
 	gtk_window_set_position(GTK_WINDOW(win), GTK_WIN_POS_CENTER_ON_PARENT);
-	vbox = gtk_vbox_new(FALSE, 12);
+	vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 12, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(vbox), 6);
 	gtk_container_add(GTK_CONTAINER(win), vbox);
 
@@ -921,15 +931,15 @@ static GtkWidget* uat_window(void* u) {
 
 	gtk_container_set_border_width(GTK_CONTAINER(rep->window), 6);
 
-	rep->vbox = gtk_vbox_new(FALSE, 12);
+	rep->vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 12, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(rep->vbox), 6);
 	gtk_container_add(GTK_CONTAINER(rep->window), rep->vbox);
 
-	hbox = gtk_hbox_new(FALSE,12);
+	hbox = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(hbox), 6);
 	gtk_container_add(GTK_CONTAINER(rep->vbox), hbox);
 
-	vbox = gtk_vbox_new(FALSE, 12);
+	vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 12, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(vbox), 6);
 	gtk_box_pack_start(GTK_BOX(hbox), vbox, FALSE, FALSE, 0);
 
@@ -975,13 +985,13 @@ static GtkWidget* uat_window(void* u) {
 		rep->bbox = dlg_button_row_new(GTK_STOCK_OK, GTK_STOCK_APPLY, GTK_STOCK_CANCEL, NULL);
 	}	
 
-	move_hbox = gtk_vbutton_box_new();
+	move_hbox = gtk_button_box_new(GTK_ORIENTATION_VERTICAL);
 	gtk_box_pack_start(GTK_BOX(vbox), move_hbox, TRUE, FALSE, 0);
 
-	edit_hbox = gtk_vbutton_box_new();
+	edit_hbox = gtk_button_box_new(GTK_ORIENTATION_VERTICAL);
 	gtk_box_pack_start(GTK_BOX(vbox), edit_hbox, TRUE, FALSE, 0);
 
-	refresh_hbox = gtk_vbutton_box_new();
+	refresh_hbox = gtk_button_box_new(GTK_ORIENTATION_VERTICAL);
 	gtk_box_pack_end(GTK_BOX(vbox), refresh_hbox, TRUE, FALSE, 0);
 
 

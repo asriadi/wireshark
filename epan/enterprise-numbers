@@ -1,6 +1,6 @@
 PRIVATE ENTERPRISE NUMBERS
 
-(last updated 2012-03-04)
+(last updated 2012-06-17)
 
 SMI Network Management Private Enterprise Codes:
 
@@ -311,8 +311,8 @@ Decimal
       mib_contact&bandit.ns.cs.boeing.com
 74
   AT&T
-    Yzhak Ronen
-      ronen&att.com
+    Mark A. Horstman
+      mark.horstman&att.com
 75
   Ungermann-Bass
     Didier Moretti
@@ -671,8 +671,8 @@ Decimal
       Thomas.Grootaers&aethis.be
 164
   Rad Data Communications Ltd.
-    Smadar Tauber
-      smadar_t&rad.com
+    Raphael Drai
+      raphael_d&rad.com
 165
   OfficeNet, Inc.
     Paul Singh
@@ -12000,7 +12000,7 @@ Decimal
 2998
   Anderson Consulting
     Thomas Anderson
-      1-2-3&comcast.net
+      iana-pen&wire-tap.net
 2999
   American Family Insurance
     Dan Tadysak
@@ -24896,7 +24896,7 @@ Decimal
 6233
   UUNET EMEA
     Jens-Uwe Jansen
-      jj&de.uu.net
+      jens-uwe.jansen&verizonbusiness.com
 6234
   Paul Abrahams, Sc.D.
     Paul Abrahams
@@ -44338,9 +44338,9 @@ Decimal
     Thomas Lambert
       tlambert&loeacom.com
 11096
-  BlueArc Corporation
+  BlueArc, part of Hitachi Data Systems
     Carlo Garbagnati
-      mib-support&bluearc.com
+      hnas-mib-support&hds.com
 11097
   HEXAL AG
     Michael Anderson
@@ -54820,8 +54820,8 @@ da Faculdade de Ciências e Tecnologia da Universidade Nova de Lisboa
       doi&ikusi.es
 13816
   AppSense Technologies
-    Mark Austin
-      mark.austin&appsense.com
+    Kevin Stone
+      kevin.stone&appsense.com
 13817
   Auswärtiges Amt
     Josef Mecklenburg
@@ -63260,8 +63260,8 @@ da Faculdade de Ciências e Tecnologia da Universidade Nova de Lisboa
       schenkd&cartierpartners.ca
 15927
   Point Loma Nazarene University
-    Scottie Thompson
-      oid-admin&ptloma.edu
+    Corey Fling
+      oid-admin&pointloma.edu
 15928
   SNB
     Egon Barfuss
@@ -70703,7 +70703,7 @@ da Faculdade de Ciências e Tecnologia da Universidade Nova de Lisboa
     Markus Frei
       m_frei&swissonline.ch
 17788
-  EDAG Engineering + Design AG
+  EDAG GmbH & Co. KGaA
     Markus Gruenkorn
       nwadmin&edag.de
 17789
@@ -72115,9 +72115,9 @@ da Faculdade de Ciências e Tecnologia da Universidade Nova de Lisboa
     SCHEER Jean-Marie
       jean-marie_scheer&ept.lu
 18141
-  RRZN, University of Hannover
-    Reinhard Obendorf
-      obendorf&RRZN.uni-hannover.de
+  RRZN, Leibniz Universitaet Hannover
+    Torsten Glaeser
+      hostmaster&rrzn.uni-hannover.de
 18142
   Gruender-AV
     Thomas Gruender
@@ -78398,8 +78398,8 @@ Servicos
       noc&bitbuzz.com
 19711
   scaryclowns.org
-    Josh Stone
-      jstone&scaryclowns.org
+    Jim Starwood
+      jim&scaryclowns.org
 19712
   WebSolve, Inc.
     Chris Carlson
@@ -78818,9 +78818,9 @@ d'Abomey-Calavi
     Julian Jo'se Gomez
       julianjose.gomez&getronics.com
 19816
-  Philips Medizinsysteme Boeblingen GmbH
-    Ernst-Ludwig Petersen
-      ernst-ludwig.petersen&philips.com
+  Philips Medizin Systeme Boeblingen GmbH
+    Lars Steubesand
+      lars.steubesand&philips.com
 19817
   Soluzioni Informatiche s.r.l.
     Giacomo Carta
@@ -80304,7 +80304,7 @@ d'Abomey-Calavi
 20187
   Gary T. Giesen
     Gary T. Giesen
-      ggiesen&ryerson.ca
+      giesen&snickers.org
 20188
   PHOENIX SOFT
     Jesus Bernardo Ruiz Flores
@@ -85217,8 +85217,8 @@ Information Security of Pr
       HBatra&HBatra.com
 21415
   Option Germany GmbH
-    Gary Gove
-      g.gove&option.com
+    Tom Hauspy
+      t.hauspy&option.com
 21416
   Centre Hospitalier de la Côte Basque
     AGUERRETCHE Jean-Marc
@@ -88647,8 +88647,8 @@ Telecommunication Inc.
       mvz&nimium.com
 22272
   PAREXEL International Corporation
-    Robert Weber
-      security&parexel.com
+    Holger Marschall
+      PKI&parexel.com
 22273
   Universita' degli Studi di Ferrara
     Enrico Ardizzoni
@@ -90678,8 +90678,8 @@ Informatica Ltda
       ldapadmin&reclusivehermit.com
 22779
   Carefirst BlueCross BlueShield
-    Vladimir Mikhaylenko
-      Vladimir.Mikhaylenko&carefirst.com
+    Grant Kissel
+      grant.kissel&carefirst.com
 22780
   Powerline Technologies Ltd
     David J Brain
@@ -103731,9 +103731,9 @@ Auswertungsstelle
     Hillembrand
       Cedric.Hillembrand&cesr.fr
 26040
-  The T Party
+  T PARTY
     TAKAHIRO KONNO
-      konno&tkd.att.ne.jp
+      thtprty&gmail.com
 26041
   Optical Internetworking Forum (OIF)
     Andra Kosich
@@ -104515,9 +104515,9 @@ Auswertungsstelle
     Juraj Giertl
       juraj.giertl&cnl.tuke.sk
 26236
-  Cámara de Comercio y Producción de Santo Domingo
-    Milagros J. Puello
-      mpuello&camarasantodomingo.org.do
+  Camara de Comercio y Produccion de Santo Domingo
+    Jenner Almanzar
+      jalmanzar&camarasantodomingo.do
 26237
   Elders Limited
     John Dell'Oso
@@ -110704,9 +110704,9 @@ Decentralization / Helenic Public Administra
     Luis Londono
       admin&publicsurplus.com
 27781
-  Ministerio de Trabajo e Inmigracion (previously was 'Ministerio de Trabajo y Asuntos Sociales')
+  Ministerio de Empleo y Seguridad Social (Previously it was 'Ministerio de Trabajo e Inmigracion')
     Miguel Gendive
-      mgendive&mtin.es
+      mgendive&meyss.es
 27782
   OnFin
     Alexandre VALENTIN
@@ -128497,9 +128497,9 @@ Decentralization / Helenic Public Administra
     Witold Grabysz
       merawex&merawex.com.pl
 32229
-  Novarra, Inc.
-    Clint Woker
-      cwoker&novarra.com
+  Nokia (previous was 'Novarra, Inc.')
+    William Boyle
+      william.boyle&nokia.com
 32230
   Aeris Communications, Inc.
     Bob Fultz
@@ -128889,7 +128889,7 @@ Decentralization / Helenic Public Administra
     Sergey Reshetnikov
       greyshaman&gmail.com
 32327
-  Long Distance Technologies
+  RF Industries
     Bart Voskulen
       bart.voskulen&rfi.com.au
 32328
@@ -129458,8 +129458,8 @@ Decentralization / Helenic Public Administra
       rva&teamnett.no
 32469
   Network Design GmbH
-    André Keller
-      keller&ndm.ch
+    Ovidio Raimondi
+      rai&ndm.ch
 32470
   Forschungszentrum Jülich
     Thomas Eickermann
@@ -131308,7 +131308,7 @@ Decentralization / Helenic Public Administra
 32931
   TOTEC AMENITY LIMITED (previous was 'easynet, inc.')
     Kazuhito Aono
-      Kazuhito_Aono&ccgw.totec.co.jp
+      Kazuhito_Aono&totec.co.jp
 32932
   Direct Telecom Ltd
     Andrey Nikolayev
@@ -131502,9 +131502,9 @@ Decentralization / Helenic Public Administra
     Markus Juenemann
       markus&juenemann.net
 32980
-  Computer System Engineering Co., Ltd.
+  Hitachi Systems Engineering and Solutions, Ltd. (previous was 'Computer System Engineering Co., Ltd.')
     Yasumasa Ichioka
-      wiseaudit&csenet.co.jp
+      wiseaudit.rm&hitachi-systems.com
 32981
   Arcadyan Technology Corporation
     Thomas Lee; Tom Teng
@@ -133208,7 +133208,7 @@ Decentralization / Helenic Public Administra
 33406
   Keller Williams Realty Intl
     Ben Mayfield
-      bmayfield&kw.com
+      sysadmin&kw.com
 33407
   I-Evolve
     Justin Elze
@@ -136887,8 +136887,8 @@ Decentralization / Helenic Public Administra
       hyoung&investec.co.za
 34326
   Nokia Services
-    Juha Markkanen
-      juha.markkanen&nokia.com
+    Teemu Savolainen
+      teemu.savolainen&nokia.com
 34327
   Farmacia Valentini
     Pablo Juan Valentini
@@ -138307,7 +138307,7 @@ Decentralization / Helenic Public Administra
       ernst.huber&ruag.com
 34681
   DATAGROUP IT Services Holding AG
-    Andreas Holm
+    Tobias Hüttner
       security&datagroup.de
 34682
   ATP Management & Technology s.r.l.
@@ -146475,7 +146475,7 @@ Decentralization / Helenic Public Administra
     Corneil du Plessis
       corneil&tsctech.com
 36723
-  ILT Productions AB
+  ILT Innovations AB
     Stefan Bernbo
       registry&ilt.se
 36724
@@ -147811,7 +147811,7 @@ Decentralization / Helenic Public Administra
     Ohtsuka, Mitsuo
       ohtsukamo&atmj.co.jp
 37057
-  MPS Quickpay
+  Quickpay Ltd. (previous was 'MPS Quickpay')
     Andrew Kochetkov
       a.kochetkov&quickpay.ru
 37058
@@ -149823,9 +149823,9 @@ Decentralization / Helenic Public Administra
     Patrick Kile
       patrick&socialcast.com
 37560
-  Simena, LLC
+  Netscout Systems, Inc. (previous was 'Simena, LLC')
     Sezen Uysal
-      suysal&simena.net
+      sezen.uysal&netscout.com
 37561
   Beijing KEMACOM technologies Co., Ltd.
     Yongjie Zhang
@@ -156527,9 +156527,9 @@ Decentralization / Helenic Public Administra
     Paul Lafferty 
       paul.lafferty&exelisinc.com
 39236
-  Sacred Point Studios
+  TriFractal Studios (previous was 'Sacred Point Studios')
     Joshua Porter
-      jporter&sacredpointstudios.com
+      jporter&trifractalstudios.com
 39237
   FW-Systeme GmbH
     Reiner Onnen
@@ -157574,6 +157574,2326 @@ Decentralization / Helenic Public Administra
   EMSYS Design Inc
     Bojan Keca
       bojan&emsys-design.com
+39498
+  Peerpath
+    zhou jin
+      jin.zhou&peerpath.net
+39499
+  INVEA-TECH a.s.
+    Jan Pazdera
+      pazdera&invea-tech.com
+39500
+  Sumatronic AG
+    A. von Mentlen
+      andre.vonmentlen&sumatronic.ch
+39501
+  Bayerische Medien Technik (bmt) GmbH
+    Martin Dreher
+      info&bmt-online.de
+39502
+  Aaron Wolfe
+    Aaron Wolfe
+      aaron&aaronwolfe.com
+39503
+  Adsalsa Publicidad, S.L.
+    Ivan Novas Ferrin
+      ivan.novas&adsalsa.com
+39504
+  CTI Group (Holdings), Inc.
+    Siddhartha Rao
+      srao&ctigroup.com
+39505
+  Lingo Systems SA de CV
+    Juan Rubén Marrero Vizcaíno
+      pen&lingo.mx
+39506
+  Qalixa Solutions AB
+    Mathias Grundell
+      mathias.grundell&gmail.com
+39507
+  Kreuzer-bb networking
+    Johannes Kreuzer
+      kontakt&kreuzer-bb.de
+39508
+  Schmitz RZ Consult GmbH
+    Martin Schmitz
+      schmitz&schmitz-rz-consult.de
+39509
+  Totemo AG
+    Marcel Mock
+      support&totemo.ch
+39510
+  Institut de Biologie Structurale
+    fred metoz
+      frederic.metoz&ibs.fr
+39511
+  Schiavone Org
+    Izzy M. Inocenti
+      Joe&Schiavone.org
+39512
+  saman insurance
+    makan jooyani
+      m.jooyani&samaninsurance.com
+39513
+  MacAllister Software
+    Bill MacAllister
+      bill&ca-zephyr.org
+39514
+  Associated Engineering
+    Scott Flowers
+      flowerss&ae.ca
+39515
+  Jõhvi Vallavalitsus
+    Karel Niine
+      karel.niine&johvi.ee
+39516
+  Indisys
+    Adrian Real Oliva
+      a.real&indisys.es
+39517
+  Evernote Corp.
+    Theral Mackey
+      tmackey&evernote.com
+39518
+  KAGE Systems Ltd
+    Alan Evans
+      support&kagesys.com
+39519
+  HavenSec, Inc.
+    Edward Beuerlein
+      ceo&havensec.com
+39520
+  Qualycloud
+    Benoit Lecocq
+      benoit&qualycloud.com
+39521
+  xG Technology
+    Siddhardha Garige
+      sidg&xgtechnology.com
+39522
+  Maldivica Inc
+    Adam Bane
+      adam&maldivica.com
+39523
+  Aliphcom
+    Joel Krauska
+      Itvendor&jawbone.com
+39524
+  Nacogdoches Memorial Hospital
+    Jenny Clifton
+      cliftonj&nacmem.org
+39525
+  Creotech Instruments SA
+    Grzegorz Kasprowicz
+      Grzegorz.Kasprowicz&creotech.pl
+39526
+  LogicLore Incorporation
+    Prabakar Kalivaradan
+      prabakar.prabakar&gmail.com
+39527
+  Motaavi, LLC
+    Kaiting Chen
+      kaiting&motaavi.com
+39528
+  ADDIT LTD
+    Anton Sinelnikov
+      antal&addit.ru
+39529
+  Luga Technology Ltd.
+    Nick Lowe
+      nick.lowe&lugatech.com
+39530
+  6cure SAS
+    Vincent Boissée
+      vincent.boissee&6cure.com
+39531
+  n-Tier construct GmbH
+    Dr. Rolf Dahm
+      dahm&n-tier.de
+39532
+  Quanex Building Products
+    Ryan Grant
+      ryan.grant&quanex.com
+39533
+  Armadillo Software
+    H. Eugene Latham
+      genel&armadillo.nu
+39534
+  Mobiata, LLC
+    Jeffrey Parker
+      jdparker&mobiata.com
+39535
+  modusoft GmbH
+    Sascha Ittner
+      sascha.ittner&modusoft.de
+39536
+  RBNetwork
+    André Keller
+      contact&rbnetwork.biz
+39537
+  Supreme Education Council
+    Amal Ahmad Alkuwari
+      itdirector&sec.gov.qa
+39538
+  Bright Pattern, Inc
+    Sergey Menshikov
+      sergey.menshikov&brightpattern.com
+39539
+  Northwest Hospital & Medical Center
+    ADAM PARCHER
+      adam.parcher&nwhsea.org
+39540
+  Saphety Level - Trusted Services, S.A.
+    Bruno Marinho
+      pki&saphety.com
+39541
+  Blacklight IT UG
+    Maximilian Hess
+      hess&blacklight-it.com
+39542
+  Calgary Co-operative Association Limited
+    Jeff Larsen
+      jlarsen&calgarycoop.com
+39543
+  GNUstep (gnu.org)
+    Richard Frith-Macdonald
+      rfm&gnu.org
+39544
+  igolgi Inc.
+    Kumar Ramaswamy
+      kumar.ramaswamy&igolgi.com
+39545
+  Winters Broadband LLC
+    Brian Horn
+      planning&winters-broadband.com
+39546
+  Infoage
+    Martin A Flynn
+      martin&infoage.org
+39547
+  WakeMed Health and Hospitals
+    Jackie Cheeks
+      jcheeks&wakemed.org
+39548
+  Beijing TopShine Technology Co., Ltd. 
+    dengji hua
+      dengjihua&topshinetech.com
+39549
+  DataCore Systems Ltd
+    John Reynolds
+      john.reynolds&datacoresl.com
+39550
+  KE2 Therm Solutions
+    Steve Roberts
+      admincontact&ke2therm.com
+39551
+  UAB SignDigi
+    Andrejs Čelnovs
+      chelnov&co.inbox.lv
+39552
+  Dalian Co-Edifice Video Technology Co. Ltd.
+    ZHUANG Xu
+      sanzluisgarcia&sina.com
+39553
+  Beijing Dynamic Power Co.,Ltd.
+    shiqiang
+      shiqiang&dpc.com.cn
+39554
+  D'Crypt Private Limited
+    Tan, Kim Sai
+      kim_sai&d-crypt.com
+39555
+  gyselroth GmbH
+    Raffael Sahli
+      sahli&gyselroth.com
+39556
+  University of Zurich, Institute of Mathematics
+    Rafael Ostertag
+      support&math.uzh.ch
+39557
+  Horoquartz
+    Patrick Paranthoen
+      patrick.paranthoen&horoquartz.fr
+39558
+  that's it gmbh
+    Andreas Woerner
+      woerner&thatsit-gmbh.de
+39559
+  derEDVdienst
+    Frank Leprich
+      info&derEDVdienst.de
+39560
+  Lead Innovation System Technology Corp.
+    Frank, H.L.Lai
+      frank&lisystec.com
+39561
+  XSD Zrt.
+    Adam Popper
+      info&xsd.hu
+39562
+  Greenhills IT Ltd.
+    Mr Martin Wheldon
+      martin.wheldon&greenhills-it.co.uk
+39563
+  Smart Messaging Solution Pte Ltd
+    Hanny Tidore
+      hanny.tidore&smsdr.com
+39564
+  Yunnan Technician College
+    Guanhua Tao
+      tgh328&gmail.com
+39565
+  Birzeit University
+    Raed Hindaileh
+      netadmin&birzeit.edu
+39566
+  Idealo Internet GmbH
+    Marc Schildt
+      marc.schildt&idealo.de
+39567
+  DJIGZO
+    Martijn Brinkers
+      martijn&djigzo.com
+39568
+  Liberologico Srl
+    Marco Bizzarri
+      m.bizzarri&liberologico.com
+39569
+  max4G, Inc.
+    Jeff Stern
+      jstern&max4g.com
+39570
+  POOL4TOOL AG
+    Georg Roesch
+      georg.roesch&pool4tool.com
+39571
+  L33 NETWORKS
+    Samuel MULLER
+      sml&l33.fr
+39572
+  TCPWave Inc
+    Patty Parcha
+      Patty.Parcha&tcpwave.com
+39573
+  Sauper Associates, Inc.
+    Metro Sauper
+      msauper&sauper.com
+39574
+  Guido Berhoerster
+    Guido Berhoerster
+      guido&berhoerster.name
+39575
+  Global Patient Identifiers, Inc.
+    Barry Hieb
+      oids&vuhid.org
+39576
+  ElvenStar Productions
+    Michael Kennedy
+      admin&elvenstar.tv
+39577
+  GlobeOSS Sdn. Bhd.
+    Redianto Satyanugroho
+      redianto&globeoss.com
+39578
+  Sven van den Heuvel GmbH
+    Sven van den Heuvel
+      svdheuvel&t-online.de
+39579
+  Hearst Business Media
+    Chris Suozzi
+      csuozzi&hearst.com
+39580
+  dual-PROJEKT Paweł Szmidt
+    Pawel Szmidt
+      pszmidt&dual-projekt.com.pl
+39581
+  ZPBE ENERGOPOMIAR-ELEKTRYKA
+    Marek Nabiałczyk
+      marek.nabialczyk&elektryka.com.pl
+39582
+  WebSatMedia Pte Ltd
+    Honggo Yeo
+      honggo&websatmedia.com
+39583
+  Egemin Automation
+    Jim Marstboom
+      jim.marstboom&egemin.be
+39584
+  Hannoversche Volksbank eG
+    Lars Hodann
+      lars.hodann&hanvb.de
+39585
+  Kleyling Spedition GmbH
+    Jona Glaubitz
+      edv&kleyling.de
+39586
+  Datasiel Spa
+    Maurizio Pastore
+      oid&datasiel.net
+39587
+  GuideStone Financial Resources of the Southern Baptist Convention
+    Jimmy Brown
+      GuideStone.IANA&GuideStone.org
+39588
+  SELECTRIC Nachrichten-Systeme GmbH
+    Andreas Ahland
+      andreas.ahland&selectric.de
+39589
+  eBackpack, Inc.
+    Doug Mayer
+      doug&ebackpack.com
+39590
+  Fundació privada i2cat
+    Andrea Cervera
+      andrea.cervera&i2cat.net
+39591
+  Aux Sable Liquid Products LP
+    Keith Nush
+      Keith.Nush&auxsable.com
+39592
+  Sermotec Communications GmbH
+    Harald Petrovitsch
+      office&sermotec.at
+39593
+  Suofeiya Home Collection Co., Ltd
+    JohnsonChen
+      johnson.chen&sogal.com.cn
+39594
+  Point Of Pay Pty Ltd
+    Jatinder Singh
+      jatinders&pointofpay.com.au
+39595
+  GuangZhou JoySim Network Technology Co.,Ltd.
+    liangwei Wu
+      164254840&qq.com
+39596
+  Zhejiang Broadcast&Television Technology Co.,Ltd.
+    MeiLi Pan
+      ml.pan&163.com
+39597
+  Chongqing Chongyou Communication Technologies Co,Ltd.
+    ZhiKuan Li
+      liangyan&cqupt.edu.cn
+39598
+  INFACOM S.L.
+    Andres Espin
+      aespin&infacom.es
+39599
+  Mzinga, Inc.
+    Eric Kreiser
+      ekreiser&mzinga.com
+39600
+  Capital Bank
+    Christian Ropposch
+      christian.ropposch&capitalbank.at
+39601
+  Vector 3 S.A.
+    Pau Ceano
+      pau.c&vector3.es
+39602
+  Regional Medical Center at Memphis
+    Doug Dohmen
+      ddohmen&the-med.org
+39603
+  DTTec Consulting
+    Mario Teichmann-Denschlag
+      Mario.Teichmann-Denschlag&dttec.de
+39604
+  Accuenergy (CANADA) Inc. 
+    Zhi Zhao
+      george.zhao&accuenergy.com
+39605
+  GlobeCast France
+    GAUDIN Thierry
+      thierry.gaudin&globecast.com
+39606
+  GoldKey Security Corporation
+    Thomas Eyre
+      teyre&goldkey.com
+39607
+  NX Information Services
+    Matthieu MICHAUD
+      matthieu&nxdomain.fr
+39608
+  Palosanto Solutions S.A.
+    Rocio Mera
+      rmera&palosanto.com
+39609
+  next-pbx
+    aeran moon
+      wphilmoon&gmail.com
+39610
+  BITLANCER LLC
+    Matthew Juszczak
+      contact&bitlancer.com
+39611
+  Video Design Software Inc.
+    Wyk Parish
+      wyk&videodesignsoftware.com
+39612
+  Stantec Consulting
+    Semyon Chaichenets
+      semyon.chaichenets&stantec.com
+39613
+  Torres Networks
+    Jude Pragash V.
+      v.jude&torresnetworks.com
+39614
+  Valid
+    Ben van Zanten
+      Ben.van.Zanten&valid.nl
+39615
+  2008mcitp.com
+    Mark Thrower
+      mark.thrower&2008mcitp.com
+39616
+  GlasgowNet
+    Kyle Gordon
+      kyle&lodge.glasgownet.com
+39617
+  PDT Partners, LLC
+    John Rau
+      johnrau&pdtpartners.com
+39618
+  Cloud Assist
+    Mark Wyman
+      mark.wyman&cloudassist.com.au
+39619
+  Institutul pentru Tehnologii Avansate
+    Aurelian Tolescu
+      ati&dcti.ro
+39620
+  JANUS srl
+    Gianpiero Lovat
+      janus&jns.it
+39621
+  SOPLEX Consult GmbH
+    Sven Kotting
+      tech&soplex.de
+39622
+  Intermas France S.A.S
+    Gomarin Philippe
+      Philippe.Gomarin&intermas-el.fr
+39623
+  PCS Systemtechnik GmbH
+    Markus Zinner
+      mzinner&pcs.com
+39624
+  herold&schönsteiner networks UG haftungsbeschränkt 
+    Fabian Kreuzkam
+      fabian.kreuzkam&herold-schoensteiner.de
+39625
+  Kraft Foods
+    Bruce Portz
+      bruce.portz&hp.com
+39626
+  Hackerspace Warsaw
+    Tomek Dubrownik
+      tomek&hackerspace.pl
+39627
+  Rhinobee
+    Kevin Weare
+      kevin&rhinobee.com
+39628
+  Vegayan Systems
+    Surinder Singh
+      surinder_singh&vegayan.com
+39629
+  Auxilium
+    Boris Lenzinger
+      boris.lenzinger&auxilium-conseil.fr
+39630
+  mailplus.co.at
+    Johannes Schulz
+      office&mailplus.co.at
+39631
+  mocube
+    Alexander Mette
+      admin&mocube.net
+39632
+  Hyro Pty Ltd
+    David Rhee
+      david.rhee&hyro.com
+39633
+  Dos Tek Group
+    Zakon Kuruchbekov
+      pki&dostek.kg
+39634
+  HighGrand Technology
+    Pun Lam
+      phl&highgrand.com.cn
+39635
+   Beijing ZhongChuang Telecom Test Co.,LTD
+    Huiling Shen
+      happyshlshl&126.com
+39636
+  Comet Computer GmbH
+    Florian Albrechtskirchinger
+      albrechtskirchinger&comet.de
+39637
+  IMP Solutions Network Operations
+    Jeff Warnica
+      jeff.warnica&impsolutions.com
+39638
+  Cornerstone Backup, Inc.
+    Nigel Whillier
+      nwhillier&cornerstonebackup.com
+39639
+  Vigilent Corporation
+    Kennard White
+      kennardwhite&vigilent.com
+39640
+  Europalab Networks
+    Michael Schloh von Bennewitz
+      michael&schloh.com
+39641
+  SPICE DIGITAL LIMITED 
+    Gurpreet Singh Gondara
+      gurpreet.singh&spicedigital.in
+39642
+  S3 s.r.l.
+    Ruben Castelletti
+      ruben.castelletti&s3srl.com
+39643
+  WedaCon Informationstechnologien GmbH
+    Thorsten H. Niebuhr
+      info&wedacon.net
+39644
+  The University of North Carolina at Greensboro
+    Robert Gorrell
+      idm-admin&uncg.edu
+39645
+  Anglo-American School of Moscow
+    Ilya Pekshev
+      iana-pen&aas.ru
+39646
+  Mikro Odeme Sistemleri A.S
+    Deniz Bektas
+      deniz.bektas&mikro-odeme.com
+39647
+  iNic AS
+    Bjornar Ness
+      bjornar&fastname.no
+39648
+  Enovacom
+    Christophe Marcel
+      cmarcel&enovacom.fr
+39649
+  General Data Technology Co. Ltd.
+    Yin Lina
+      info&gbase.cn
+39650
+  AEMO Ltd
+    Kerrod Fuller
+      iana.administrator&aemo.com.au
+39651
+  ComTecT 
+    Werner Saathoff
+      saathoff&comtect.de
+39652
+  The William Carter Company
+    Richard Hunt
+      rich.hunt&carters.com
+39653
+  Imbio
+    Ryan Chamberlain
+      ryanchamberlain&imbio.com
+39654
+  TISSOT
+    Andrés M. Tissot
+      info&etissot.com.ar
+39655
+  Humbug Telecom Labs Limited
+    Nir Simionovich
+      nirs&humbuglabs.org
+39656
+  ING Insurance /IM
+    R.E. Flinkerbusch
+      ray.flinkerbusch&ingim.com
+39657
+  Administration of the Vladimir Region
+    Pavel Shuba
+      shuba&avo.ru
+39658
+  TollNet a.s.
+    Petr Vokac
+      petr.vokac&tollnet.cz
+39659
+  NSD CO., LTD.
+    Kenji Yuasa
+      yuasa&nsd.co.jp
+39660
+  Tarana Wireless Inc
+    Rakesh Tiwari
+      rakesh&taranawireless.com
+39661
+  Allianz Managed Operations and Services SE - oneWeb
+    Markus Moltenbrey
+      extern.moltenbrey_markus&allianz.de
+39662
+  metafinanz Informationssysteme GmbH
+    Markus Moltenbrey
+      markus.moltenbrey&metafinanz.de
+39663
+  RENK AG
+    Helmut Wirth
+      helmut.wirth&renk.biz
+39664
+  Lingua-IT Sp. z o.o.
+    Marcin Suchocki
+      m.suchocki&lingua-it.pl
+39665
+  Fat Mongoose Technologies, Inc.
+    Alan Chan
+      ac&fatmongoose.com
+39666
+  Consult A Nerd
+    Rod Miller
+      rod&consultanerd.com
+39667
+  CodeMettle, LLC
+    Cliff Ford
+      cliff&codemettle.com
+39668
+  Iridium Digital Systems Corporation
+    Falcon Darkstar Momot
+      falcon&iridiumlinux.org
+39669
+  Koning Corporation
+    Shaohua Liu
+      shaohua.l&koningcorporation.com
+39670
+  knaute.info
+    Thomas Knaute
+      thomas&knaute.info
+39671
+  NEXTDC Ltd
+    Bob Purdon
+      bob.purdon&nextdc.com
+39672
+  Elite Automação Comércio e Serviços Ltda ME
+    José Luiz Vieira
+      contato&eliteacs.com.br
+39673
+  Talon Storage Solutions
+    Shirish H. Phatak
+      shirish&talonstorage.com
+39674
+  OctoGate GmbH
+    Ralph Viehhofer
+      ralph.viehhofer&hsm.de
+39675
+  Vast Array Corporation
+    Benjamin F. Beideman
+      ben&vastarraycorp.com
+39676
+  Pason Systems Corp.
+    Abudy Charanek
+      abudy.charanek&pason.com
+39677
+  Archdata SPRL
+    Philippe Delhaise
+      phil.delhaise&gmail.com
+39678
+  American Domain Names LLC
+    Christopher M Mettin
+      cmettin&unclesamnames.com
+39679
+  JSC Tekhdiagnostika
+    Serge Voronin
+      voronin&tdiag.ru
+39680
+  Nozhup B.V.
+    Richard van Bemmelen
+      richard.van.bemmelen&breplu.nl
+39681
+  Catalyst Repository Systems
+    Kevin Fries
+      kfries&catalystsecure.com
+39682
+  Exegin Technologies Limited
+    Leslie Mulder
+      ljm&exegin.com
+39683
+  Single Touch Interactive
+    Mark Ramirez
+      mark&singletouch.net
+39684
+  Genteel.org
+    Gentarou Kimura
+      gentianster&gmail.com
+39685
+  WTG Muenster
+    Michael Grote
+      service-ms&wtg.com
+39686
+  Acquirente Unico
+    Cappadozzi Elettra
+      elettra.cappadozzi&acquirenteunico.it
+39687
+  JSC Aprelevka X-ray factory
+    Alexey Surnin
+      alexey_surnin&amico.ru
+39688
+  interactingstars.org
+    Prof. Natalia Ivanova
+      sysadmin&interactingstars.org
+39689
+  BRF
+    Thierry Groteclaes
+      thierry.groteclaes&brf.be
+39690
+  IPACCT Ltd.
+    Boian Bonev
+      bbonev&ipacct.com
+39691
+  embeddeers GmbH
+    Josef Werth
+      netadmin&embeddeers.com
+39692
+  Ideal Mahdban Engineering Services
+    Mohammad Reza Mahdavifar
+      Mahdavifar&mahdban.com
+39693
+  N-Partner
+    Max Tsai
+      max&npartnertech.com
+39694
+  Diamont Equipamentos Especiais Ltda
+    Clebe Vitorino
+      engenharia&diamont.com.br
+39695
+  FRAFOS GmbH
+    Stefan Sayer
+      stefan.sayer&frafos.com
+39696
+  Banglalion Communications Limited
+    Rezwanul Haque
+      rezwanul.haque&banglalionwimax.com
+39697
+  Intelligent Security Systems
+    Aluisio Figueiredo
+      aluisio&isscctv.com
+39698
+  Mianyang Netop Telecom Equipment Co.,Ltd
+    Tan Xiaorong
+      smiletann&yahoo.com.cn
+39699
+  Robustel Technologies
+    Lianfeng Cao
+      info&robustel.com
+39700
+  Sonic Boom Wellness
+    Eric Fox
+      eric&sbwell.com
+39701
+  Mangelal & Sons
+    Vikash Ku. Agrawal
+      mangelalandsons&gmail.com
+39702
+  Linux Solutions
+    Kayo Sérgio Guimarães
+      kayo_tec&hotmail.com
+39703
+  SASCO
+    Esteban De La Fuente Rubio
+      esteban&sasco.cl
+39704
+  Unyonsys
+    Bruno LEON
+      bruno.leon&unyonsys.com
+39705
+  skslater.net
+    Simon Slater
+      skslater&skslater.net
+39706
+  ADTEK
+    Arhainx Jean
+      arhainx&adtek.fr
+39707
+  Cumbria Constabulary
+    Andrew Douthwaite
+      andrew.douthwaite&cumbria.police.uk
+39708
+  Telent GmbH * A division of euromicron Group
+    Michael Manderscheid
+      michael.manderscheid&telent.de
+39709
+  Broadcast Graphics and Control Limited
+    Stephen Mills
+      stephen.mills&bgandc.com
+39710
+  Wentworth-Douglass Hospital
+    Lynda Powers
+      lynda.powers&wdhospital.com
+39711
+  Radiobolaget Gunhamn och Åsbrink AB
+    Tim Sjöstrand
+      tim&radiobolaget.com
+39712
+  QSD Sistemi Srl
+    Marco Pagnoncelli
+      marco.pagnoncelli&qsdsistemi.it
+39713
+  Abertis telecom
+    Angel Dominguez
+      angel.dominguez&abertistelecom.com
+39714
+  Associacio Cultural TGK
+    Alex Barcelo
+      intranet&telecogresca.com
+39715
+  DominionTech Computer Services
+    Nabil Alanbar
+      nabil&dominiontech.com
+39716
+  University of South Alabama Health System
+    Terry Dees-Kolenich
+      tdkoleni&usouthal.edu
+39717
+  Westerholt
+    Jonathan Westerholt
+      joniw&joniw.de
+39718
+  Silverflare Ltd
+    Jan Nielsen
+      jan.nielsen&silverflare.com
+39719
+  TCF Financial Corporation
+    Kevin Serafin
+      kserafin&tcfbank.com
+39720
+  Maryland Stadium Authority
+    Joe March
+      JMarch&mdstad.com
+39721
+  DUCSS
+    Ben Doyle
+      admin&ducss.ie
+39722
+  Underpin Taiwan Ltd.
+    Ken.Fu
+      ken.fu&underpin.com.tw
+39723
+  Logistics Energy Korea Co., Ltd.
+    An Byeonghwan
+      abh041804&naver.com
+39724
+  [j]karef GmbH
+    Matthias Münzner
+      matthias.muenzner&jkaref.com
+39725
+  JeraSoft
+    Andrii Zinchenko
+      mail&zinok.org
+39726
+  British National Party
+    Chris Barnett
+      webtech&bnp.org.uk
+39727
+  IT Ihme
+    Miika Pekkarinen
+      miika.pekkarinen&ihme.org
+39728
+  Bessels IT
+    Dick Bessels
+      info&bessels.it
+39729
+  Cilutions, Digital Media Bridge
+    Bill Stanton
+      bstanton&cilutions.com
+39730
+  SHANGHAI MEXON COMMUNICATION TECHNOLOGY.,LTD
+    Zhang jian
+      806&mexontec.com
+39731
+  Emind Systems Ltd
+    Lahav Savir
+      info&emindsys.com
+39732
+  Shenzhen Smart Cube Intelligent Technology Co.,LTD
+    Fisher Yu
+      fisheryu&smart3.cn
+39733
+  Boss Info AG
+    Simon Boss
+      system&bossinfo.ch
+39734
+  wujiman.net
+    Martin Kraus
+      iana&wujiman.net
+39735
+  Main Street Softworks, Inc.
+    Darryl Wright
+      info&monetra.com
+39736
+  ACTIVE SYSTEM MANAGEMENT
+    Mr. Chinh Phan
+      c.phan&active-system.com
+39737
+  CommercePack
+    Aditya Advani
+      support&commercepack.com
+39738
+  IBS America, Inc.
+    Carlo Accorsi
+      it&ibs-us.com
+39739
+  Madscientistclub
+    David Corni
+      dcorni&cinci.rr.com
+39740
+  PSA Zeebrugge International Port nv
+    Louis Stevens
+      louis.stevens&psa-zeebrugge.be
+39741
+  Egnyte Inc.
+    Ramanathan Kavasseri
+      rkavasseri&egnyte.com
+39742
+  Société des ingénieurs Arts et Métiers
+    Vivien GIRARD
+      vivien.girard&gadz.org
+39743
+  Shanghai Dongzhou Lawton Telecom Technologies Co.,ltd
+    FengJiang
+      jiangfeng&dztx.com
+39744
+  EDESA
+    Javier Sanchez
+      javier.sanchez&edesa.com.co
+39745
+  OPower, Inc.
+    Jesse Kempf
+      jesse.kempf&opower.com
+39746
+  MEITSUDENSHI
+    Yuji　Tsukamoto
+      meitu&din.or.jp
+39747
+  Zhejiang Uniview Technologies Co., Ltd.
+    wuzhaohui
+      wuzhaohui&cn-uniview.com
+39748
+  Intesyn S.r.l.
+    Luca Lo Iacono
+      support&intesyn.it
+39749
+   Kassenärztliche Vereinigung Brandenburg
+    Stefan Mrosek
+      stefan.mrosek&kvbb.de
+39750
+  Union Hospital Health Group
+    John McKinney
+      jmckinney&uhhg.org
+39751
+  Mobintegro
+    Alexander Atamanov
+      admin&mobintegro.com
+39752
+  HootSuite Media Inc
+    Chris Maxwell
+      hosting&hootsuite.com
+39753
+  Vignold Workflow & New Media GmbH
+    Patrick Seiferth
+      pati&ooaahh.de
+39754
+  HAVI Logistics IS GmbH
+    Holger Guyens
+      holger.guyens&havilog.com
+39755
+  Saint Mondiale PTE LTD
+    Greg Broux
+      gbroux&saint-mondiale.com
+39756
+  St. Johns County School District
+    Justin Forfar
+      justin.forfar&stjohns.k12.fl.us
+39757
+  Schomäcker GmbH
+    Christian Pflüger
+      christian.pflueger&schomaecker-gmbh.com
+39758
+  imoxion
+    Yeonchan,Jung
+      dev&imoxion.com
+39759
+  LOREME
+    Patrick Dumoulin
+      technique&loreme.fr
+39760
+  New Cosmos Electric Co., Ltd.
+    Kosaku Yanagihara
+      yanagihara.kousaku&new-cosmos.co.jp
+39761
+  Galiam Capital, LLC
+    Austin B. Calvert 
+      austin.calvert&galiam.com
+39762
+  Radio Mobile Access, Inc
+    Richard Bouchard
+      rbouchard&radiomobiles.com
+39763
+  Adams County School District 50
+    Mark Hanson
+      mhanson&adams50.org
+39764
+  Transoft (Shanghai) Inc.
+    Jacky Gan
+      jacky_gam_2001&163.com
+39765
+  Keydap
+    Kiran Ayyagari
+      kayyagari&keydap.com
+39766
+  Null Pointer Inc.
+    Andrew Zeneski
+      andrew&andrewzeneski.com
+39767
+  TomTom International BV
+    David Bruce
+      david.bruce&tomtom.com
+39768
+  UAB Technologiju ir inovaciju centras 
+    Aleksandras Jevsejevas
+      aleksandras.jevsejevas&etic.lt
+39769
+  Italian Grid Infrastructure (IGI)
+    Riccardo Brunetti
+      riccardo.brunetti&to.infn.it
+39770
+  Martin Neimeier
+    Martin Neimeier
+      neimeier&bibbernet.org
+39771
+  SIP Express Media Server
+    Raphael Coeffic
+      rco&iptel.org
+39772
+  Melchinger Systemhaus UG
+    Thomas Melchinger
+      thomas.melchinger&melchinger.net
+39773
+  Pannon Site Ltd.
+    Tamas Kiszely
+      tkiszely&pannonsite.hu
+39774
+  Criena Network
+    Karel W. Dingeldey
+      admin&criena.net
+39775
+  Capitol Lien Records & Research, Inc.
+    Ben Moudry
+      benm&capitollien.com
+39776
+  Andreas Strey
+    Adnreas Strey
+      aohrner&web.de
+39777
+  Simon Arlott
+    Simon Arlott
+      pen.iana.simon&arlott.org
+39778
+  Young Master Supplies & General Enterprises Ltd
+    Michael Sifuni
+      meezy&youngmaster.co.tz
+39779
+  UCLA Anderson School of Managemetn
+    James Kim
+      james.kim&anderson.ucla.edu
+39780
+  Pikopiko Network
+    Anthony Low
+      shinji&pikopiko.org
+39781
+  T&W
+    Haiyang Zhang
+      haiyang.zh&gmail.com
+39782
+  Hangzhou I'converge Techonoloay Co.,Ltd
+    Ms Jane Xu
+      xujz&iconverge.cn
+39783
+  ASB Bank Limited
+    Ryan Cotterell
+      ryan.cotterell&asb.co.nz
+39784
+  National Jewish Health
+    Liam Schneider
+      admin&njhealth.org
+39785
+  DS/2 GbR
+    Dirk Strauss
+      info&ds-2.de
+39786
+  Travelocity.com
+    Jaime Diaz
+      jaime.diaz&travelocity.com
+39787
+  Suntrust Banks, Inc.
+    Larry Tanner
+      larry.tanner&suntrust.com
+39788
+  LogoDynamic Unit GmbH
+    Dr. Ernesto Schobesberger
+      es&ld-unit.com
+39789
+  Southwest Texas Regional Advisory Council
+    Sam Dibrell
+      sam&strac.org
+39790
+  Church & Dwight Co., Inc.
+    Gary Oppel
+      gary.oppel&churchdwight.com
+39791
+  Unified Microsystems
+    Christopher Morley
+      info&unifiedmicrosystems.com
+39792
+  YouDotNet Limited
+    Ben Durkin
+      ben&youdotnet.com
+39793
+  World Net
+    Sam Dibrell
+      iana.org&world-net.net
+39794
+  FedeRez
+    Olivier Caillault
+      admin&federez.net
+39795
+  Cardiothink, Inc.
+    Lawrence Widman
+      pen.iana.org&cardiothink.com
+39796
+  BkavCA
+    Mr Quyen Le Cong
+      quyenlc&bkav.com.vn
+39797
+  Contract Kitting
+    Hennie Lombaard
+      hlombaard&ckza.co.za
+39798
+  Republički fond za zdravstveno osiguranje
+    Mladen Mitrović
+      mladen.mitrovic&rfzo.rs
+39799
+  TELE APOSTUAK
+    Antxon Alonso
+      sistemak&kiroljokoa.com
+39800
+  MTU Aero Engines GmbH
+    Ulrich Clara
+      hostmaster&mtu.de
+39801
+  Imagicle SpA
+    Christian Bongiovanni
+      Cb&imagicle.com
+39802
+  Urban Airship, Inc.
+    Mike Newton
+      eng-ops&urbanairship.com
+39803
+  IT-Box GmbH
+    Matthias Wimmer
+      mwimmer&it-box.de
+39804
+  Ctyle Corporation
+    Zhang Weizhong
+      pr&ctyle.com
+39805
+  Ingenious Med
+    Randy Astle
+      rastle&ingeniousmed.com
+39806
+  PrJSC "IC SEB LIFE UKRAINE"
+    Alexander Migal
+      OLEKSANDR.MIGAL&SEB.UA
+39807
+  Edgewater Wireless Systems Inc.
+    Natalie Gagnon
+      natalieg&edgewaterwireless.com
+39808
+  SHINE SYSTEM
+     Heo,wonsuck
+      activedesk&zenois.com
+39809
+  Lonely Planet
+    Alistair Weddell
+      Alistair.Weddell&lonelyplanet.com.au
+39810
+  KNET Co., Ltd.
+    SUN Guonian
+      sunguonian&knet.cn
+39811
+  ZaPOP (Pty) Ltd
+    Riaan Labuschagbne
+      riaan&zapop.com
+39812
+  UC RUSAL
+    Denis Khleborodov
+      denis.khleborodov&rusal.com
+39813
+  Public Joint-Stock Company "National Depository of Ukraine"
+    Taras Kraychuk
+      t_kraychuk&csd.ua
+39814
+  SOLYSTIC
+    Didier Tresse
+      Didier.Tresse&solystic.com
+39815
+  iphion B.V.
+    Martijn Grendelman
+      martijn&iphion.nl
+39816
+  Accelatis
+    Jonathan Berry
+      jberry&accelatis.com
+39817
+  cl0secall.net
+    Joshua Kocinski
+      iana&cl0secall.net
+39818
+  Anator
+    Fernandez Julien
+      julien.fernandez&anator.com
+39819
+  VaporPunk, Inc.
+    Cody Mello
+      cody&vaporpunk.com
+39820
+  Cyssea
+    Fred Lacombe
+      fred.lacombe&cyssea.com
+39821
+  EDINEC SRL
+    Eduardo Antonio Jalil
+      ejalil&edinec.com.ar
+39822
+  iSchemaView, Inc.
+    Roland Bammer
+      rbammer&stanford.edu
+39823
+  Consorci Administració Oberta de Catalunya
+    Joan A. Olivares Obis
+      jaolivares&aoc.cat
+39824
+  Smart Grid Networks
+    Anders Grahn
+      anders.grahn&smartgridnetworks.net
+39825
+  Public Safety canada
+    Pierre Plante
+      plantep&smtp.gc.ca
+39826
+  Accelerated Servers, Inc
+    Avi Freedman
+      avi&acceleratedservers.com
+39827
+  Celal Bayar University
+    Ahmet Oztuna
+      ahmet.oztuna&cbu.edu.tr
+39828
+  ATP
+    Lars Ditlevsen
+      ldi&atp.dk
+39829
+  Asetek
+    Kasper Fuglsang Jensen
+      kfj&asetek.com
+39830
+  Greeve
+    Auryn Hughes
+      auryn.hughes&greeve.co.uk
+39831
+  Museu de Astronomia e Ciencias Afins
+    Alberto Wester
+      albertow&mast.br
+39832
+  LogicMonitor Inc
+    Steve Francis
+      sfrancis&logicmonitor.com
+39833
+  hangzhou e-vision electronic system engineering corp.
+    baifanfan
+      ffbai&hzys.net.cn
+39834
+  Fata Informatica
+    Vincenzo Alonge
+      v.alonge&fatainformatica.com
+39835
+  JANTEQ CORPORATION
+    Andrew Fox
+      andy&janteq.com
+39836
+  Sindikat “Akademska solidarnost”
+    Andrej Dundović
+      kontakt&akadsolid.hr
+39837
+  A123 Systems, Inc.
+    John M. McNally
+      jmcnally&a123systems.com
+39838
+  University of Bahrain
+    Dr Eshaa Alkhalifa
+      ealkhalifa&admin.uob.bh
+39839
+  Gaftech
+    Gabriel Fournier
+      gabriel&gaftech.fr
+39840
+  ICAR CNR
+    Pietro Storniolo
+      tech-c&pa.icar.cnr.it
+39841
+  Danske Bank
+    Jørn Guldberg
+      jrgu&danskebank.dk
+39842
+  Communauté Urbaine du Grand Toulouse
+    OULD-AMAR Karim
+      Karim.OULD-AMAR&grandtoulouse.fr
+39843
+  Precogs Software SAS
+    Vlad Vasiliu
+      vlad.vasiliu&precogs.fr
+39844
+  MAPPER Lithography
+    Robert de Vries
+      robert.de.vries&mapperlithography.com
+39845
+  Dr. Schenk IT-Consulting GmbH
+    Dr. Andreas Schenk
+      info&dr-schenk-it.de
+39846
+  UNILINK SA
+    FRANCOIS QUENUM
+      FRANCOIS.QUENUM&UNILINK.FR
+39847
+  ATS GRUP LTD
+    Fatih Kucuklergil
+      fatih&atsgrup.com.tr
+39848
+  Voximage
+    Regent Beaulieu
+      rbeaulieu&voximage.ca
+39849
+  Arbiter Systems
+    Niles Rasmussen
+      nrasmussen&arbiter.com
+39850
+  Ross Opticians Inc.
+    Evelyn Ross
+      evelynzross&gmail.com
+39851
+  HLT Software GmbH
+    Wolfgang Wester
+      wolfgang.wester&hlt-software.de
+39852
+  Clima-Tech Coporation
+    Wayne Andersen
+      waynea&clima-tech.com
+39853
+  BSI Business Systems Integration AG
+    Daniel Buehler
+      bsi_pen&bsiag.com
+39854
+  eVolution Networks
+    Amit Liber
+      Amit&evolutionetworks.com
+39855
+  FCP Fritsch, Chiari & Partner ZT GmbH
+    Georg Fritsch
+      gf&fcp.at
+39856
+  Beijing Qibadian Information Technology CO., Ltd.
+    Fei Wang
+      fei.wang&jimii.cn
+39857
+  CYSM Ltd.
+    Chris Roberts
+      c.roberts&csrfm.com
+39858
+  Kirin-gumi
+    Takayuki Akiyama
+      akiyama&kirin-gumi.net
+39859
+  Clemax,Inc
+    Nizeyimana, Rosine
+      ghighi-du63000&hotmail.fr
+39860
+  OGS IT-Solutions
+    Mr. Osman Gümüs
+      guemues&ogs.at
+39861
+  Orbitz Worldwide, LLC.
+    James Regovich
+      james.regovich&orbitz.com
+39862
+  ComSonics,Inc.
+    Shirley J. Custer
+      shirleyc&comsonics.com
+39863
+  World Vision US
+    Adam Patterson
+      apatters&worldvision.org
+39864
+  WEBeDoctor, Inc.
+    Jim Starwood
+      jstarwood&webedoctor.com
+39865
+  Slabinfo E.U.
+    John Edisson Ortiz
+      jortiz&slabinfo.com.co
+39866
+  Advanced Network Devices
+    Dan Mahn
+      dan&digidescorp.com
+39867
+  Linedata
+    Rick Morris
+      it&na.linedata.com
+39868
+  Miami International Holdings
+    Manjul Rai
+      mrai&miami-holdings.com
+39869
+  Illumina, Inc
+    Ryan Niemes
+      rniemes&illumina.com
+39870
+  Telesis A.S.
+    Mumin Guler
+      contact&telesis.com.tr
+39871
+  Trans Industrias Electronicas
+    Sergio Jardon
+      sjardon&trans.com.ar
+39872
+  CIPFP Ausias March
+    Luis Garcia
+      lgarcia&ausiasmarch.net
+39873
+  Ember Corporation
+    Robert Power
+      robert.power&ember.com
+39874
+  Asmlab Limited
+    Semen Makhorkin
+      iana&asmlab.ru
+39875
+  Beijing GuangXinYingKe Technology Co.,Ltd
+    Ming Xue
+      xueming&gxtech.com.cn
+39876
+  7-Technologies A/S
+    Lars Mortensen
+      lmo&7t.dk
+39877
+  VCE Vienna Consulting Engineers
+    Georg Fritsch
+      gf&vce.at
+39878
+  Le Aquile Unita' Cinofile da Soccorso Ravennate
+    Balestri Paride
+      segreteria&leaquile.it
+39879
+  Amplitude Systemes
+    Julien CARLIER
+      jcarlier&amplitude-systemes.com
+39880
+  Thomas Wiedstruck - Informationstechnik
+    Thomas Wiedstruck
+      thomas&wiedstruck.de
+39881
+  EyesOfNetwork
+    LEVY Jean-Philippe
+      eyesofnetwork&eyesofnetwork.com
+39882
+  Greater Pittsburgh Glass & Door
+    Steven L Buzonas Jr
+      steve&slbmeh.com
+39883
+  Sysacom
+    Steve Légaré
+      slegare&sysacom.com
+39884
+  T-Platforms
+    Alexander Amelkin
+      noc&t-platforms.com
+39885
+  StorONE
+    Sam Genzel
+      shmulikg&storone.com
+39886
+  Kurt Kincaid Consulting
+    Kurt Kincaid
+      kurt&kurtkincaid.com
+39887
+  localroot.de
+    Sascha Bendix
+      hostmaster&localroot.de
+39888
+  Ness Computing, Inc.
+    Henning Schmiedehausen
+      henning&likeness.com
+39889
+  icecreek Software und Services
+    Christian Ey
+      info&icecreek.de
+39890
+  Beijing Forsun Technology Co.,Ltd
+    David Leng
+      275582448&qq.com
+39891
+  MNUCIB VNII PVTI
+    Dmitry Ponomarev
+      dmitry.ponomarev&mnucib.ru
+39892
+  v-ic
+    Victor Ashirov
+      v.a.ashirov&r35.v-ic.ru
+39893
+  Energierversorgung Mittelrhein GmbH
+    Bjoern Hermes
+      bjoern.hermes&evm.de
+39894
+  Haley Technologies Inc. dba PC PitStop
+    Paul Haley
+      mark&pc-pitstop.com
+39895
+  OpenX
+    Seth Daniel
+      systems&openx.org
+39896
+  The Cleveland Clinic Foundation
+    Dave Blankenship
+      blanked&ccf.org
+39897
+  Ryder System, Inc. 
+    Sumanth Gangaraboina
+      enterpriseitsecurity&ryder.com
+39898
+  AtrilA GmbH
+    Andre Keller
+      keller&atrila.com
+39899
+  Virginia Hospital Center
+    Michelle Lardner
+      mlardner&virginiahospitalcenter.com
+39900
+  INITE SC
+    Diego García Bustos
+      diego.garcia&inite.edu.mx
+39901
+  Crypto4A
+    Bruno Couillard
+      bruno&crypto4a.com
+39902
+  inqa.be
+    Joachim Van den Bogaert
+      joachim&inqa.be
+39903
+  Pivotal Technologies Pty Ltd
+    Steve Kelly
+      admin&pivotaltechnologies.com.au
+39904
+  Sascha Wolf
+    Sascha Wolf
+      adnae&anxia.org
+39905
+  eA-light Arbeitsgemeinschaft der ÄKNO und ÄKWL
+    Viktor Krön
+      kroen&aekno.de
+39906
+  Zwissler Technologies, LLC
+    Rob Zwissler
+      rob&zwisslertech.com
+39907
+  LinkSquare
+    Zhang Haibin
+      zhanghaibin&linksquare.cn
+39908
+  china beijing koal Company
+    haitao wang
+      wanghaitao03&126.com
+39909
+  OJSC GUTA-BANK
+    Vladislaw Polukeev
+      polukeev.vo&gutabank.ru
+39910
+  Fusionex
+    Andy Pang
+      andy.pang&adv-fusionex.com
+39911
+  ltd Arhangelskoe predprijatie protivopozharnoj avtomatiki
+    Chulkin Alexander
+      spisprut&gmail.com
+39912
+  State Grid Electric Power Research Institute
+    Yuxin Chen
+      chenyuxin&sgchip.com
+39913
+  ELONG Corp
+    haitao ni
+      haitao.ni&corp.elong.com
+39914
+  ZPAS S.A.
+    Daniel Piegza
+      daniel&zpas.pl
+39915
+  wiba10
+    Konstantin Hopf
+      info&wiba10.de
+39916
+  KeyLemon SA
+    Gilles Florey
+      info&keylemon.com
+39917
+  KUFP “Medaparatura”, ALC
+    Kostiantyn Zander
+      office&medaparatura.kiev.ua
+39918
+  Cardiocore
+    G.K. Meier
+      snmp.engineers&cardiocore.com
+39919
+  hybris GmbH 
+    Joachim Kraftmayer
+      joachim.kraftmayer&hybris.com
+39920
+  wintek System
+    Jinseok Seo
+      jsseo&wintek.co.kr
+39921
+  UKFast.Net Ltd
+    Darren Taylor
+      darren.taylor&ukfast.co.uk
+39922
+  SDN SPA
+    Pasquale Garzillo
+      ced&sdn-napoli.it
+39923
+  Seres
+    Thierry Guérin
+      iana.docupost&seres.fr
+39924
+  Chase Paymentech
+    Paul Peterson
+      paul.peterson&chasepaymentech.com
+39925
+  Excellent S.A.
+    Roman Kolasiewicz
+      iana_pen&excellent.com.pl
+39926
+  Aspen Systems
+    Doug Morse
+      dmorse&aspensystems.com
+39927
+  Voronezh Cityhall
+    Vladimir Pakhomov
+      don&cityhall.voronezh-city.ru
+39928
+  Dmitry Ponomarev
+    Dmitry Ponomarev
+      dmitry&ponomarevs.ru
+39929
+  Dingbox
+    Ant Kenworthy
+      dns&dingbox.net
+39930
+  Rewired State
+    Steve King
+      steve&rewiredstate.com.au
+39931
+  openNetMon
+    Jean-Damien POGOLOTTI
+      jean-damien&opennetmon.net
+39932
+  Mindware
+    Alan March
+      alandmarch&gmail.com
+39933
+  Technology Space Integration Limited
+    Marek Stuczynski
+      marek.stuczynski&tsiuk.com
+39934
+  TopHat Software
+    Colm Vize
+      colm&tophat.ie
+39935
+  Transas Marine International
+    Dmitry Rostopshin
+      rost&transas.com
+39936
+  Cheshire Medical Center
+    Marie Young, Applications Systems Manager
+      mryoung&cheshire-med.com
+39937
+  Netspective
+    Shahid Shah
+      shahid.shah&netspective.com
+39938
+  Inca Networks Inc.
+    Mike Bradley
+      mike.bradley&incanetworks.com
+39939
+  Lansing Community College
+    John Hendzel
+      hendzej&lcc.edu
+39940
+  Oregon Scientific Global Distribution Limited
+    Jacky Tsoi
+      jackytsoi&oregonscientific.com
+39941
+  KUZUMI Electronics,Inc.
+    Motonobu Suzuki
+      motonobu_suzuki&kuzumi-denshi.co.jp
+39942
+  eWorld Technologies Ltd.
+    Wu Zhaohui
+      wzh&tomtaw.com.cn
+39943
+  University of Santo tomas
+    Mario M. Raagas
+      mmraagas&mnl.ust.edu.ph
+39944
+  shenzhen Catic Bit Communication Technology Co.LTD
+    Rao ZhiJian
+      raozj_bt&caticsz.com.cn
+39945
+  Tecblazer
+    Chris Cheng
+      chris.cheng&tecblazer.com
+39946
+  EV Group GmbH
+    Buttinger, Josef
+      it-policies&evgroup.com
+39947
+  B PLUS TV a.s.
+    Jiří Otisk
+      j.otisk&btv.cz
+39948
+  Ping Communication
+    Fredrik Gratte
+      fredrik&pingcom.net
+39949
+  Beijing Arrays Medical Imaging Technology Development Co.,td
+    sunlei
+      sunlei&arrays.com.cn
+39950
+  Altersign, LLC.
+    Vitalii Prikazchik
+      info&altersign.com.ua
+39951
+  Town Sports International
+    John Adams
+      ssladmin&town-sports.com
+39952
+  SecurePKI
+    Dennis van den Oever
+      d.vandenoever&securepki.com
+39953
+  SERVICE DEPARTEMENTAL D INCENDIE ET DE SECOURS DE LA DROME
+    Emmanuel JUGGERY
+      directeur-adjoint&sdis26.fr
+39954
+  RWetc. s.r.o.
+    Zdenek Roh
+      rwetc&rwetc.com
+39955
+  SMP Bank OJSC
+    Artem Bychkov
+      abychkov&smpbank.ru
+39956
+  Vale
+    Renato Orgito
+      renato.orgito&vale.com
+39957
+  Columbus Regional Heathcare System, Inc.
+    Terry Richards
+      terry.richards&crhs.net
+39958
+  Withings
+    Damien Lesgourgues
+      damien.lesgourgues&withings.com
+39959
+  CIRCUTOR, SA
+    Mr. Bernat García
+      bgarcia&circutor.es
+39960
+  cktsoi.com
+    Jacky Tsoi
+      jacky&tsoi.me
+39961
+  Nicira, Inc.
+    Rob Enns
+      rpe&nicira.com
+39962
+  Kern Scientific Co.
+    David L. Kern, Jr.
+      david&kernscientific.com
+39963
+  AGCO Corporation
+    Richa Bhootra
+      Richa.Bhootra&agcocorp.com
+39964
+  EIDEN Co,Ltd
+    ISAMU OHNO
+      i-ohno&eiden-gp.co.jp
+39965
+  Trans Sped
+    Viky-Teodora Manaila
+      viky.manaila&transsped.ro
+39966
+  Luminoso, LLC
+    Jason B. Alonso
+      jalonso&lumino.so
+39967
+  Ethersex Project
+    Stefan Siegl (project founder & maintainer)
+      maintainer&ethersex.de
+39968
+  Toya Technologies Inc.
+    Dustin Little
+      dlittle&toyatech.net
+39969
+  United Energy Pakistan Limited
+    Mohammad Abdul Qadir
+      qadirma&uep.com.pk
+39970
+  HandySolutions (CJSC)
+    Evgeny Nikitin
+      enikitin&handybank.ru
+39971
+  Shenzhen Skyee Optical Fiber Communication Technology Ltd.
+    wuminhua
+      wuminhua&skyee.com.cn
+39972
+  TUV RHEINLAND IBERICA SA 
+    Enrique Mora 
+      enrique.mora&es.tuv.com
+39973
+  Janmedia Interactive Sp. z o.o.
+    Bartosz Kondek
+      bkondek&janmedia.pl
+39974
+  Garland Technology LLC
+    Jerry Dillard
+      jerry.dillard&garlandtechnology.com
+39975
+  COGNEX
+    Michael Miller
+      mike.miller&cognex.com
+39976
+  Southwestern University
+    Todd K. Watson
+      tkw&southwestern.edu
+39977
+  Deltix, Inc.
+    Gene Florintsev
+      gflorin&deltixlab.com
+39978
+  Daniel Theodoro Consultoria em Informatica Ltd.
+    Daniel Theodoro
+      daniel&theodoro.com.br
+39979
+  ConicIT Ltd.
+    Tetelman Chen
+      chen&conicit.biz
+39980
+  Nocturnal Aviation
+    Jeff Grossman
+      jeffg&NocturnalAviation.net
+39981
+  OPT SP CO.,LTD.
+    Yutaka Yamada
+      cti-solution&optsp.co.jp
+39982
+  Icareus Ltd
+    Mikko Karppinen
+      support&icareus.com
+39983
+  Project Engineering srl
+    Nannini Nicola
+      nicola.nannini&proeng.it
+39984
+  Shenzhen Process Tech.Co.,Ltd.
+    Kelven Li
+      kelven11&163.com
+39985
+  GRZ IT Center Linz GmbH
+    Ralph Hosp
+      ralph.hosp&logis.at
+39986
+  Florida Department of Education
+    Ted Duncan
+      Ted.Duncan&fldoe.org
+39987
+  Pathmaker Group, Inc.
+    Jerry Castille
+      jerry.castille&pathmaker-group.com
+39988
+  NetCracker Technology Corp
+    Sachin Rathee
+      sachin.rathee&netcracker.com
+39989
+  LINE SEÑALIZACIÓN ELECTRÓNICA S.L.
+    JESÚS JIMÉNEZ MUÑOZ
+      jjimenez&line.es
+39990
+  Center of Information Technologies of Volgograd region (http:\\citvo.ru)
+    Kucherenko Vladimir Alexandrovich
+      admin&citvo.ru
+39991
+  Aitia International Inc.
+    Endre Cseszkó
+      ecseszko&aitia.ai
+39992
+  davidhowland.com
+    David Howland
+      pen&metalliqaz.fastmail.fm
+39993
+  Owl Forestry
+    Mikko Kokkonen
+      mikko&owlforestry.com
+39994
+  Echo360
+    Jonathan Allen
+      jonathan.allen&echo360.com
+39995
+  Plymouth University
+    John Horne
+      snmp-admin&plymouth.ac.uk
+39996
+  sys4 AG
+    Patrick Ben Koetter
+      pk&sys4.de
+39997
+  Netsumo Ltd
+    Richard Smith
+      noc&netsumo.com
+39998
+  Beijing Lanxum New Technology
+    Jason Hu
+      hutiejun&lanxum.com
+39999
+  Hispania Eurovip SL
+    Daniel Sanchez
+      daniel&eurovip.es
+40000
+  Kapsi Internet-käyttäjät ry
+    Juho Juopperi
+      jkj&kapsi.fi
+40001
+  WineSOFT
+    Jonathan Jaeha Ahn
+      bglee&winesoft.co.kr
+40002
+  Open System Co., Ltd.
+    Jonson Doong
+      jonson&opensys.com.tw
+40003
+  Karjalan Paperi Oy
+    Juha Hartikainen
+      juha.hartikainen&karjalanpaperi.fi
+40004
+  Cargo Service Nord GmbH
+    André Bürger
+      a.buerger&csn-logistik.de
+40005
+  5p. GmbH & Co. KG
+    Lukas Sassl
+      l.sassl&5partner.de
+40006
+  Reevex, LLC
+    Snehal Vashi
+      svashi&revventures.com
+40007
+  Universal Research Solutions, LLC
+    Matt Allen
+      iana&oberd.com
+40008
+  Virtual Connect Technologies, Inc
+    Benjamin Hathaway
+      ben.hathaway&virtualconnect.net
+40009
+  Oasiswork SARL
+    Nicolas Brisac
+      contact&oasiswork.fr
+40010
+  MSMC Informatica Ltda
+    Mario Dias
+      mario.dias&msmc.com.br
+40011
+  Fripost
+    Guilhem Moulin
+      guilhem&fripost.org
+40012
+  Hatomi Sp. z o.o.
+    Tomasz Macioszek
+      tomasz.macioszek&hatomi.pl
+40013
+  lintloaf.net
+    Juha Nyholm
+      oid-admin&lintloaf.net
+40014
+  Progress Rail Services Inspection & Information Systems 
+    Steven Kirby
+      skirby&progressrail.com
+40015
+  Hüttner & Werfling Softwareentwicklung GbR
+    Stefan Werfling
+      info&hw-softwareentwicklung.de
+40016
+  MAS Technology
+    Shawn Peters
+      manager&mastechnology.ca
+40017
+  ARKS LLC
+    Alexandr V. Koshkin
+      dit&arks.ru
+40018
+  JSC Bank Vologzhanin
+    Dmitry Ogarkov
+      admins-group&bankvl.ru
+40019
+  Isbak A.S.
+    Abdullah Karadag
+      akaradag&isbak.com.tr
+40020
+  Gutenberg Networks
+    Sebastien CALARD
+      sebastien.calard&gutenberg-networks.com
+40021
+  Viscount Systems Inc
+    David Lee
+      david&viscount.com
+40022
+  Sirius Software, Inc.
+    Gary Gregory
+      gary&sirius-software.com
+40023
+  LLC " NPF DUKON"
+    Oleg Poterpeev
+      root&dukon.ru
+40024
+  iNovo Broadband, Inc.
+    Jesse Still
+      jstill&inovobb.com
+40025
+  Tym3
+    James Carpenter
+      jcarpenter&tym3.com
+40026
+  SIS-FRANCE
+    Bruno Villedieu
+      bruno.villedieu&sis-france.com
+40027
+  Aki Network Technology
+    Akifumi Shiroma
+      aki&gp7.info
+40028
+  TAKOTA, LTD
+    Shakalov Andrey
+      ice&doka.tc
+40029
+  leadtone
+    gexingyu
+      gexingyu&leadtone.com
+40030
+  RADOM, s.r.o.
+    Jaroslav Hokeš
+      development&radom.eu
+40031
+  Oblako10, Ltd.
+    Vadim Ponomarev
+      vadim&oblako10.ru
+40032
+  Ultra Electronics, Precision Air & Land Systems
+    Richard Collins
+      Richard.Collins&ultra-pals.com
+40033
+  Radio Design
+    Caspar Lucas
+      caspar.lucas&radiodesign.eu
+40034
+  DuraSpace
+    Andrew Woods
+      awoods&duraspace.org
+40035
+  CellSec Inc.
+    Erik Dahl
+      admin&cellsec.com
+40036
+  Vertafore PLM
+    Josh Zook
+      jzook&vertafore.com
+40037
+  Inceptum d.o.o
+    Zvonimir Balog
+      zvonimir.balog&inceptum.hr
+40038
+  Livestream, LLC
+    Justin Stallard
+      devops&livestream.com
+40039
+  MySysAdmin.DE
+    Peer Dampmann
+      dampmann&mysysadmin.de
+40040
+  Stichting IFCAT Foundation
+    Wilco Baan Hofman
+      treasury&ifcat.org
+40041
+  ООО «Электронные Офисные Системы (проектирование и внедрение)» /OOO “Elektronnye Ofisnye Sistemy (proektirovanie i vnedrenie)/
+    Alexey Kravchenko
+      eosreg&eos.ru
+40042
+  Stiftelsen Chalmers Studentbostäder
+    Carl-Martin Pershed
+      calmar&csbnet.se
+40043
+  NewPace Technology Development Inc.‎
+    Josh Warren
+      josh.branchwarren&newpace.com
+40044
+  PC-Doctor, Inc.
+    Colin Corr
+      spammagnet&pc-doctor.com
+40045
+  Nexenta Systems, Inc.
+    Peer Dampmann
+      peer.dampmann&nexenta.com
+40046
+  CREDIT EUROPE BANK Ltd.
+    Ivan Bauzhadze
+      ivan.bauzhadze&crediteurope.ru
+40047
+  Korex Networks s.r.o.
+    Vladimir Vydra
+      vvydra&korex.sk
+40048
+  Information Display Company
+    Sam Mallicoat
+      smallicoat&gmail.com
+40049
+  Red Bend
+    Elad Tamari
+      elad.tamari&redbend.com
+40050
+  Microtech Andrzej Sokulski
+    Andrzej Sokulski
+      info&micro-tech.com.pl
+40051
+  RELEASE14
+    Josip Djuricic
+      jd&release14.org
+40052
+  Energie AG Oberösterreich Data GmbH
+    Christian Aichinger
+      christian.aichinger&energieag.at
+40053
+  Sistemas Avanzados de Diseño
+    Ildefonso Moreno
+      ildefonso&sadsl.es
+40054
+  4UR
+    ILyong Kim
+      hostmaster&4ur.cc
+40055
+  Yuchengtech
+    MingRui Li
+      limr&yuchengtech.com
+40056
+  AccuBeat Ltd
+    Yishay Eliav
+      yishay.e&accubeat.com
+40057
+  AccuBeat Ltd
+    Yishay Eliav
+      yishay.e&accubeat.com
+40058
+  Vitaliy Tokarev
+    Vitaliy Tokarev
+      gh0stwizard&myopera.com
+40059
+  Datagram, Inc.
+    Jae Kim
+      jae&datagram.com
+40060
+  Leo-Li com.
+    Leo Li
+      leo.wenlu&gmail.com
+40061
+  Bay Area Hospital
+    Brenda Curtner
+      brenda.curtner&bayareahospital.org
+40062
+  Trevor and Emily Mouat King
+    W. Trevor King
+      wking&tremily.us
+40063
+  Qintara, Inc.
+    Joseph W. Daigle
+      corp&qintara.com
+40064
+  Optima Lab srl
+    Daniele Arduini
+      admin&optimalab.it
+40065
+  Larch networks
+    Alex Cheskis
+      alexk&larch-networks.com
+40066
+  Saliens Information Systems Ltd.
+    Marko Pecic
+      mpecic&saliens.com.hr
+40067
+  LinTech JSC
+    Alexander Kochetkov
+      akochetkov&lintech.ru
+40068
+  The Venus Project
+    Roxanne Meadows 
+      admin&thevenusproject.com
+40069
+  enprovia Software Engineering s. r. o.
+    Patrik Csokas
+      oid.admin&enprovia.com
+40070
+  Nearbuy Systems
+    Nathan Mueller
+      nate&nearbuysystems.com
+40071
+  P. St. Onge
+    P. St. Onge
+      pete.stonge&utoronto.ca
+40072
+  scminfo.net
+    Shotaro Chiba
+      schiba&scminfo.net
+40073
+  Lutron Electronics Company, Inc
+    Jeremy Neyhart
+      jneyhart&lutron.com
+40074
+  Energy Solutions Ltd.
+    Vladimir Todorov Fuchedzhiev
+      vendor&borsabg.com
+40075
+  SPL-Xdemat
+    Philippe RICARD
+      philippe.ricard&spl-xdemat.fr
+40076
+  SiFox
+    Alexey Larin
+      alexey.larin&sifox.ru
+40077
+  Austrian Red Cross
+    Markus Hnatek
+      markus.hnatek&roteskreuz.at
 
 
 End of Document

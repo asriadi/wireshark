@@ -42,7 +42,6 @@
 
 #include "ui/gtk/gtkglobals.h"
 #include "ui/gtk/keys.h"
-#include "ui/gtk/capture_file_dlg.h"
 #include "ui/gtk/gui_utils.h"
 #include "ui/gtk/dlg_utils.h"
 #include "ui/gtk/file_dlg.h"
@@ -149,6 +148,7 @@ file_print_cmd(gboolean print_selected)
 
   /* init the printing range */
   packet_range_init(&args->range);
+  args->range.process_filtered = TRUE;
 
   if(print_selected) {
       args->range.process = range_process_selected;
@@ -216,6 +216,7 @@ export_text_cmd_cb(GtkWidget *widget _U_, gpointer data _U_)
 
   /* init the printing range */
   packet_range_init(&args->range);
+  args->range.process_filtered = TRUE;
 
   export_text_win = open_print_dialog("Wireshark: Export as \"Plain Text\" File", output_action_export_text, args);
   g_signal_connect(export_text_win, "destroy", G_CALLBACK(print_destroy_cb), &export_text_win);
@@ -269,6 +270,7 @@ export_ps_cmd_cb(GtkWidget *widget _U_, gpointer data _U_)
 
   /* init the printing range */
   packet_range_init(&args->range);
+  args->range.process_filtered = TRUE;
 
   export_ps_win = open_print_dialog("Wireshark: Export as \"PostScript\" file", output_action_export_ps, args);
   g_signal_connect(export_ps_win, "destroy", G_CALLBACK(print_destroy_cb), &export_ps_win);
@@ -322,6 +324,7 @@ export_psml_cmd_cb(GtkWidget *widget _U_, gpointer data _U_)
 
   /* init the printing range */
   packet_range_init(&args->range);
+  args->range.process_filtered = TRUE;
 
   export_psml_win = open_print_dialog("Wireshark: Export as \"PSML\" file", output_action_export_psml, args);
   g_signal_connect(export_psml_win, "destroy", G_CALLBACK(print_destroy_cb), &export_psml_win);
@@ -374,6 +377,7 @@ export_pdml_cmd_cb(GtkWidget *widget _U_, gpointer data _U_)
 
   /* init the printing range */
   packet_range_init(&args->range);
+  args->range.process_filtered = TRUE;
 
   export_pdml_win = open_print_dialog("Wireshark: Export as \"PDML\" file", output_action_export_pdml, args);
   g_signal_connect(export_pdml_win, "destroy", G_CALLBACK(print_destroy_cb), &export_pdml_win);
@@ -425,6 +429,7 @@ export_csv_cmd_cb(GtkWidget *widget _U_, gpointer data _U_)
 
   /* init the printing range */
   packet_range_init(&args->range);
+  args->range.process_filtered = TRUE;
 
   export_csv_win = open_print_dialog("Wireshark: Export as \"Comma Separated Values\" File", output_action_export_csv, args);
   g_signal_connect(export_csv_win, "destroy", G_CALLBACK(print_destroy_cb), &export_csv_win);
@@ -476,6 +481,7 @@ export_carrays_cmd_cb(GtkWidget *widget _U_, gpointer data _U_)
 
   /* init the printing range */
   packet_range_init(&args->range);
+  args->range.process_filtered = TRUE;
 
   export_carrays_win = open_print_dialog("Wireshark: Export as \"C Arrays\" File",
 					 output_action_export_carrays, args);
@@ -526,7 +532,7 @@ open_print_dialog(const char *title, output_action_e action, print_args_t *args)
   main_win = dlg_window_new(title);
 
   /* Vertical enclosing container for each row of widgets */
-  main_vb = gtk_vbox_new(FALSE, 5);
+  main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(main_vb), 5);
   gtk_container_add(GTK_CONTAINER(main_win), main_vb);
   gtk_widget_show(main_vb);
@@ -537,7 +543,7 @@ open_print_dialog(const char *title, output_action_e action, print_args_t *args)
   printer_fr = gtk_frame_new(action == output_action_print ? "Printer" : "Export to file:");
   gtk_box_pack_start(GTK_BOX(main_vb), printer_fr, FALSE, FALSE, 0);
   gtk_widget_show(printer_fr);
-  printer_vb = gtk_vbox_new(FALSE, 5);
+  printer_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(printer_vb), 5);
   gtk_container_add(GTK_CONTAINER(printer_fr), printer_vb);
   gtk_widget_show(printer_vb);
@@ -672,7 +678,7 @@ open_print_dialog(const char *title, output_action_e action, print_args_t *args)
 /*****************************************************/
 
   /*** hor box for range and format frames ***/
-  packet_hb = gtk_hbox_new(FALSE, 5);
+  packet_hb = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5, FALSE);
   gtk_container_add(GTK_CONTAINER(main_vb), packet_hb);
   gtk_widget_show(packet_hb);
 
@@ -694,7 +700,7 @@ open_print_dialog(const char *title, output_action_e action, print_args_t *args)
         action == output_action_export_text ||
         action == output_action_export_ps)
     gtk_widget_show(format_fr);
-  format_vb = gtk_vbox_new(FALSE, 5);
+  format_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(format_vb), 5);
   gtk_container_add(GTK_CONTAINER(format_fr), format_vb);
   gtk_widget_show(format_vb);
@@ -717,17 +723,17 @@ open_print_dialog(const char *title, output_action_e action, print_args_t *args)
   gtk_widget_show(details_cb);
 
   /*** packet details ***/
-  details_hb = gtk_hbox_new(FALSE, 6);
+  details_hb = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6, FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(details_hb), 0);
   gtk_container_add(GTK_CONTAINER(format_vb), details_hb);
   gtk_widget_show(details_hb);
 
-  details_vb = gtk_vbox_new(FALSE, 6);
+  details_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 6, FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(details_vb), 0);
   gtk_container_add(GTK_CONTAINER(details_hb), details_vb);
   gtk_widget_show(details_vb);
 
-  details_vb = gtk_vbox_new(FALSE, 6);
+  details_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 6, FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(details_vb), 0);
   gtk_container_add(GTK_CONTAINER(details_hb), details_vb);
   gtk_widget_show(details_vb);
@@ -760,7 +766,7 @@ open_print_dialog(const char *title, output_action_e action, print_args_t *args)
   gtk_widget_show(hex_cb);
 
   /* seperator */
-  sep = gtk_hseparator_new();
+  sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
   gtk_container_add(GTK_CONTAINER(format_vb), sep);
   gtk_widget_show(sep);
 

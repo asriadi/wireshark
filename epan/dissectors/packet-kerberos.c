@@ -65,8 +65,8 @@
 
 #include <stdio.h>
 #include <string.h>
+
 #include <glib.h>
-#include <ctype.h>
 
 #ifdef HAVE_LIBNETTLE
 #define HAVE_KERBEROS
@@ -851,7 +851,6 @@ decrypt_krb5_data(proto_tree *tree, packet_info *pinfo,
 {
     tvbuff_t *encr_tvb;
     guint8 *decrypted_data = NULL, *plaintext = NULL;
-    int res;
     guint8 cls;
     gboolean pc;
     guint32 tag, item_len, data_len;
@@ -893,7 +892,7 @@ decrypt_krb5_data(proto_tree *tree, packet_info *pinfo,
 
         md5_init(&md5s);
         memset(initial_vector, 0, DES_BLOCK_SIZE);
-        res = des3_set_key(&ctx, key);
+        des3_set_key(&ctx, key);
         cbc_decrypt(&ctx, des3_decrypt, DES_BLOCK_SIZE, initial_vector,
                     length, decrypted_data, cryptotext);
         encr_tvb = tvb_new_real_data(decrypted_data, length, length);
@@ -2816,7 +2815,7 @@ dissect_krb5_PAC_CLIENT_INFO_TYPE(proto_tree *parent_tree, tvbuff_t *tvb, int of
     offset+=2;
 
     /* client name */
-    name=tvb_get_ephemeral_unicode_string(tvb, offset, namelen/2, ENC_LITTLE_ENDIAN);
+    name=tvb_get_ephemeral_unicode_string(tvb, offset, namelen, ENC_LITTLE_ENDIAN);
     proto_tree_add_string(tree, hf_krb_pac_clientname, tvb, offset, namelen, name);
     offset+=namelen;
 
@@ -5251,7 +5250,7 @@ proto_register_kerberos(void)
                 "TransitedEncoding", "kerberos.TransitedEncoding", FT_NONE, BASE_NONE,
                 NULL, 0, "This is a Kerberos TransitedEncoding sequence", HFILL }},
         { &hf_krb_PA_PAC_REQUEST_flag, {
-                "PAC Request", "kerberos.pac_request.flag", FT_BOOLEAN, 32,
+                "PAC Request", "kerberos.pac_request.flag", FT_BOOLEAN, BASE_NONE,
                 NULL, 0, "This is a MS PAC Request Flag", HFILL }},
         { &hf_krb_w2k_pac_entries, {
                 "Num Entries", "kerberos.pac.entries", FT_UINT32, BASE_DEC,

@@ -141,14 +141,17 @@ extern gint if_list_comparator_alph (const void *first_arg, const void *second_a
 #include "ui/gtk/main.h"
 #include "ui/gtk/main_airpcap_toolbar.h"
 #include "ui/gtk/main_filter_toolbar.h"
+#include "ui/gtk/main_titlebar.h"
 #include "ui/gtk/menus.h"
+#include "ui/gtk/main_menubar_private.h"
 #include "ui/gtk/macros_dlg.h"
 #include "ui/gtk/main_statusbar_private.h"
 #include "ui/gtk/main_toolbar.h"
+#include "ui/gtk/main_toolbar_private.h"
 #include "ui/gtk/main_welcome.h"
 #include "ui/gtk/drag_and_drop.h"
 #include "ui/gtk/capture_file_dlg.h"
-#include "ui/gtk/main_proto_draw.h"
+#include "ui/gtk/packet_panes.h"
 #include "ui/gtk/keys.h"
 #include "ui/gtk/packet_win.h"
 #include "ui/gtk/stock_icons.h"
@@ -202,6 +205,8 @@ extern gint if_list_comparator_alph (const void *first_arg, const void *second_a
 
 capture_file cfile;
 
+static gboolean capture_stopping;
+
 /* "exported" main widgets */
 GtkWidget   *top_level = NULL, *pkt_scrollw, *tree_view_gbl, *byte_nb_ptr_gbl;
 
@@ -212,8 +217,8 @@ static GtkWidget   *main_first_pane, *main_second_pane;
 /* internally used widgets */
 static GtkWidget   *menubar, *main_tb, *filter_tb, *tv_scrollw, *statusbar, *welcome_pane;
 
+GtkWidget *wireless_tb;
 #ifdef HAVE_AIRPCAP
-GtkWidget *airpcap_tb;
 int    airpcap_dll_ret_val = -1;
 #endif
 
@@ -239,7 +244,6 @@ capture_options global_capture_opts;
 
 static void create_main_window(gint, gint, gint, e_prefs*);
 static void show_main_window(gboolean);
-static void file_quit_answered_cb(gpointer dialog, gint btn, gpointer data);
 static void main_save_window_geometry(GtkWidget *widget);
 
 
@@ -919,12 +923,42 @@ void resolve_name_cb(GtkWidget *widget _U_, gpointer data _U_) {
     }
 }
 
+/* Update main window items based on whether there's a capture in progress. */
+static void
+main_set_for_capture_in_progress(gboolean capture_in_progress)
+{
+    set_menus_for_capture_in_progress(capture_in_progress);
+
+#ifdef HAVE_LIBPCAP
+    set_toolbar_for_capture_in_progress(capture_in_progress);
+
+    set_capture_if_dialog_for_capture_in_progress(capture_in_progress);
+#endif
+}
+
+/* Update main window items based on whether we have a capture file. */
 static void
 main_set_for_capture_file(gboolean have_capture_file_in)
 {
     have_capture_file = have_capture_file_in;
 
     main_widgets_show_or_hide();
+}
+
+/* Update main window items based on whether we have captured packets. */
+static void
+main_set_for_captured_packets(gboolean have_captured_packets)
+{
+    set_menus_for_captured_packets(have_captured_packets);
+    set_toolbar_for_captured_packets(have_captured_packets);
+}
+
+/* Update main window items based on whether we have a packet history. */
+void
+main_set_for_packet_history(gboolean back_history, gboolean forward_history)
+{
+    set_menus_for_packet_history(back_history, forward_history);
+    set_toolbar_for_packet_history(back_history, forward_history);
 }
 
 gboolean
@@ -1007,23 +1041,17 @@ main_do_quit(void)
 static gboolean
 main_window_delete_event_cb(GtkWidget *widget _U_, GdkEvent *event _U_, gpointer data _U_)
 {
-    gpointer dialog;
-
-    if((cfile.state != FILE_CLOSED) && !cfile.user_saved && prefs.gui_ask_unsaved) {
-        gtk_window_present(GTK_WINDOW(top_level));
-        /* user didn't saved his current file, ask him */
-        dialog = simple_dialog(ESD_TYPE_CONFIRMATION,
-                    ((cfile.state == FILE_READ_IN_PROGRESS) ? ESD_BTNS_QUIT_DONTSAVE_CANCEL : ESD_BTNS_SAVE_QUIT_DONTSAVE_CANCEL),
-                    "%sSave capture file before program quit?%s\n\n"
-                    "If you quit the program without saving, your capture data will be discarded.",
-                    simple_dialog_primary_start(), simple_dialog_primary_end());
-        simple_dialog_set_cb(dialog, file_quit_answered_cb, NULL);
+    /* If we're in the middle of stopping a capture, don't do anything;
+       the user can try deleting the window after the capture stops. */
+    if (capture_stopping)
         return TRUE;
-    } else {
-        /* unchanged file, just exit */
-        /* "main_do_quit()" indicates whether the main window should be deleted. */
+
+    /* If there's unsaved data, let the user save it first.
+       If they cancel out of it, don't quit. */
+    if (do_file_close(&cfile, TRUE, " before quitting"))
         return main_do_quit();
-    }
+    else
+        return TRUE; /* will this keep the window from being deleted? */
 }
 
 
@@ -1095,40 +1123,12 @@ main_save_window_geometry(GtkWidget *widget)
     statusbar_save_window_geometry();
 }
 
-static void file_quit_answered_cb(gpointer dialog _U_, gint btn, gpointer data _U_)
-{
-    switch(btn) {
-    case(ESD_BTN_SAVE):
-        /* save file first */
-        file_save_as_cmd(after_save_exit, NULL, FALSE);
-        break;
-    case(ESD_BTN_QUIT_DONT_SAVE):
-        main_do_quit();
-        break;
-    case(ESD_BTN_CANCEL):
-        break;
-    default:
-        g_assert_not_reached();
-    }
-}
-
 void
 file_quit_cmd_cb(GtkWidget *widget _U_, gpointer data _U_)
 {
-  gpointer dialog;
-
-    if((cfile.state != FILE_CLOSED) && !cfile.user_saved && prefs.gui_ask_unsaved) {
-       /* user didn't saved his current file, ask him */
-        dialog = simple_dialog(ESD_TYPE_CONFIRMATION,
-                      ((cfile.state == FILE_READ_IN_PROGRESS) ? ESD_BTNS_QUIT_DONTSAVE_CANCEL : ESD_BTNS_SAVE_QUIT_DONTSAVE_CANCEL),
-                       "%sSave capture file before program quit?%s\n\n"
-                       "If you quit the program without saving, your capture data will be discarded.",
-                       simple_dialog_primary_start(), simple_dialog_primary_end());
-        simple_dialog_set_cb(dialog, file_quit_answered_cb, NULL);
-    } else {
-        /* unchanged file, just exit */
+    /* If there's unsaved data, let the user save it first. */
+    if (do_file_close(&cfile, TRUE, " before quitting"))
         main_do_quit();
-    }
 }
 
 static void
@@ -1373,14 +1373,58 @@ resolv_update_cb(gpointer data _U_)
 static void
 set_display_filename(capture_file *cf)
 {
+  gchar *display_name;
   gchar *window_name;
 
   if (cf->filename) {
-    window_name = g_strdup_printf("%s", cf_get_display_name(cf));
-    set_main_window_name(window_name);
+    display_name = cf_get_display_name(cf);
+    window_name = g_strdup_printf("%s%s", cf->unsaved_changes ? "*" : "",
+                                  display_name);
+    g_free(display_name);
+    main_set_window_name(window_name);
     g_free(window_name);
   } else {
-    set_main_window_name("The Wireshark Network Analyzer");
+    main_set_window_name("The Wireshark Network Analyzer");
+  }
+}
+
+/* Update various parts of the main window for a capture file "unsaved
+   changes" change - update the title to reflect whether there are
+   unsaved changes or not, and update the menus and toolbar to
+   enable or disable the "Save" operation. */
+void
+main_update_for_unsaved_changes(capture_file *cf)
+{
+  set_display_filename(cf);
+  set_menus_for_capture_file(cf);
+  set_toolbar_for_capture_file(cf);
+}
+
+#ifdef HAVE_LIBPCAP
+void
+main_auto_scroll_live_changed(gboolean auto_scroll_live_in)
+{
+  /* Update menubar and toolbar */
+  menu_auto_scroll_live_changed(auto_scroll_live_in);
+  toolbar_auto_scroll_live_changed(auto_scroll_live_in);
+
+  /* change auto scroll state */
+  auto_scroll_live  = auto_scroll_live_in;
+}
+#endif
+
+void
+main_colorize_changed(gboolean packet_list_colorize)
+{
+  /* Update menubar and toolbar */
+  menu_colorize_changed(packet_list_colorize);
+  toolbar_colorize_changed(packet_list_colorize);
+
+  /* change colorization */
+  if(packet_list_colorize != recent.packet_list_colorize) {
+      recent.packet_list_colorize = packet_list_colorize;
+      color_filters_enable(packet_list_colorize);
+      new_packet_list_colorize_packets();
   }
 }
 
@@ -1403,14 +1447,11 @@ npf_warning_dialog_cb(gpointer dialog, gint btn _U_, gpointer data _U_)
 static void
 main_cf_cb_file_closing(capture_file *cf)
 {
-#ifdef HAVE_LIBPCAP
-    int i;
-#endif
-
     /* if we have more than 10000 packets, show a splash screen while closing */
     /* XXX - don't know a better way to decide whether to show or not,
-     * as most of the time is spend in a single eth_clist_clear function,
-     * so we can't use a progress bar here! */
+     * as most of the time is spend in various calls that destroy various
+     * data structures, so it wouldn't be easy to use a progress bar,
+     * rather than, say, a progress spinner, here! */
     if(cf->count > 10000) {
         close_dlg = simple_dialog(ESD_TYPE_STOP, ESD_BTN_NONE,
                                   "%sClosing file!%s\n\nPlease wait ...",
@@ -1419,27 +1460,19 @@ main_cf_cb_file_closing(capture_file *cf)
         gtk_window_set_position(GTK_WINDOW(close_dlg), GTK_WIN_POS_CENTER_ON_PARENT);
     }
 
-    /* Destroy all windows, which refer to the
+    /* Destroy all windows that refer to the
        capture file we're closing. */
     destroy_packet_wins();
-    file_save_as_destroy();
-
-#ifdef HAVE_LIBPCAP
-    if (global_capture_opts.ifaces && global_capture_opts.ifaces->len > 0) {
-        for (i = (int)global_capture_opts.ifaces->len-1; i >= 0; i--) {
-            global_capture_opts.ifaces = g_array_remove_index(global_capture_opts.ifaces, i);
-        }
-    }
-#endif
 
     /* Restore the standard title bar message. */
-    set_main_window_name("The Wireshark Network Analyzer");
+    main_set_window_name("The Wireshark Network Analyzer");
 
     /* Disable all menu items that make sense only if you have a capture. */
     set_menus_for_capture_file(NULL);
-    set_menus_for_captured_packets(FALSE);
+    set_toolbar_for_capture_file(NULL);
+    main_set_for_captured_packets(FALSE);
     set_menus_for_selected_packet(cf);
-    set_menus_for_capture_in_progress(FALSE);
+    main_set_for_capture_in_progress(FALSE);
     set_capture_if_dialog_for_capture_in_progress(FALSE);
     set_menus_for_selected_tree_row(cf);
 
@@ -1482,14 +1515,31 @@ main_cf_cb_file_read_finished(capture_file *cf)
         set_last_open_dir(dir_path);
         g_free(dir_path);
     }
-    set_display_filename(cf);
 
-    /* Enable menu items that make sense if you have a capture file you've
-       finished reading. */
-    set_menus_for_capture_file(cf);
+    /* Update the appropriate parts of the main window. */
+    main_update_for_unsaved_changes(cf);
 
     /* Enable menu items that make sense if you have some captured packets. */
-    set_menus_for_captured_packets(TRUE);
+    main_set_for_captured_packets(TRUE);
+}
+
+static void
+main_cf_cb_file_rescan_finished(capture_file *cf)
+{
+    gchar *dir_path;
+
+    if (!cf->is_tempfile && cf->filename) {
+        /* Add this filename to the list of recent files in the "Recent Files" submenu */
+        add_menu_recent_capture_file(cf->filename);
+
+        /* Remember folder for next Open dialog and save it in recent */
+        dir_path = get_dirname(g_strdup(cf->filename));
+        set_last_open_dir(dir_path);
+        g_free(dir_path);
+    }
+
+    /* Update the appropriate parts of the main window. */
+    main_update_for_unsaved_changes(cf);
 }
 
 #ifdef HAVE_LIBPCAP
@@ -1540,7 +1590,7 @@ main_capture_set_main_window_title(capture_options *capture_opts)
 
     g_string_append(title, "Capturing ");
     g_string_append_printf(title, "from %s ", cf_get_tempfile_source(capture_opts->cf));
-    set_main_window_name(title->str);
+    main_set_window_name(title->str);
     g_string_free(title, TRUE);
 }
 
@@ -1558,7 +1608,7 @@ main_capture_cb_capture_prepared(capture_options *capture_opts)
 
     /* Disable menu items that make no sense if you're currently running
        a capture. */
-    set_menus_for_capture_in_progress(TRUE);
+    main_set_for_capture_in_progress(TRUE);
     set_capture_if_dialog_for_capture_in_progress(TRUE);
 
     /* Don't set up main window for a capture file. */
@@ -1572,12 +1622,12 @@ main_capture_cb_capture_update_started(capture_options *capture_opts)
        switching to the next multiple file. */
     main_capture_set_main_window_title(capture_opts);
 
-    set_menus_for_capture_in_progress(TRUE);
+    main_set_for_capture_in_progress(TRUE);
     set_capture_if_dialog_for_capture_in_progress(TRUE);
 
     /* Enable menu items that make sense if you have some captured
        packets (yes, I know, we don't have any *yet*). */
-    set_menus_for_captured_packets(TRUE);
+    main_set_for_captured_packets(TRUE);
 
     /* Set up main window for a capture file. */
     main_set_for_capture_file(TRUE);
@@ -1589,20 +1639,21 @@ main_capture_cb_capture_update_finished(capture_options *capture_opts)
     capture_file *cf = capture_opts->cf;
     static GList *icon_list = NULL;
 
+    /* The capture isn't stopping any more - it's stopped. */
+    capture_stopping = FALSE;
+
     if (!cf->is_tempfile && cf->filename) {
         /* Add this filename to the list of recent files in the "Recent Files" submenu */
         add_menu_recent_capture_file(cf->filename);
     }
-    set_display_filename(cf);
+
+    /* Update the main window as appropriate */
+    main_update_for_unsaved_changes(cf);
 
     /* Enable menu items that make sense if you're not currently running
      a capture. */
-    set_menus_for_capture_in_progress(FALSE);
+    main_set_for_capture_in_progress(FALSE);
     set_capture_if_dialog_for_capture_in_progress(FALSE);
-
-    /* Enable menu items that make sense if you have a capture file
-       you've finished reading. */
-    set_menus_for_capture_file(cf);
 
     /* Set up main window for a capture file. */
     main_set_for_capture_file(TRUE);
@@ -1634,16 +1685,19 @@ main_capture_cb_capture_fixed_finished(capture_options *capture_opts _U_)
 #endif
     static GList *icon_list = NULL;
 
+    /* The capture isn't stopping any more - it's stopped. */
+    capture_stopping = FALSE;
+
     /*set_display_filename(cf);*/
 
     /* Enable menu items that make sense if you're not currently running
      a capture. */
-    set_menus_for_capture_in_progress(FALSE);
+    main_set_for_capture_in_progress(FALSE);
     set_capture_if_dialog_for_capture_in_progress(FALSE);
 
     /* Restore the standard title bar message */
     /* (just in case we have trouble opening the capture file). */
-    set_main_window_name("The Wireshark Network Analyzer");
+    main_set_window_name("The Wireshark Network Analyzer");
 
     if(icon_list == NULL) {
         icon_list = icon_list_create(wsicon16_xpm, wsicon32_xpm, wsicon48_xpm, wsicon64_xpm);
@@ -1660,6 +1714,48 @@ main_capture_cb_capture_fixed_finished(capture_options *capture_opts _U_)
     }
 }
 
+static void
+main_capture_cb_capture_stopping(capture_options *capture_opts _U_)
+{
+    capture_stopping = TRUE;
+    set_menus_for_capture_stopping();
+#ifdef HAVE_LIBPCAP
+    set_toolbar_for_capture_stopping();
+
+    set_capture_if_dialog_for_capture_stopping();
+#endif
+}
+
+static void
+main_capture_cb_capture_failed(capture_options *capture_opts _U_)
+{
+    static GList *icon_list = NULL;
+
+    /* Capture isn't stopping any more. */
+    capture_stopping = FALSE;
+
+    /* the capture failed before the first packet was captured
+       reset title, menus and icon */
+
+    main_set_window_name("The Wireshark Network Analyzer");
+
+    main_set_for_capture_in_progress(FALSE);
+    set_capture_if_dialog_for_capture_in_progress(FALSE);
+
+    main_set_for_capture_file(FALSE);
+
+    if(icon_list == NULL) {
+        icon_list = icon_list_create(wsicon16_xpm, wsicon32_xpm, wsicon48_xpm, wsicon64_xpm);
+    }
+    gtk_window_set_icon_list(GTK_WINDOW(top_level), icon_list);
+
+
+    if(global_capture_opts.quit_after_cap) {
+        /* command line asked us to quit after the capture */
+        /* don't pop up a dialog to ask for unsaved files etc. */
+        main_do_quit();
+    }
+}
 #endif  /* HAVE_LIBPCAP */
 
 static void
@@ -1670,8 +1766,8 @@ main_cf_cb_packet_selected(gpointer data)
     /* Display the GUI protocol tree and packet bytes.
       XXX - why do we dump core if we call "proto_tree_draw()"
       before calling "add_byte_views()"? */
-    add_main_byte_views(cf->edt);
-    main_proto_tree_draw(cf->edt->tree);
+    add_byte_views(cf->edt, tree_view_gbl, byte_nb_ptr_gbl);
+    proto_tree_draw(cf->edt->tree, tree_view_gbl);
 
     /* Note: Both string and hex value searches in the packet data produce a non-zero
        search_pos if successful */
@@ -1688,8 +1784,17 @@ main_cf_cb_packet_selected(gpointer data)
 static void
 main_cf_cb_packet_unselected(capture_file *cf)
 {
-    /* Clear out the display of that packet. */
-    clear_tree_and_hex_views();
+    /* No packet is being displayed; clear the hex dump pane by getting
+       rid of all the byte views. */
+    while (gtk_notebook_get_nth_page(GTK_NOTEBOOK(byte_nb_ptr_gbl), 0) != NULL)
+        gtk_notebook_remove_page(GTK_NOTEBOOK(byte_nb_ptr_gbl), 0);
+
+    /* Add a placeholder byte view so that there's at least something
+       displayed in the byte view notebook. */
+    add_byte_tab(byte_nb_ptr_gbl, "", NULL, NULL, tree_view_gbl);
+
+    /* And clear the protocol tree display as well. */
+    proto_tree_draw(NULL, tree_view_gbl);
 
     /* No packet is selected. */
     set_menus_for_selected_packet(cf);
@@ -1699,13 +1804,6 @@ static void
 main_cf_cb_field_unselected(capture_file *cf)
 {
     set_menus_for_selected_tree_row(cf);
-}
-
-static void
-main_cf_cb_file_save_reload_finished(gpointer data _U_)
-{
-    set_display_filename(&cfile);
-    set_menus_for_capture_file(&cfile);
 }
 
 static void
@@ -1728,6 +1826,25 @@ main_cf_callback(gint event, gpointer data, gpointer user_data _U_)
         g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Read finished");
         main_cf_cb_file_read_finished(data);
         break;
+    case(cf_cb_file_reload_started):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Reload started");
+        main_cf_cb_file_read_started(data);
+        break;
+    case(cf_cb_file_reload_finished):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Reload finished");
+        main_cf_cb_file_read_finished(data);
+        break;
+    case(cf_cb_file_rescan_started):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Rescan started");
+        break;
+    case(cf_cb_file_rescan_finished):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Rescan finished");
+        main_cf_cb_file_rescan_finished(data);
+        break;
+    case(cf_cb_file_fast_save_finished):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Fast save finished");
+        main_cf_cb_file_rescan_finished(data);
+        break;
     case(cf_cb_packet_selected):
         main_cf_cb_packet_selected(data);
         break;
@@ -1743,12 +1860,23 @@ main_cf_callback(gint event, gpointer data, gpointer user_data _U_)
     case(cf_cb_file_save_finished):
         g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Save finished");
         break;
-    case(cf_cb_file_save_reload_finished):
-        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Reload finished");
-        main_cf_cb_file_save_reload_finished(data);
-        break;
     case(cf_cb_file_save_failed):
         g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Save failed");
+        break;
+    case(cf_cb_file_save_stopped):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Save stopped");
+        break;
+    case(cf_cb_file_export_specified_packets_started):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Export specified packets started");
+        break;
+    case(cf_cb_file_export_specified_packets_finished):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Export specified packets finished");
+        break;
+    case(cf_cb_file_export_specified_packets_failed):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Export specified packets failed");
+        break;
+    case(cf_cb_file_export_specified_packets_stopped):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: Export specified packets stopped");
         break;
     default:
         g_warning("main_cf_callback: event %u unknown", event);
@@ -1802,6 +1930,11 @@ main_capture_callback(gint event, capture_options *capture_opts, gpointer user_d
         theApp = g_object_new(GTK_TYPE_OSX_APPLICATION, NULL);
         gtk_osxapplication_set_dock_icon_pixbuf(theApp,gdk_pixbuf_new_from_xpm_data(wsicon64_xpm));
 #endif
+        main_capture_cb_capture_stopping(capture_opts);
+        break;
+    case(capture_cb_capture_failed):
+        g_log(LOG_DOMAIN_MAIN, G_LOG_LEVEL_DEBUG, "Callback: capture failed");
+        main_capture_cb_capture_failed(capture_opts);
         break;
     default:
         g_warning("main_capture_callback: event %u unknown", event);
@@ -2047,7 +2180,6 @@ main(int argc, char *argv[])
   char                *gdp_path, *dp_path;
   int                  err;
 #ifdef HAVE_LIBPCAP
-  int                  error;
   gboolean             start_capture = FALSE;
   gboolean             list_link_layer_types = FALSE;
   GList               *if_list;
@@ -2462,7 +2594,7 @@ main(int argc, char *argv[])
 
 /*#ifdef HAVE_LIBPCAP
   if (global_capture_opts.all_ifaces->len == 0) {
-    scan_local_interfaces(&global_capture_opts, &error);
+    scan_local_interfaces(&global_capture_opts);
   }
 #endif*/
   /* Now get our args */
@@ -2476,6 +2608,7 @@ main(int argc, char *argv[])
       case 'k':        /* Start capture immediately */
       case 'H':        /* Hide capture info dialog box */
       case 'p':        /* Don't capture in promiscuous mode */
+      case 'i':        /* Use interface x */
 #ifdef HAVE_PCAP_CREATE
       case 'I':        /* Capture in monitor mode, if available */
 #endif
@@ -2504,18 +2637,6 @@ main(int argc, char *argv[])
         break;
 #endif
 
-#ifdef HAVE_LIBPCAP
-      case 'i':       /* Use interface xxx */
-        status = capture_opts_add_iface_opt(&global_capture_opts, optarg);
-        if (status != 0) {
-            exit(status);
-        }
-#else
-        capture_option_specified = TRUE;
-        arg_error = TRUE;
-#endif
-        break;
-        
       /*** all non capture option specific ***/
       case 'C':
         /* Configuration profile settings were already processed just ignore them this time*/
@@ -2719,7 +2840,7 @@ main(int argc, char *argv[])
   
 #ifdef HAVE_LIBPCAP
   if (global_capture_opts.all_ifaces->len == 0) {
-    scan_local_interfaces(&global_capture_opts, &error);
+    scan_local_interfaces(&global_capture_opts);
   }
 #endif
 #ifdef HAVE_LIBPCAP
@@ -2894,7 +3015,7 @@ main(int argc, char *argv[])
 
   menu_recent_read_finished();
 #ifdef HAVE_LIBPCAP
-  menu_auto_scroll_live_changed(auto_scroll_live);
+  main_auto_scroll_live_changed(auto_scroll_live);
 #endif
 
   switch (user_font_apply()) {
@@ -2949,7 +3070,7 @@ main(int argc, char *argv[])
     check_and_warn_user_startup(cf_name);
     if (rfilter != NULL) {
       if (!dfilter_compile(rfilter, &rfcode)) {
-        bad_dfilter_alert_box(rfilter);
+        bad_dfilter_alert_box(top_level, rfilter);
         rfilter_parse_failed = TRUE;
       }
     }
@@ -2985,7 +3106,7 @@ main(int argc, char *argv[])
           } else if (jfilter != NULL) {
             /* try to compile given filter */
             if (!dfilter_compile(jfilter, &jump_to_filter)) {
-              bad_dfilter_alert_box(jfilter);
+              bad_dfilter_alert_box(top_level, jfilter);
             } else {
               /* Filter ok, jump to the first packet matching the filter
                  conditions. Default search direction is forward, but if
@@ -3025,7 +3146,7 @@ main(int argc, char *argv[])
         cfile.rfcode = NULL;
         show_main_window(FALSE);
         /* Don't call check_and_warn_user_startup(): we did it above */
-        set_menus_for_capture_in_progress(FALSE);
+        main_set_for_capture_in_progress(FALSE);
         set_capture_if_dialog_for_capture_in_progress(FALSE);
       }
     }
@@ -3040,8 +3161,14 @@ main(int argc, char *argv[])
         g_free(s);
       }
       /* "-k" was specified; start a capture. */
-      show_main_window(TRUE);
+      show_main_window(FALSE);
       check_and_warn_user_startup(cf_name);
+
+      /* If no user interfaces were specified on the command line,
+         copy the list of selected interfaces to the set of interfaces
+         to use for this capture. */
+      if (global_capture_opts.ifaces->len == 0)
+        collect_ifaces(&global_capture_opts);
       if (capture_start(&global_capture_opts)) {
         /* The capture started.  Open stat windows; we do so after creating
            the main window, to avoid GTK warnings, and after successfully
@@ -3054,7 +3181,7 @@ main(int argc, char *argv[])
     } else {
       show_main_window(FALSE);
       check_and_warn_user_startup(cf_name);
-      set_menus_for_capture_in_progress(FALSE);
+      main_set_for_capture_in_progress(FALSE);
       set_capture_if_dialog_for_capture_in_progress(FALSE);
     }
 
@@ -3065,7 +3192,7 @@ main(int argc, char *argv[])
 #else /* HAVE_LIBPCAP */
     show_main_window(FALSE);
     check_and_warn_user_startup(cf_name);
-    set_menus_for_capture_in_progress(FALSE);
+    main_set_for_capture_in_progress(FALSE);
     set_capture_if_dialog_for_capture_in_progress(FALSE);
 #endif /* HAVE_LIBPCAP */
   }
@@ -3357,7 +3484,7 @@ void main_widgets_rearrange(void) {
     g_object_ref(G_OBJECT(main_tb));
     g_object_ref(G_OBJECT(filter_tb));
 #ifdef HAVE_AIRPCAP
-    g_object_ref(G_OBJECT(airpcap_tb));
+    g_object_ref(G_OBJECT(wireless_tb));
 #endif
     g_object_ref(G_OBJECT(pkt_scrollw));
     g_object_ref(G_OBJECT(tv_scrollw));
@@ -3391,7 +3518,7 @@ void main_widgets_rearrange(void) {
 
 #ifdef HAVE_AIRPCAP
     /* airpcap toolbar */
-    gtk_box_pack_start(GTK_BOX(main_vbox), airpcap_tb, FALSE, TRUE, 1);
+    gtk_box_pack_start(GTK_BOX(main_vbox), wireless_tb, FALSE, TRUE, 1);
 #endif
 
     /* fill the main layout panes */
@@ -3504,13 +3631,11 @@ main_widgets_show_or_hide(void)
         gtk_widget_hide(filter_tb);
     }
 
-#ifdef HAVE_AIRPCAP
-    if (recent.airpcap_toolbar_show) {
-        gtk_widget_show(airpcap_tb);
+    if (recent.wireless_toolbar_show) {
+        gtk_widget_show(wireless_tb);
     } else {
-        gtk_widget_hide(airpcap_tb);
+        gtk_widget_hide(wireless_tb);
     }
-#endif
 
     if (recent.packet_list_show && have_capture_file) {
         gtk_widget_show(pkt_scrollw);
@@ -3615,7 +3740,7 @@ create_main_window (gint pl_size, gint tv_size, gint bv_size, e_prefs *prefs_p)
 
     /* Main window */
     top_level = window_new(GTK_WINDOW_TOPLEVEL, "");
-    set_main_window_name("The Wireshark Network Analyzer");
+    main_set_window_name("The Wireshark Network Analyzer");
 
     gtk_widget_set_name(top_level, "main window");
     g_signal_connect(top_level, "delete_event", G_CALLBACK(main_window_delete_event_cb),
@@ -3626,7 +3751,7 @@ create_main_window (gint pl_size, gint tv_size, gint bv_size, e_prefs *prefs_p)
                          G_CALLBACK(top_level_key_pressed_cb), NULL );
 
     /* Vertical container for menu bar, toolbar(s), paned windows and progress/info box */
-    main_vbox = gtk_vbox_new(FALSE, 1);
+    main_vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 1, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(main_vbox), 0);
     gtk_container_add(GTK_CONTAINER(top_level), main_vbox);
     gtk_widget_show(main_vbox);
@@ -3657,7 +3782,7 @@ create_main_window (gint pl_size, gint tv_size, gint bv_size, e_prefs *prefs_p)
     gtk_widget_show_all(pkt_scrollw);
 
     /* Tree view */
-    tv_scrollw = main_tree_view_new(prefs_p, &tree_view_gbl);
+    tv_scrollw = proto_tree_view_new(prefs_p, &tree_view_gbl);
     gtk_widget_set_size_request(tv_scrollw, -1, tv_size);
     gtk_widget_show(tv_scrollw);
 
@@ -3676,17 +3801,17 @@ create_main_window (gint pl_size, gint tv_size, gint bv_size, e_prefs *prefs_p)
                    g_object_get_data(G_OBJECT(popup_menu_object), PM_BYTES_VIEW_KEY));
 
     /* Panes for the packet list, tree, and byte view */
-    main_pane_v1 = gtk_vpaned_new();
+    main_pane_v1 = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
     gtk_widget_show(main_pane_v1);
-    main_pane_v2 = gtk_vpaned_new();
+    main_pane_v2 = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
     gtk_widget_show(main_pane_v2);
-    main_pane_h1 = gtk_hpaned_new();
+    main_pane_h1 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_widget_show(main_pane_h1);
-    main_pane_h2 = gtk_hpaned_new();
+    main_pane_h2 = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_widget_show(main_pane_h2);
 #ifdef HAVE_AIRPCAP
-    airpcap_tb = airpcap_toolbar_new();
-    gtk_widget_show(airpcap_tb);
+    wireless_tb = airpcap_toolbar_new();
+    gtk_widget_show(wireless_tb);
 #endif
     /* status bar */
     statusbar = statusbar_new();
@@ -3718,7 +3843,7 @@ show_main_window(gboolean doing_work)
   gdk_window_raise(gtk_widget_get_window(top_level));
 
 #ifdef HAVE_AIRPCAP
-  airpcap_toolbar_show(airpcap_tb);
+  airpcap_toolbar_show(wireless_tb);
 #endif /* HAVE_AIRPCAP */
 }
 
@@ -3825,7 +3950,7 @@ void change_configuration_profile (const gchar *profile_name)
     macros_post_update();
 
     /* Update window view and redraw the toolbar */
-    update_main_window_title();
+    main_titlebar_update();
     filter_expression_reinit(FILTER_EXPRESSION_REINIT_CREATE);
     toolbar_redraw_all();
 
@@ -3901,8 +4026,23 @@ guint get_interface_type(gchar *name, gchar *description)
      * however, FreeBSD 7.0 and OpenBSD 4.2, at least, appear to have
      * made the same mistake, at least for my Belkin ZyDAS stick.
      *
-     * On Mac OS X, one might be able to get the information one wants from
-     * IOKit.
+     * XXX - this is wrong on a MacBook Air, as en0 is the AirPort
+     * interface, and it's also wrong on a Mac that has no AirPort
+     * interfaces and has multiple Ethernet interfaces.
+     *
+     * The SystemConfiguration framework is your friend here.
+     * SCNetworkInterfaceGetInterfaceType() will get the interface
+     * type.  SCNetworkInterfaceCopyAll() gets all network-capable
+     * interfaces on the system; SCNetworkInterfaceGetBSDName()
+     * gets the "BSD name" of the interface, so we look for
+     * an interface with the specified "BSD name" and get its
+     * interface type.  The interface type is a CFString, and:
+     *
+     *    kSCNetworkInterfaceTypeIEEE80211 means IF_WIRELESS;
+     *    kSCNetworkInterfaceTypeBluetooth means IF_BLUETOOTH;
+     *    kSCNetworkInterfaceTypeModem or
+     *    kSCNetworkInterfaceTypePPP or
+     *    maybe kSCNetworkInterfaceTypeWWAN means IF_DIALUP
      */
     if (strcmp(name, "en1") == 0) {
         return IF_WIRELESS;
@@ -3969,13 +4109,18 @@ guint get_interface_type(gchar *name, gchar *description)
     return IF_WIRED;
 }
 
+/*
+ * Fetch the list of local interfaces with capture_interface_list()
+ * and set the list of "all interfaces" in *capture_opts to include
+ * those interfaces.
+ */
 void
-scan_local_interfaces(capture_options* capture_opts, int *error)
+scan_local_interfaces(capture_options* capture_opts)
 {
     GList             *if_entry, *lt_entry, *if_list;
     if_info_t         *if_info, *temp;
-    char              *if_string="";
-    gchar             *descr, *str, *err_str = NULL;
+    char              *if_string;
+    gchar             *descr;
     if_capabilities_t *caps=NULL;
     gint              linktype_count;
     cap_settings_t    cap_settings;
@@ -4000,8 +4145,7 @@ scan_local_interfaces(capture_options* capture_opts, int *error)
         }
     }
     /* Scan through the list and build a list of strings to display. */
-    if_list = capture_interface_list(&err, &err_str);
-    *error = err;
+    if_list = capture_interface_list(&err, NULL);
     count = 0;
     for (if_entry = if_list; if_entry != NULL; if_entry = g_list_next(if_entry)) {
         if_info = if_entry->data;
@@ -4041,6 +4185,7 @@ scan_local_interfaces(capture_options* capture_opts, int *error)
         } else {
             device.display_name = g_strdup(if_string);
         }
+        g_free(if_string);
         device.selected = FALSE;
         if (prefs_is_capture_device_hidden(if_info->name)) {
             device.hidden = TRUE;
@@ -4078,7 +4223,20 @@ scan_local_interfaces(capture_options* capture_opts, int *error)
             }
         }
 #ifdef HAVE_PCAP_REMOTE
+		device.local = TRUE;
         device.remote_opts.src_type = CAPTURE_IFLOCAL;
+        device.remote_opts.remote_host_opts.remote_host = g_strdup(capture_opts->default_options.remote_host);
+        device.remote_opts.remote_host_opts.remote_port = g_strdup(capture_opts->default_options.remote_port);
+        device.remote_opts.remote_host_opts.auth_type = capture_opts->default_options.auth_type;
+        device.remote_opts.remote_host_opts.auth_username = g_strdup(capture_opts->default_options.auth_username);
+        device.remote_opts.remote_host_opts.auth_password = g_strdup(capture_opts->default_options.auth_password);
+        device.remote_opts.remote_host_opts.datatx_udp = capture_opts->default_options.datatx_udp;
+        device.remote_opts.remote_host_opts.nocap_rpcap = capture_opts->default_options.nocap_rpcap;
+        device.remote_opts.remote_host_opts.nocap_local = capture_opts->default_options.nocap_local;
+#endif
+#ifdef HAVE_PCAP_SETSAMPLING
+        device.remote_opts.sampling_method = capture_opts->default_options.sampling_method;
+        device.remote_opts.sampling_param  = capture_opts->default_options.sampling_param;	
 #endif
         linktype_count = 0;
         device.links = NULL;
@@ -4089,17 +4247,17 @@ scan_local_interfaces(capture_options* capture_opts, int *error)
 #endif 
             for (lt_entry = caps->data_link_types; lt_entry != NULL; lt_entry = g_list_next(lt_entry)) {
                 data_link_info = lt_entry->data;
-                if (data_link_info->description != NULL) {
-                    str = g_strdup_printf("%s", data_link_info->description);
-                } else {
-                    str = g_strdup_printf("%s (not supported)", data_link_info->name);
-                }
                 if (linktype_count == 0) {
                     device.active_dlt = data_link_info->dlt;
                 }
                 link = (link_row *)g_malloc(sizeof(link_row));
-                link->dlt = data_link_info->dlt;
-                link->name = g_strdup(str);
+                if (data_link_info->description != NULL) {
+                    link->dlt = data_link_info->dlt;
+                    link->name = g_strdup_printf("%s", data_link_info->description);
+                } else {
+                    link->dlt = -1;
+                    link->name = g_strdup_printf("%s (not supported)", data_link_info->name);
+                }
                 device.links = g_list_append(device.links, link);
                 linktype_count++;
             }
@@ -4125,24 +4283,24 @@ scan_local_interfaces(capture_options* capture_opts, int *error)
 #endif
         
         if (capture_opts->ifaces->len > 0) {
-        	for (j = 0; j < capture_opts->ifaces->len; j++) {
-        		interface_opts = g_array_index(capture_opts->ifaces, interface_options, j);
-        		if (strcmp(interface_opts.name, device.name) == 0) {       		    
+            for (j = 0; j < capture_opts->ifaces->len; j++) {
+                interface_opts = g_array_index(capture_opts->ifaces, interface_options, j);
+                if (strcmp(interface_opts.name, device.name) == 0) {                   
 #if defined(HAVE_PCAP_CREATE)
-        			device.buffer = interface_opts.buffer_size;
-        			device.monitor_mode_enabled = interface_opts.monitor_mode;
+                    device.buffer = interface_opts.buffer_size;
+                    device.monitor_mode_enabled = interface_opts.monitor_mode;
 #endif
-        			device.pmode = interface_opts.promisc_mode;
-        			device.has_snaplen = interface_opts.has_snaplen;
-        			device.snaplen = interface_opts.snaplen; 
-        			device.cfilter = g_strdup(interface_opts.cfilter);
-        			device.active_dlt = interface_opts.linktype;
-					device.selected = TRUE;
-					capture_opts->num_selected++;
-					break;
-				}
-			}
-		}
+                    device.pmode = interface_opts.promisc_mode;
+                    device.has_snaplen = interface_opts.has_snaplen;
+                    device.snaplen = interface_opts.snaplen; 
+                    device.cfilter = g_strdup(interface_opts.cfilter);
+                    device.active_dlt = interface_opts.linktype;
+                    device.selected = TRUE;
+                    capture_opts->num_selected++;
+                    break;
+                }
+            }
+        }
         if (capture_opts->all_ifaces->len <= count) {
             g_array_append_val(capture_opts->all_ifaces, device);
             count = capture_opts->all_ifaces->len;
@@ -4159,33 +4317,33 @@ scan_local_interfaces(capture_options* capture_opts, int *error)
     free_interface_list(if_list);
     /* see whether there are additional interfaces in ifaces */
     for (j = 0; j < capture_opts->ifaces->len; j++) {
-    	interface_opts = g_array_index(capture_opts->ifaces, interface_options, j);
-    	found = FALSE;
-    	for (i = 0; i < (int)capture_opts->all_ifaces->len; i++) {
-    		device = g_array_index(capture_opts->all_ifaces, interface_t, i);
-    		if (strcmp(device.name, interface_opts.name) == 0) {
-    			found = TRUE;
-    			break;
-    		}
-    	}
-    	if (!found) {  /* new interface, maybe a pipe */
-    		device.name         = g_strdup(interface_opts.name);
+        interface_opts = g_array_index(capture_opts->ifaces, interface_options, j);
+        found = FALSE;
+        for (i = 0; i < (int)capture_opts->all_ifaces->len; i++) {
+            device = g_array_index(capture_opts->all_ifaces, interface_t, i);
+            if (strcmp(device.name, interface_opts.name) == 0) {
+                found = TRUE;
+                break;
+            }
+        }
+        if (!found) {  /* new interface, maybe a pipe */
+            device.name         = g_strdup(interface_opts.name);
             device.display_name = g_strdup_printf("%s", device.name);
             device.hidden       = FALSE;
             device.selected     = TRUE;
             device.type         = IF_PIPE;
 #if defined(_WIN32) || defined(HAVE_PCAP_CREATE)
-        	device.buffer = interface_opts.buffer_size;
+            device.buffer = interface_opts.buffer_size;
 #endif
 #if defined(HAVE_PCAP_CREATE)
-        	device.monitor_mode_enabled = interface_opts.monitor_mode;
-        	device.monitor_mode_supported = FALSE;
+            device.monitor_mode_enabled = interface_opts.monitor_mode;
+            device.monitor_mode_supported = FALSE;
 #endif
-        	device.pmode = interface_opts.promisc_mode;
-        	device.has_snaplen = interface_opts.has_snaplen;
-        	device.snaplen = interface_opts.snaplen; 
-        	device.cfilter = g_strdup(interface_opts.cfilter);
-        	device.active_dlt = interface_opts.linktype;
+            device.pmode = interface_opts.promisc_mode;
+            device.has_snaplen = interface_opts.has_snaplen;
+            device.snaplen = interface_opts.snaplen; 
+            device.cfilter = g_strdup(interface_opts.cfilter);
+            device.active_dlt = interface_opts.linktype;
             device.addresses    = NULL;
             device.no_addresses = 0;
             device.last_packets = 0;

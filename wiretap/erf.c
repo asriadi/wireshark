@@ -56,6 +56,7 @@
 #include "wtap-int.h"
 #include "file_wrappers.h"
 #include "buffer.h"
+#include "pcap-encap.h"
 #include "atm.h"
 #include "erf.h"
 
@@ -242,7 +243,7 @@ extern int erf_open(wtap *wth, int *err, gchar **err_info)
        */
       return 0;
     }
-    buffer=g_malloc(packet_size);
+    buffer=(gchar *)g_malloc(packet_size);
     r = file_read(buffer, packet_size, wth->fh);
     g_free(buffer);
 
@@ -262,8 +263,6 @@ extern int erf_open(wtap *wth, int *err, gchar **err_info)
     return -1;
   }
 
-  wth->data_offset = 0;
-
   /* This is an ERF file */
   wth->file_type = WTAP_FILE_ERF;
   wth->snapshot_length = 0;     /* not available in header, only in frame */
@@ -277,6 +276,8 @@ extern int erf_open(wtap *wth, int *err, gchar **err_info)
   wth->subtype_seek_read = erf_seek_read;
   wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
 
+  erf_populate_interfaces(wth);
+
   return 1;
 }
 
@@ -287,7 +288,7 @@ static gboolean erf_read(wtap *wth, int *err, gchar **err_info,
   erf_header_t erf_header;
   guint32      packet_size, bytes_read;
 
-  *data_offset = wth->data_offset;
+  *data_offset = file_tell(wth->fh);
 
   do {
     if (!erf_read_header(wth->fh,
@@ -295,13 +296,11 @@ static gboolean erf_read(wtap *wth, int *err, gchar **err_info,
                          err, err_info, &bytes_read, &packet_size)) {
       return FALSE;
     }
-    wth->data_offset += bytes_read;
 
     buffer_assure_space(wth->frame_buffer, packet_size);
 
     wtap_file_read_expected_bytes(buffer_start_ptr(wth->frame_buffer),
                                   (gint32)(packet_size), wth->fh, err, err_info);
-    wth->data_offset += packet_size;
 
   } while ( erf_header.type == ERF_TYPE_PAD );
 
@@ -380,7 +379,7 @@ static int erf_read_header(FILE_T fh,
   if (phdr != NULL) {
     guint64 ts = pletohll(&erf_header->ts);
 
-    phdr->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN;
+    phdr->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN|WTAP_HAS_INTERFACE_ID;
     phdr->ts.secs = (long) (ts >> 32);
     ts  = ((ts & 0xffffffff) * 1000 * 1000 * 1000);
     ts += (ts & 0x80000000) << 1; /* rounding */
@@ -389,6 +388,7 @@ static int erf_read_header(FILE_T fh,
       phdr->ts.nsecs -= 1000000000;
       phdr->ts.secs += 1;
     }
+    phdr->interface_id = (erf_header->flags & 0x03);
   }
 
   /* Copy the ERF pseudo header */
@@ -711,4 +711,52 @@ int erf_dump_open(wtap_dumper *wdh, int *err)
   }
 
   return TRUE;
+}
+
+int erf_populate_interfaces(wtap *wth)
+{
+  wtapng_if_descr_t int_data;
+  int i;
+
+  if (!wth)
+    return -1;
+
+  if (!wth->interface_data) {
+    wth->interface_data = g_array_new(FALSE, FALSE, sizeof(wtapng_if_descr_t));
+  }
+
+  memset(&int_data, 0, sizeof(int_data)); /* Zero all fields */
+
+  int_data.wtap_encap = WTAP_ENCAP_ERF;
+  int_data.time_units_per_second = (1LL<<32); /* ERF format resolution is 2^-32, capture resolution is unknown */
+  int_data.link_type = wtap_wtap_encap_to_pcap_encap(WTAP_ENCAP_ERF);
+  int_data.snap_len = 65535; /* ERF max length */
+  int_data.opt_comment = NULL;
+  /* XXX: if_IPv4addr opt 4  Interface network address and netmask.*/
+  /* XXX: if_IPv6addr opt 5  Interface network address and prefix length (stored in the last byte).*/
+  /* XXX: if_MACaddr  opt 6  Interface Hardware MAC address (48 bits).*/
+  /* XXX: if_EUIaddr  opt 7  Interface Hardware EUI address (64 bits)*/
+  int_data.if_speed = 0; /* Unknown */
+  int_data.if_tsresol = 0xa0; /* ERF format resolution is 2^-32 = 0xa0, capture resolution is unknown */
+  /* XXX: if_tzone      10  Time zone for GMT support (TODO: specify better). */
+  int_data.if_filter_str = NULL;
+  int_data.bpf_filter_len = 0;
+  int_data.if_filter_bpf_bytes = NULL;
+  int_data.if_os = NULL;
+  int_data.if_fcslen = 0; /* unknown! */
+  /* XXX if_tsoffset; opt 14  A 64 bits integer value that specifies an offset (in seconds)...*/
+  /* Interface statistics */
+  int_data.num_stat_entries = 0;
+  int_data.interface_statistics = NULL;
+  
+  /* Preemptively create interface entries for 4 interfaces, since this is the max number in ERF */
+  for (i=0; i<4; i++) {
+    int_data.if_name = g_strdup_printf("Port %c", 'A'+i);
+    int_data.if_description = g_strdup_printf("ERF Interface Id %d (Port %c)", i, 'A'+i);
+
+    g_array_append_val(wth->interface_data, int_data);
+    wth->number_of_interfaces++;
+  }
+
+  return 0;
 }

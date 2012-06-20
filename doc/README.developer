@@ -898,20 +898,22 @@ dissect_PROTOABBREV(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
    data needed only if you're building the protocol tree, if possible.
 
    Note, however, that you must fill in column information, create
-   conversations, reassemble packets, build any other persistent state
-   needed for dissection, and call subdissectors regardless of whether
-   "tree" is NULL or not.  This might be inconvenient to do without
-   doing most of the dissection work; the routines for adding items to
-   the protocol tree can be passed a null protocol tree pointer, in
-   which case they'll return a null item pointer, and
-   "proto_item_add_subtree()" returns a null tree pointer if passed a
-   null item pointer, so, if you're careful not to dereference any null
-   tree or item pointers, you can accomplish this by doing all the
-   dissection work.  This might not be as efficient as skipping that
-   work if you're not building a protocol tree, but if the code would
-   have a lot of tests whether "tree" is null if you skipped that work,
-   you might still be better off just doing all that work regardless of
-   whether "tree" is null or not.
+   conversations, reassemble packets, do calls to "expert" functions,
+   build any other persistent state needed for dissection, and call
+   subdissectors regardless of whether "tree" is NULL or not.
+
+   This might be inconvenient to do without doing most of the
+   dissection work; the routines for adding items to the protocol tree
+   can be passed a null protocol tree pointer, in which case they'll
+   return a null item pointer, and "proto_item_add_subtree()" returns
+   a null tree pointer if passed a null item pointer, so, if you're
+   careful not to dereference any null tree or item pointers, you can
+   accomplish this by doing all the dissection work.  This might not
+   be as efficient as skipping that work if you're not building a
+   protocol tree, but if the code would have a lot of tests whether
+   "tree" is null if you skipped that work, you might still be better
+   off just doing all that work regardless of whether "tree" is null
+   or not.
 
    Note also that there is no guarantee, the first time the dissector is
    called, whether "tree" will be null or not; your dissector must work
@@ -2326,13 +2328,13 @@ protocol or field labels to the proto_tree:
 	proto_tree_add_bitmask_text(tree, tvb, offset, len, name, fallback,
 		ett, fields, little_endian, flags);
 
-        proto_item *
-        proto_tree_add_split_bits_item_ret_val(tree, hf_index, tvb, bit_offset,
-                crumb_spec, return_value);
+	proto_item *
+	proto_tree_add_split_bits_item_ret_val(tree, hf_index, tvb, bit_offset,
+		crumb_spec, return_value);
 
-        void 
-        proto_tree_add_split_bits_crumb(tree, hf_index, tvb, bit_offset,
-                crumb_spec, crumb_index);
+	void
+	proto_tree_add_split_bits_crumb(tree, hf_index, tvb, bit_offset,
+		crumb_spec, crumb_index);
 
 The 'tree' argument is the tree to which the item is to be added.  The
 'tvb' argument is the tvbuff from which the item's value is being
@@ -2377,14 +2379,20 @@ order.
 For string fields, the encoding specifies the character set used for the
 string and the way individual code points in that character set are
 encoded.  For FT_UINT_STRING fields, the byte order of the count must be
-specified; when support for UTF-16 encoding is added, the byte order of
-the encoding will also have to be specified.  In other cases, ENC_NA
-should be used.  The character encodings that are currently
-supported are:
+specified; for UCS-2 and UTF-16, the byte order of the encoding must be
+specified (for counted UCS-2 and UTF-16 strings, the byte order of the
+count and the 16-bit values in the string must be the same).  In other
+cases, ENC_NA should be used.  The character encodings that are
+currently supported are:
 
-	ENC_UTF_8 - UTF-8
 	ENC_ASCII - ASCII (currently treated as UTF-8; in the future,
 		all bytes with the 8th bit set will be treated as
+		errors)
+	ENC_UTF_8 - UTF-8
+	ENC_UCS_2 - UCS-2
+	ENC_UTF_16 - UTF-16 (currently treated as UCS-2; in the future,
+		surrogate pairs will be handled, and non-valid 16-bit
+		code points and surrogate pairs will be treated as
 		errors)
 	ENC_EBCDIC - EBCDIC
 
@@ -2736,11 +2744,11 @@ Example: (from the SCSI dissector)
 	...
 	/* Qualifier and DeviceType */
 	proto_tree_add_bitmask(tree, tvb, offset, hf_scsi_inq_peripheral,
-		ett_scsi_inq_peripheral, peripheral_fields, FALSE);
+		ett_scsi_inq_peripheral, peripheral_fields, ENC_BIG_ENDIAN);
 	offset+=1;
 	...
         { &hf_scsi_inq_peripheral,
-          {"Peripheral", "scsi.inquiry.preipheral", FT_UINT8, BASE_HEX,
+          {"Peripheral", "scsi.inquiry.peripheral", FT_UINT8, BASE_HEX,
            NULL, 0, NULL, HFILL}},
         { &hf_scsi_inq_qualifier,
           {"Qualifier", "scsi.inquiry.qualifier", FT_UINT8, BASE_HEX,
@@ -3711,6 +3719,14 @@ routines -
 
 	/* Register a preference with a character-string value. */
 	void prefs_register_string_preference(module_t *module, const char *name,
+	    const char *title, const char *description, char **var)
+
+	/* Register a preference with a file name (string) value.
+         * File name preferences are basically like string preferences
+         * except that the GUI gives the user the ability to browse for the
+         * file.
+         */
+	void prefs_register_filename_preference(module_t *module, const char *name,
 	    const char *title, const char *description, char **var)
 
 	/* Register a preference with a range of unsigned integers (e.g.,

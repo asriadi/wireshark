@@ -147,7 +147,7 @@
 #define ACMP_CD_OFFSET                      0
 #define ACMP_VERSION_OFFSET                 1
 #define ACMP_STATUS_FIELD_OFFSET            2
-#define ACMP_CD_LENGTH_OFFSET               3
+#define ACMP_CD_LENGTH_OFFSET               2
 #define ACMP_STREAM_ID_OFFSET               4
 #define ACMP_CONTROLLER_GUID_OFFSET         12
 #define ACMP_TALKER_GUID_OFFSET             20
@@ -162,9 +162,9 @@
 
 /* Bit Field Masks */
 
-#define ACMP_MSG_TYPE_MASK                  0x0f
-#define ACMP_STATUS_FIELD_MASK              0xf8
-#define ACMP_CD_LENGTH_MASK                 0x07ff
+#define ACMP_MSG_TYPE_MASK                  0x0F
+#define ACMP_STATUS_FIELD_MASK              0xF8
+#define ACMP_CD_LENGTH_MASK                 0x07FF
 
 /* message_type */
 
@@ -211,6 +211,7 @@
 
 /******************************************************************************/
 /* 1722.1 AECP Offsets */
+#define AECP_STATUS_CODE_OFFSET                   2
 
 #define AECP_VERSION_OFFSET                        1
 #define AECP_TARGET_GUID_OFFSET                    4
@@ -932,6 +933,7 @@
 #define AEM_OFFSET_COLOR_SPACE                     7
 
 /* Bitmasks */
+#define AECP_STATUS_CODE_MASK                   0xf8
 #define AECP_TOKEN_LENGTH_MASK                  0x07ff
 #define AECP_KEY_PART_MASK                      0x78
 #define AECP_CONTINUED_MASK                     0x80
@@ -1328,16 +1330,16 @@ static const value_string aem_descriptor_type_vals[] = {
 };
 
 static const value_string aem_status_type_vals[] = {
-   {AEM_STATUS_SUCCESS                , "AEM_SUCCESS"},
-   {AEM_STATUS_NOT_IMPLEMENTED        , "AEM_NOT_IMPLEMENTED"},
-   {AEM_STATUS_NO_SUCH_DESCRIPTOR     , "AEM_NO_SUCH_DESCRIPTOR"},
-   {AEM_STATUS_ENTITY_LOCKED          , "AEM_ENTITY_LOCKED"},
-   {AEM_STATUS_ENTITY_ACQUIRED        , "AEM_ENTITY_ACQUIRED"},
-   {AEM_STATUS_NOT_AUTHORIZED         , "AEM_NOT_AUTHORIZED"},
-   {AEM_STATUS_INSUFFICIENT_PRIVILEGES, "AEM_INSUFFICIENT_PRIVILEGES"},
-   {AEM_STATUS_BAD_ARGUMENTS          , "AEM_BAD_ARGUMENTS"},
-   {AEM_STATUS_NO_RESOURCES           , "AEM_NO_RESOURCES"},
-   {AEM_STATUS_IN_PROGRESS            , "AEM_IN_PROGRESS"},
+   {AEM_STATUS_SUCCESS                , "SUCCESS"},
+   {AEM_STATUS_NOT_IMPLEMENTED        , "NOT_IMPLEMENTED"},
+   {AEM_STATUS_NO_SUCH_DESCRIPTOR     , "NO_SUCH_DESCRIPTOR"},
+   {AEM_STATUS_ENTITY_LOCKED          , "ENTITY_LOCKED"},
+   {AEM_STATUS_ENTITY_ACQUIRED        , "ENTITY_ACQUIRED"},
+   {AEM_STATUS_NOT_AUTHORIZED         , "NOT_AUTHORIZED"},
+   {AEM_STATUS_INSUFFICIENT_PRIVILEGES, "INSUFFICIENT_PRIVILEGES"},
+   {AEM_STATUS_BAD_ARGUMENTS          , "BAD_ARGUMENTS"},
+   {AEM_STATUS_NO_RESOURCES           , "NO_RESOURCES"},
+   {AEM_STATUS_IN_PROGRESS            , "IN_PROGRESS"},
    {0                                 , NULL}
 };
 
@@ -1572,7 +1574,6 @@ static int hf_aecp_control_user_l3 = -1;
 static int hf_aecp_control_user_l4 = -1;
 static int hf_aecp_controller_guid = -1;
 static int hf_aecp_count = -1;
-static int hf_aecp_default_format_valid_flag = -1;
 static int hf_aecp_descriptor_id = -1;
 static int hf_aecp_descriptor_type = -1;
 static int hf_aecp_descriptors = -1;
@@ -1602,12 +1603,10 @@ static int hf_aecp_gtpt_locked_valid = -1;
 static int hf_aecp_ipv4_address = -1;
 static int hf_aecp_ipv6_address = -1;
 static int hf_aecp_key = -1;
-static int hf_aecp_key_count = -1;
 static int hf_aecp_key_guid = -1;
 static int hf_aecp_key_length = -1;
 static int hf_aecp_key_number = -1;
 static int hf_aecp_key_part = -1;
-static int hf_aecp_key_permissions = -1;
 static int hf_aecp_keychain_id = -1;
 static int hf_aecp_keytype = -1;
 static int hf_aecp_locked_guid = -1;
@@ -1667,10 +1666,6 @@ static int hf_aecp_seq_num_mismatch_valid = -1;
 static int hf_aecp_sequence_id = -1;
 static int hf_aecp_signal_id = -1;
 static int hf_aecp_signal_type = -1;
-static int hf_aecp_signature = -1;
-static int hf_aecp_signature_id = -1;
-static int hf_aecp_signature_info = -1;
-static int hf_aecp_signature_length = -1;
 static int hf_aecp_srp_latency_violations = -1;
 static int hf_aecp_srp_latency_violations_valid = -1;
 static int hf_aecp_srp_refused = -1;
@@ -1693,7 +1688,7 @@ static int hf_aecp_unsupported_formats = -1;
 static int hf_aecp_unsupported_formats_valid = -1;
 static int hf_aecp_values = -1;
 static int hf_aecp_values_count = -1;
-static int hf_aecp_values_list = -1;
+static int hf_aecp_status_code = -1;
 
 /* ***************************************************************** */
 /*                   AVDECC Entity Model (AEM)                       */
@@ -1733,7 +1728,6 @@ static int hf_aem_blob_size = -1;
 static int hf_aem_block_latency = -1;
 static int hf_aem_bpp = -1;
 static int hf_aem_channel_count = -1;
-static int hf_aem_channel_format = -1;
 static int hf_aem_channels = -1;
 static int hf_aem_clock_source_flags = -1;
 static int hf_aem_clock_source_id = -1;
@@ -1776,14 +1770,12 @@ static int hf_aem_ctrl_uint64 = -1;
 static int hf_aem_ctrl_uint8 = -1;
 static int hf_aem_ctrl_vals = -1;
 static int hf_aem_current_configuration = -1;
-static int hf_aem_current_format = -1;
 static int hf_aem_current_sample_rate = -1;
 static int hf_aem_current_signal_id = -1;
 static int hf_aem_current_signal_type = -1;
 static int hf_aem_dbs = -1;
 static int hf_aem_default_signal_id = -1;
 static int hf_aem_default_signal_type = -1;
-static int hf_aem_descriptor_counts = -1;
 static int hf_aem_descriptor_counts_count = -1;
 static int hf_aem_descriptor_counts_offset = -1;
 static int hf_aem_div = -1;
@@ -1888,8 +1880,6 @@ static int hf_aem_stream_name = -1;
 static int hf_aem_stream_name_string = -1;
 static int hf_aem_string = -1;
 static int hf_aem_string_ref = -1;
-static int hf_aem_subtype = -1;
-static int hf_aem_supported_sample_rate = -1;
 static int hf_aem_target_descriptor_id = -1;
 static int hf_aem_target_descriptor_type = -1;
 static int hf_aem_unit = -1;
@@ -2340,7 +2330,7 @@ dissect_17221_aem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
    guint32 mr_offset;
    guint16 mr_counter;
 
-   gdouble frequency;
+   gfloat frequency;
    gint freq_mult;
    gint base_freq;
 
@@ -2547,9 +2537,9 @@ dissect_17221_aem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
          mr_item = proto_tree_add_item(aem_tree, hf_aem_sample_rates, tvb,
                0, 0, ENC_NA);
          mr_counter = tvb_get_ntohs(tvb, AUDIO_UNIT_OFFSET_SAMPLE_RATES_COUNT);
-         mr_subtree = proto_item_add_subtree(mr_item, ett_aem_sample_rates);;
+         mr_subtree = proto_item_add_subtree(mr_item, ett_aem_sample_rates);
          mr_offset = AUDIO_UNIT_OFFSET_SAMPLE_RATES;
-
+         proto_item_set_len(mr_item, 4 * mr_counter);
          /* loop to get the array values */
          for(i = 0; i < mr_counter; ++i) {
             proto_tree_add_item(mr_subtree, hf_aem_pull_field, tvb,
@@ -2564,13 +2554,13 @@ dissect_17221_aem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
             base_freq &= 0x1fffffff;
             /* replace this with something not horrible */
             frequency = freq_mult == 0 ? 1 :
-               freq_mult == 1 ? 1 / 1.001 :
-               freq_mult == 2 ? 1.001 :
+               freq_mult == 1 ? 1 / (gfloat)1.001 :
+               freq_mult == 2 ? (gfloat)1.001 :
                freq_mult == 3 ? 24 / 25 :
                freq_mult == 4 ? 54 / 24 : 0;
 
             frequency *= base_freq;
-            proto_tree_add_double(mr_subtree, hf_aem_frequency, tvb, mr_offset, 4, frequency);
+            proto_tree_add_float(mr_subtree, hf_aem_frequency, tvb, mr_offset, 4, frequency);
 
             mr_offset += 4;
          }
@@ -2681,6 +2671,7 @@ dissect_17221_aem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
          mr_subtree = proto_item_add_subtree(mr_item, ett_aem_stream_formats);
          mr_counter = tvb_get_ntohs(tvb, AEM_OFFSET_NUMBER_OF_FORMATS);
          mr_offset =  AEM_OFFSET_FORMATS;
+         proto_item_set_len(mr_item, mr_counter * 8);
 
          for(i = 0; i < mr_counter; ++i) {
             next_tvb = tvb_new_subset(tvb, mr_offset, 8, 8);
@@ -2902,6 +2893,7 @@ dissect_17221_aem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
          mr_subtree = proto_item_add_subtree(mr_item, ett_aem_mappings);
          mr_offset = AEM_OFFSET_MAPPINGS;
          mr_counter = tvb_get_ntohs(tvb, AEM_OFFSET_NUMBER_OF_MAPPINGS);
+         proto_item_set_len(mr_item, mr_counter * 6);
 
          for(i = 0; i < mr_counter; ++i) {
             proto_tree_add_item(mr_subtree, hf_aem_mapping_stream_index, tvb,
@@ -3001,6 +2993,7 @@ dissect_17221_aem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
          mr_subtree = proto_item_add_subtree(mr_item, ett_aem_sources);
          mr_counter = tvb_get_ntohs(tvb, AEM_OFFSET_NUMBER_OF_SOURCES_SIGS);
          mr_offset = SIGNAL_SELECTOR_OFFSET_SOURCES;
+         proto_item_set_len(mr_item, mr_counter * 4);
 
          for(i = 0; i < mr_counter; ++i) {
            proto_tree_add_item(mr_subtree, hf_aem_signal_type, tvb,
@@ -3033,7 +3026,7 @@ dissect_17221_aem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
          proto_tree_add_item(aem_tree, hf_aem_block_latency, tvb,
                MIXER_OFFSET_BLOCK_LATENCY, 2, ENC_BIG_ENDIAN);
          proto_tree_add_item(aem_tree, hf_aem_control_latency, tvb,
-               MIXER_OFFSET_CONTROL_LATENCY, 2, ENC_BIG_ENDIAN);
+               MIXER_OFFSET_CONTROL_LATENCY, 4, ENC_BIG_ENDIAN);
 
          /* set up subtree for sources */
          mr_item = proto_tree_add_item(aem_tree, hf_aem_sources, tvb,
@@ -3041,6 +3034,7 @@ dissect_17221_aem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
          mr_subtree = proto_item_add_subtree(mr_item, ett_aem_sources);
          mr_counter = tvb_get_ntohs(tvb, AEM_OFFSET_NUMBER_OF_SOURCES_MXR);
          mr_offset = MIXER_OFFSET_SOURCES;
+         proto_item_set_len(mr_item, mr_counter * 4);
 
          for(i = 0; i < mr_counter; ++i) {
            proto_tree_add_item(mr_subtree, hf_aem_signal_type, tvb,
@@ -3127,6 +3121,7 @@ dissect_17221_aem(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
          mr_subtree = proto_item_add_subtree(mr_item, ett_aem_sources);
          mr_counter = tvb_get_ntohs(tvb, MATRIX_SIGNAL_OFFSET_SIGNALS_COUNT);
          mr_offset = MATRIX_SIGNAL_OFFSET_SIGNALS_OFFSET;
+         proto_item_set_len(mr_item, mr_counter * 4);
 
          for(i = 0; i < mr_counter; ++i) {
            proto_tree_add_item(mr_subtree, hf_aem_signal_type, tvb,
@@ -3185,8 +3180,12 @@ dissect_17221_aecp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *aecp_tree)
    /* AEM Common Format Fields */
    proto_tree_add_item(aecp_tree, hf_aecp_message_type, tvb,
          AECP_VERSION_OFFSET, 1, ENC_BIG_ENDIAN);
+
+   proto_tree_add_item(aecp_tree, hf_aecp_status_code, tvb,
+         AECP_STATUS_CODE_OFFSET, 1, ENC_BIG_ENDIAN);
    proto_tree_add_item(aecp_tree, hf_aecp_cd_length, tvb,
          AECP_CD_LENGTH_OFFSET, 2, ENC_BIG_ENDIAN);
+
    proto_tree_add_item(aecp_tree, hf_aecp_target_guid, tvb,
          AECP_TARGET_GUID_OFFSET, 8, ENC_BIG_ENDIAN);
    proto_tree_add_item(aecp_tree, hf_aecp_controller_guid, tvb,
@@ -3330,7 +3329,7 @@ dissect_17221_aecp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *aecp_tree)
          proto_tree_add_item(aecp_tree, hf_aecp_matrix_value_count, tvb,
                AECP_MATRIX_VALUE_COUNT_OFFSET, 2, ENC_BIG_ENDIAN);
          proto_tree_add_item(aecp_tree, hf_aecp_matrix_item_offset, tvb,
-               AECP_MATRIX_ITEM_OFFSET_OFFSET, 3, ENC_BIG_ENDIAN);
+               AECP_MATRIX_ITEM_OFFSET_OFFSET, 2, ENC_BIG_ENDIAN);
 
          if (mess_type == AECP_AEM_RESPONSE_MESSAGE) {
             proto_tree_add_item(aecp_tree, hf_aecp_matrix_affected_item_count, tvb,
@@ -3435,6 +3434,7 @@ dissect_17221_aecp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *aecp_tree)
                AECP_NAME_INDEX_OFFSET, 2, ENC_BIG_ENDIAN);
          proto_tree_add_item(aecp_tree, hf_aecp_name, tvb,
                AECP_NAME_OFFSET, 64, ENC_ASCII|ENC_NA);
+         break;
       case AECP_COMMAND_GET_NAME:
          proto_tree_add_item(aecp_tree, hf_aecp_descriptor_type, tvb,
                AECP_DESCRIPTOR_TYPE_OFFSET, 2, ENC_BIG_ENDIAN);
@@ -3991,7 +3991,7 @@ dissect_17221_acmp(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *acmp_tree)
 
    proto_tree_add_item(acmp_tree, hf_acmp_message_type, tvb, ACMP_VERSION_OFFSET, 1, ENC_BIG_ENDIAN);
    proto_tree_add_item(acmp_tree, hf_acmp_status_field, tvb, ACMP_STATUS_FIELD_OFFSET, 1, ENC_BIG_ENDIAN);
-   proto_tree_add_item(acmp_tree, hf_acmp_cd_length, tvb, ACMP_CD_LENGTH_OFFSET, 1, ENC_BIG_ENDIAN);
+   proto_tree_add_item(acmp_tree, hf_acmp_cd_length, tvb, ACMP_CD_LENGTH_OFFSET, 2, ENC_BIG_ENDIAN);
    proto_tree_add_item(acmp_tree, hf_acmp_stream_id, tvb, ACMP_STREAM_ID_OFFSET, 8, ENC_BIG_ENDIAN);
    proto_tree_add_item(acmp_tree, hf_acmp_controller_guid, tvb, ACMP_CONTROLLER_GUID_OFFSET, 8, ENC_BIG_ENDIAN);
    proto_tree_add_item(acmp_tree, hf_acmp_talker_guid, tvb, ACMP_TALKER_GUID_OFFSET, 8, ENC_BIG_ENDIAN);
@@ -4418,19 +4418,19 @@ proto_register_17221(void)
       /* ACMP Flags Begin */
       { &hf_acmp_flags_class_b,
          { "CLASS_B", "ieee17221.flags.class_b",
-            FT_BOOLEAN, 8, NULL, ACMP_FLAG_CLASS_B_BITMASK, NULL, HFILL }
+            FT_BOOLEAN, 16, NULL, ACMP_FLAG_CLASS_B_BITMASK, NULL, HFILL }
       },
       { &hf_acmp_flags_fast_connect,
          { "FAST_CONNECT", "ieee17221.flags.fast_connect",
-            FT_BOOLEAN, 8, NULL, ACMP_FLAG_FAST_CONNECT_BITMASK, NULL, HFILL }
+            FT_BOOLEAN, 16, NULL, ACMP_FLAG_FAST_CONNECT_BITMASK, NULL, HFILL }
       },
       { &hf_acmp_flags_saved_state,
          { "SAVED_STATE", "ieee17221.flags.saved_state",
-            FT_BOOLEAN, 8, NULL, ACMP_FLAG_SAVED_STATE_BITMASK, NULL, HFILL }
+            FT_BOOLEAN, 16, NULL, ACMP_FLAG_SAVED_STATE_BITMASK, NULL, HFILL }
       },
       { &hf_acmp_flags_streaming_wait,
          { "STREAMING_WAIT", "ieee17221.flags.streaming_wait",
-            FT_BOOLEAN, 8, NULL, ACMP_FLAG_STREAMING_WAIT_BITMASK, NULL, HFILL }
+            FT_BOOLEAN, 16, NULL, ACMP_FLAG_STREAMING_WAIT_BITMASK, NULL, HFILL }
       },
       /* ACMP Flags End */
       { &hf_acmp_default_format,
@@ -4606,10 +4606,6 @@ proto_register_17221(void)
          {"Dest MAC Valid Flag", "ieee17221.flags.dest_mac_valid",
             FT_BOOLEAN, 32, NULL, AECP_DEST_MAC_VALID_FLAG_MASK, NULL, HFILL }
       },
-      { &hf_aecp_default_format_valid_flag,
-         {"Default Format Valid Flag", "ieee17221.flags.default_format_valid",
-            FT_BOOLEAN, 32, NULL, AECP_DEFAULT_FORMAT_VALID_FLAG_MASK, NULL, HFILL }
-      },
 
       /* SET_NAME / GET_NAME */
       { &hf_aecp_name_index,
@@ -4652,22 +4648,6 @@ proto_register_17221(void)
       { &hf_aecp_key_length,
          {"Key Length", "ieee17221.key_length",
             FT_UINT16, BASE_DEC, NULL, AECP_KEY_LENGTH_MASK, NULL, HFILL }
-      },
-      { &hf_aecp_signature_info,
-         {"Signature Info", "ieee17221.signature_info",
-            FT_UINT8, BASE_HEX, VALS(aecp_keychain_id_type_vals), AECP_SIGNATURE_INFO_MASK, NULL, HFILL }
-      },
-      { &hf_aecp_signature_id,
-         {"Signature ID", "ieee17221.signature_id",
-            FT_UINT16, BASE_HEX, NULL, AECP_SIGNATURE_ID_MASK, NULL, HFILL }
-      },
-      { &hf_aecp_signature_length,
-         {"Signature Length", "ieee17221.signature_length",
-            FT_UINT16, BASE_DEC, NULL, AECP_SIGNATURE_LENGTH_MASK, NULL, HFILL }
-      },
-      { &hf_aecp_key_permissions,
-         {"Key Permissions", "ieee17221.key_permissions",
-            FT_UINT32, BASE_HEX, NULL, 0x00, NULL, HFILL}
       },
       { &hf_aecp_private_key_read_flag,
          {"Private Key Read Flag", "ieee17221.flags.private_key_read",
@@ -4848,10 +4828,6 @@ proto_register_17221(void)
       },
       { &hf_aecp_key,
          {"Key", "ieee17221.key",
-            FT_BYTES, BASE_NONE, NULL, 0x00, NULL, HFILL }
-      },
-      { &hf_aecp_signature,
-         {"Signature", "ieee17221.signature",
             FT_BYTES, BASE_NONE, NULL, 0x00, NULL, HFILL }
       },
       { &hf_aecp_auth_token,
@@ -5050,10 +5026,6 @@ proto_register_17221(void)
          {"Values Count", "ieee17221.values_count",
             FT_UINT16, BASE_DEC, NULL, 0x00, NULL, HFILL }
       },
-      { &hf_aecp_values_list,
-         {"Values List", "ieee17221.values_list",
-            FT_BYTES, BASE_NONE, NULL, 0x00, NULL, HFILL }
-      },
 
       /* START_OPERATION */
       { &hf_aecp_operation_id,
@@ -5078,10 +5050,6 @@ proto_register_17221(void)
       },
 
       /* AUTH_GET_KEY_COUNT */
-      { &hf_aecp_key_count,
-         {"Key Count", "ieee17221.key_count",
-            FT_UINT16, BASE_DEC, NULL, AECP_KEY_COUNT_MASK, NULL, HFILL }
-      },
 
       /* * AVDECC ENTITY MODEL DESCRIPTOR FIELDS * */
 
@@ -5165,10 +5133,6 @@ proto_register_17221(void)
       { &hf_aem_descriptor_counts_offset,
          {"Descriptor Counts Offset", "ieee17221.descriptor_counts_offset",
             FT_UINT16, BASE_DEC, NULL, 0x00, NULL, HFILL }
-      },
-      { &hf_aem_descriptor_counts,
-         {"Descriptor Counts", "ieee17221.descriptor_counts",
-            FT_BYTES, BASE_NONE, NULL, 0x00, NULL, HFILL }
       },
       { &hf_aem_count,
          {"Count", "ieee17221.count",
@@ -5281,10 +5245,6 @@ proto_register_17221(void)
          {"Sample Rates Count", "ieee17221.sample_rates_count",
             FT_UINT16, BASE_DEC, NULL, 0x00, NULL, HFILL }
       },
-      { &hf_aem_supported_sample_rate,
-         {"Supported Sample Rate", "ieee17221.supported_sample_rate",
-            FT_UINT32, BASE_DEC, NULL, 0x00, NULL, HFILL }
-      },
       { &hf_aem_sample_rates,
          {"Sample Rates", "ieee17221.sample_rates",
             FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL }
@@ -5332,10 +5292,6 @@ proto_register_17221(void)
       { &hf_aem_stream_channels,
          {"Stream Channels", "ieee17221.stream_channels",
             FT_UINT16, BASE_DEC, NULL, 0x00, NULL, HFILL }
-      },
-      { &hf_aem_channel_format,
-         {"Channel Format", "ieee17221.channel_format",
-            FT_UINT64, BASE_HEX, NULL, 0x00, NULL, HFILL }
       },
       { &hf_aem_formats_offset,
          {"Formats Offset", "ieee17221.formats_offset",
@@ -5413,7 +5369,7 @@ proto_register_17221(void)
       },
       { &hf_aem_flags_captive,
          {"Captive Flag", "ieee17221.flags.captive",
-            FT_BOOLEAN, 32, NULL, AEM_CAPTIVE_FLAG_MASK, NULL, HFILL }
+            FT_BOOLEAN, 16, NULL, AEM_CAPTIVE_FLAG_MASK, NULL, HFILL }
       },
       { &hf_aem_jack_type,
          {"Jack Type", "ieee17221.jack_type",
@@ -5455,10 +5411,6 @@ proto_register_17221(void)
       },
       /* VIDEO_PORT_INPUT */
       /* VIDEO_PORT_OUTPUT */
-      { &hf_aem_current_format,
-         {"Current Format", "ieee17221.current_format",
-            FT_UINT64, BASE_HEX, NULL, 0x00, NULL, HFILL }
-      },
       { & hf_aem_stream_id,
          {"Stream Descriptor ID", "ieee17221.stream_descriptor_id",
             FT_UINT16, BASE_DEC, NULL, 0x00, NULL, HFILL }
@@ -5825,7 +5777,7 @@ proto_register_17221(void)
       },
       { &hf_aem_frequency,
          {"Frequency", "ieee17221.frequency",
-            FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL }
+            FT_FLOAT, BASE_NONE, NULL, 0x00, NULL, HFILL }
       },
 
       /* AEM MEDIA FORMAT FIELDS */
@@ -5834,7 +5786,7 @@ proto_register_17221(void)
        */
       { &hf_aem_oui24,
          {"OUI-24", "ieee17221.oui24",
-            FT_UINT32, BASE_HEX, NULL, AEM_MASK_OUI24, NULL, HFILL }
+            FT_UINT24, BASE_HEX, NULL, 0x00, NULL, HFILL }
       },
       { &hf_aem_mfd_type,
          {"MFD Type", "ieee17221.mfd_type",
@@ -5909,10 +5861,6 @@ proto_register_17221(void)
          {"Version", "ieee17221.sf_version",
             FT_UINT8, BASE_HEX, NULL, AEM_MASK_SF_VERSION, NULL, HFILL }
       },
-      { &hf_aem_subtype,
-         {"Subtype", "ieee17221.sf_subtype",
-            FT_UINT16, BASE_HEX, VALS(aem_stream_format_subtype_vals), AEM_MASK_SF_SUBTYPE, NULL, HFILL }
-      },
       { &hf_aem_sf,
          {"SF", "ieee17221.sf",
             FT_BOOLEAN, 8, NULL, AEM_MASK_SF, NULL, HFILL }
@@ -5984,6 +5932,10 @@ proto_register_17221(void)
       { &hf_aecp_values,
          {"Values", "ieee17221.values",
             FT_BYTES, BASE_NONE, NULL, 0x00, NULL, HFILL }
+      },
+      { &hf_aecp_status_code,
+         {"Status", "ieee17221.status",
+            FT_UINT8, BASE_HEX, VALS(aem_status_type_vals), AECP_STATUS_CODE_MASK, NULL, HFILL }
       }
 
       /* END STREAM FORMAT (SF) FIELDS */

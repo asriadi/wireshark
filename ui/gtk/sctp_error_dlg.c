@@ -37,7 +37,7 @@
 #include "ui/gtk/gui_utils.h"
 #include "ui/gtk/main.h"
 #include "ui/gtk/sctp_stat.h"
-
+#include "ui/gtk/gui_utils.h"
 
 static GtkWidget *sctp_error_dlg=NULL;
 static GtkWidget *clist = NULL;
@@ -231,7 +231,7 @@ gtk_sctperror_dlg(void)
 	g_signal_connect(sctp_error_dlg_w, "destroy", G_CALLBACK(dlg_destroy), NULL);
 
 	/* Container for each row of widgets */
-	vbox1 = gtk_vbox_new(FALSE, 2);
+	vbox1 = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 2, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(vbox1), 8);
 	gtk_container_add(GTK_CONTAINER(sctp_error_dlg_w), vbox1);
 	gtk_widget_show(vbox1);
@@ -248,7 +248,7 @@ gtk_sctperror_dlg(void)
 	gtk_widget_show(sctp_error_dlg_w);
 
 
-	hbuttonbox2 = gtk_hbutton_box_new ();
+	hbuttonbox2 = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_widget_show (hbuttonbox2);
 	gtk_box_pack_start (GTK_BOX (vbox1), hbuttonbox2, FALSE, FALSE, 0);
 	gtk_box_set_spacing (GTK_BOX (hbuttonbox2), 5);

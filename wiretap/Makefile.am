@@ -30,7 +30,7 @@ include Makefile.common
 noinst_LTLIBRARIES = libwiretap_generated.la
 lib_LTLIBRARIES = libwiretap.la
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-libwiretap_la_LDFLAGS = -version-info 0:1:0 -export-symbols wtap.sym @LDFLAGS_SHAREDLIB@
+libwiretap_la_LDFLAGS = -version-info 0:0:0 -export-symbols wtap.sym @LDFLAGS_SHAREDLIB@
 
 if HAVE_WARNINGS_AS_ERRORS
 AM_NON_GENERATED_CFLAGS = -Werror
@@ -77,9 +77,11 @@ libwiretap_la_DEPENDENCIES = libwiretap_generated.la ${top_builddir}/wsutil/libw
 
 RUNLEX = $(top_srcdir)/tools/runlex.sh
 
+k12text_lex.h : k12text.c
+
 ascend_scanner_lex.h : ascend_scanner.c
 
-k12text_lex.h : k12text.c
+ascend_scanner.c: ascend.h
 
 ascend.c ascend.h: ascend.y
 	@if [ -z "$(YACC)" ]; then \
@@ -92,14 +94,16 @@ ascend.c ascend.h: ascend.y
 # http://ispras.linux-foundation.org/index.php/ABI_compliance_checker
 # Checked using version 1.21.12
 dumpabi: all abi-descriptor.xml
-	rm -rf abi-check-headers abi_dumps .libs/*.abi.tar.gz; \
-	mkdir abi-check-headers; cp *.h abi-check-headers/; \
+	rm -rf abi-check-headers abi_dumps .libs/*.abi.tar.gz
+	mkdir abi-check-headers
+	cp *.h abi-check-headers/
 	abi-compliance-checker -l libwiretap -v1 `ls  .libs/libwiretap.so.?.?.?|sed 's/.*\.so\.//'` \
-		-relpath $(abs_srcdir) -dump-abi abi-descriptor.xml && \
-	cp -f abi_dumps/libwiretap/libwiretap_* .libs/; \
-	cd .libs; ln -sf libwiretap_*.abi.tar.gz libwiretap.abi.tar.gz
+		-relpath $(abs_srcdir) -dump-abi abi-descriptor.xml || \
+		cat logs/libwiretap/[0-9]*/log.txt
+	cp -f abi_dumps/libwiretap/libwiretap_* .libs/
+	cd .libs && ln -sf libwiretap_*.abi.tar.gz libwiretap.abi.tar.gz
 
 checkapi:
 ## 'abort' checking disabled for now pending resolution of existing use of g_assert & g_error
 ##	$(PERL) ../tools/checkAPIs.pl -g abort -g termoutput $(NONGENERATED_C_FILES) $(GENERATOR_FILES)
-	$(PERL) ../tools/checkAPIs.pl -g termoutput $(NONGENERATED_C_FILES) $(GENERATOR_FILES)
+	$(PERL) ../tools/checkAPIs.pl -g termoutput -build $(NONGENERATED_C_FILES) $(GENERATOR_FILES)

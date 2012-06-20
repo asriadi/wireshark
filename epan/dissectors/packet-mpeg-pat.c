@@ -31,6 +31,7 @@
 
 #include <epan/packet.h>
 #include <epan/prefs.h>
+#include <epan/dissectors/packet-mpeg-sect.h>
 
 static int proto_mpeg_pat = -1;
 static int hf_mpeg_pat_transport_stream_id = -1;
@@ -48,7 +49,7 @@ static int hf_mpeg_pat_program_map_pid = -1;
 static gint ett_mpeg_pat = -1;
 static gint ett_mpeg_pat_prog = -1;
 
-#define MPEG_PAT_TID				0x00
+#define MPEG_PAT_TID	0x00
 
 #define MPEG_PAT_RESERVED_MASK			0xC0
 #define MPEG_PAT_VERSION_NUMBER_MASK		0x3E
@@ -58,12 +59,12 @@ static gint ett_mpeg_pat_prog = -1;
 #define MPEG_PAT_PROGRAM_MAP_PID_MASK		0x1FFF
 
 static const true_false_string mpeg_pat_cur_next_vals = {
-	
+
 	"Currently applicable", "Not yet applicable"
 
 };
 
-void
+static void
 dissect_mpeg_pat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
 
@@ -83,10 +84,8 @@ dissect_mpeg_pat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 	ti = proto_tree_add_item(tree, proto_mpeg_pat, tvb, offset, -1, ENC_NA);
 	mpeg_pat_tree = proto_item_add_subtree(ti, ett_mpeg_pat);
 
-	if (!tree)
-		return;
-
-	length = tvb_reported_length_remaining(tvb, offset);
+	offset += packet_mpeg_sect_header(tvb, offset, mpeg_pat_tree, &length, NULL);
+	length -= 4;
 
 	proto_tree_add_item(mpeg_pat_tree, hf_mpeg_pat_transport_stream_id, tvb, offset, 2, ENC_BIG_ENDIAN);
 	offset += 2;
@@ -104,11 +103,11 @@ dissect_mpeg_pat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
 	if (offset >= length)
 		return;
-	
+
 
 	/* Parse all the programs */
 	while (offset < length) {
-	
+
 		prog_num = tvb_get_ntohs(tvb, offset);
 		prog_pid = tvb_get_ntohs(tvb, offset + 2) & MPEG_PAT_PROGRAM_MAP_PID_MASK;
 
@@ -121,11 +120,10 @@ dissect_mpeg_pat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 		proto_tree_add_item(mpeg_pat_prog_tree, hf_mpeg_pat_program_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
 		proto_tree_add_item(mpeg_pat_prog_tree, hf_mpeg_pat_program_map_pid, tvb, offset, 2, ENC_BIG_ENDIAN);
 		offset += 2;
-		
+
 	}
 
-	return;
-
+	packet_mpeg_sect_crc(tvb, pinfo, mpeg_pat_tree, 0, offset);
 }
 
 
@@ -134,7 +132,7 @@ proto_register_mpeg_pat(void)
 {
 
 	static hf_register_info hf[] = {
-		
+
 		{ &hf_mpeg_pat_transport_stream_id, {
 			"Transport Stream ID", "mpeg_pat.tsid",
 			FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL
@@ -159,7 +157,7 @@ proto_register_mpeg_pat(void)
 			"Section Number", "mpeg_pat.sect_num",
 			FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
 		} },
-			
+
 		{ &hf_mpeg_pat_last_section_number, {
 			"Last Section Number", "mpeg_pat.last_sect_num",
 			FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
@@ -191,7 +189,7 @@ proto_register_mpeg_pat(void)
 
 	proto_register_field_array(proto_mpeg_pat, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
-	
+
 }
 
 

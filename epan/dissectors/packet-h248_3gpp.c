@@ -53,6 +53,7 @@ static gint ett_h248_package_3GUP = -1;
 static gboolean implicit = FALSE;
 
 static const value_string h248_3GUP_properties_vals[] = {
+	{ 0x0000, "threegup (3G User Plane)" },
 	{ 0x0001, "Mode" },
 	{ 0x0002, "Versions" },
 	{ 0x0003, "delerrsdu" },
@@ -577,8 +578,8 @@ void proto_register_h248_3gpp(void) {
 
 	proto_register_subtree_array(ett, array_length(ett));
 
-	h248_register_package(&h248_package_3GUP);
-	h248_register_package(&h248_package_3GCSD);
-	h248_register_package(&h248_package_3GTFO);
+	h248_register_package(&h248_package_3GUP,REPLACE_PKG);
+	h248_register_package(&h248_package_3GCSD, REPLACE_PKG);
+	h248_register_package(&h248_package_3GTFO, REPLACE_PKG);
 }
 

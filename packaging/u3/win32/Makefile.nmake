@@ -59,10 +59,12 @@ nsis-bits:
 	$(MAKE) /$(MAKEFLAGS) -f Makefile.nmake user-guide.chm
 	cd ../u3/win32
 
-distribution.nmake:	makenmake.pl
+$(WSMANIFEST):
 	cd ../..
 	$(MAKE) /$(MAKEFLAGS) -f makefile.nmake wireshark.manifest
 	cd u3/win32
+
+distribution.nmake:	makenmake.pl $(WSMANIFEST) ../../ws-manifest.pl
 	$(PERL) makenmake.pl $(WSMANIFEST) > $@	
 
 distribution: u3-dirs manifest.u3i u3util.exe nsis-bits wireshark.bat distribution.nmake
@@ -95,7 +97,7 @@ test:		pack
 	wireshark.bat -D
 
 package:	verify-tools test
-	zip -r wireshark-$(VERSION).u3p $(MANIFEST) $(DEVICE) $(DATA) $(HOST) wireshark.bat
+	zip -r Wireshark-$(VERSION).u3p $(MANIFEST) $(DEVICE) $(DATA) $(HOST) wireshark.bat
 
 CFLAGS	= -DWINPCAP_PACKAGE="\"\\\\WinPcap_$(PCAP_VERSION).exe\""
 

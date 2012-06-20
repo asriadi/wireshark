@@ -559,9 +559,9 @@ dissect_pkix1explicit_T_addressFamily(gboolean implicit_tag _U_, tvbuff_t *tvb _
 	if (!parameter_tvb)
 		return offset;
 	subtree = proto_item_add_subtree(actx->created_item, ett_pkix1explicit_addressFamily);
-	proto_tree_add_item(subtree, hf_pkix1explicit_addressFamily_afn, parameter_tvb, 0, 2, FALSE);
+	proto_tree_add_item(subtree, hf_pkix1explicit_addressFamily_afn, parameter_tvb, 0, 2, ENC_BIG_ENDIAN);
 	if(tvb_length(parameter_tvb)>2)
-		proto_tree_add_item(subtree, hf_pkix1explicit_addressFamily_safi, parameter_tvb, 0, 2, FALSE);
+		proto_tree_add_item(subtree, hf_pkix1explicit_addressFamily_safi, parameter_tvb, 0, 2, ENC_BIG_ENDIAN);
 
 
 
@@ -1056,6 +1056,7 @@ void proto_register_pkix1explicit(void) {
 /*--- proto_reg_handoff_pkix1explicit -------------------------------------------*/
 void proto_reg_handoff_pkix1explicit(void) {
 	oid_add_from_string("id-pkix","1.3.6.1.5.5.7");
+	oid_add_from_string("id-dsa-with-sha1","1.2.840.10040.4.3");
 
 /*--- Included file: packet-pkix1explicit-dis-tab.c ---*/
 #line 1 "../../asn1/pkix1explicit/packet-pkix1explicit-dis-tab.c"
@@ -1066,6 +1067,6 @@ void proto_reg_handoff_pkix1explicit(void) {
 
 
 /*--- End of included file: packet-pkix1explicit-dis-tab.c ---*/
-#line 144 "../../asn1/pkix1explicit/packet-pkix1explicit-template.c"
+#line 145 "../../asn1/pkix1explicit/packet-pkix1explicit-template.c"
 }
 

@@ -316,6 +316,24 @@ voip_calls_on_select_all(GtkButton *button _U_, gpointer user_data _U_)
 	gtk_tree_selection_select_all(selection);
 }
 
+
+
+/* compare two list entries by packet no */
+static gint
+graph_analysis_sort_compare(gconstpointer a, gconstpointer b)
+{
+    const graph_analysis_item_t *entry_a = (const graph_analysis_item_t *)a;
+    const graph_analysis_item_t *entry_b = (const graph_analysis_item_t *)b;
+
+	if(entry_a->fd->num < entry_b->fd->num)
+		return -1;
+
+	if(entry_a->fd->num > entry_b->fd->num)
+		return 1;
+
+	return 0;
+}
+
 /****************************************************************************/
 static void
 on_graph_bt_clicked(GtkButton *button _U_, gpointer user_data _U_)
@@ -329,7 +347,7 @@ on_graph_bt_clicked(GtkButton *button _U_, gpointer user_data _U_)
 		voip_calls_get_info()->callsinfo_list=
 			g_list_reverse(voip_calls_get_info()->callsinfo_list);
 		voip_calls_get_info()->graph_analysis->list=
-			g_list_reverse(voip_calls_get_info()->graph_analysis->list);
+			g_list_sort(voip_calls_get_info()->graph_analysis->list, graph_analysis_sort_compare);
 		voip_calls_get_info()->reversed=1;
 	}
 	/* reset the "display" parameter in graph analysis */
@@ -660,17 +678,18 @@ voip_calls_dlg_create(void)
 	GtkWidget *hbuttonbox;
 	GtkWidget *bt_close;
 	GtkWidget *bt_select_all;
-	const gchar *title_name_ptr;
+	gchar *title_name_ptr;
 	gchar *win_name;
 
 	title_name_ptr = cf_get_display_name(&cfile);
 	win_name = g_strdup_printf("%s - VoIP Calls", title_name_ptr);
+	g_free(title_name_ptr);
 	voip_calls_dlg_w = dlg_window_new(win_name);  /* transient_for top_level */
 	gtk_window_set_destroy_with_parent(GTK_WINDOW(voip_calls_dlg_w), TRUE);
 
 	gtk_window_set_default_size(GTK_WINDOW(voip_calls_dlg_w), 1000, 350);
 
-	main_vb = gtk_vbox_new(FALSE, 0);
+	main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_add(GTK_CONTAINER(voip_calls_dlg_w), main_vb);
 	gtk_container_set_border_width(GTK_CONTAINER (main_vb), 12);
 
@@ -688,7 +707,7 @@ voip_calls_dlg_create(void)
 	gtk_box_pack_start(GTK_BOX(main_vb), status_label, FALSE, FALSE, 8);
 
 	/* button row */
-	hbuttonbox = gtk_hbutton_box_new();
+	hbuttonbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_box_pack_start(GTK_BOX(main_vb), hbuttonbox, FALSE, FALSE, 0);
 	gtk_button_box_set_layout(GTK_BUTTON_BOX (hbuttonbox), GTK_BUTTONBOX_SPREAD);
 	gtk_box_set_spacing(GTK_BOX(hbuttonbox), 30);

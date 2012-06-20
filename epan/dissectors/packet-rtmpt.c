@@ -35,7 +35,18 @@
 *   especially regarding the lengths and the structures.
 *
 *   Documentation:
-*      RTMP protocol description on Wiki of Red5 Open Source Flash Server
+*      RTMP protocol description on Wiki of Red5 Open Source Flash Server at
+*
+*          http://trac.red5.org/wiki/Codecs/RTMPSpecification
+*
+*      and the pages to which it links:
+*
+*          http://osflash.org/documentation/rtmp
+*          http://wiki.gnashdev.org/RTMP
+*          http://wiki.gnashdev.org/RTMP_Messages_Decoded
+*          http://www.acmewebworks.com/Downloads/openCS/TheAMF.pdf
+*          http://www.gnashdev.org/files/rtmp-decoded.pdf
+*      
 *   Default TCP port is 1935
 */
 
@@ -405,11 +416,11 @@ typedef struct rtmpt_frag {
  * ID - used for defaulting short headers
  */
 typedef struct rtmpt_id {
-        guint32 ts;             /* bytes 1-3 */
+        guint32 ts;   /* bytes 1-3 */
         guint32 tsd;
-        guint32 len;            /* bytes 4-6 */
-        guint32 src;            /* bytes 8-11 */
-        guint8  cmd;            /* byte 7 */
+        guint32 len;  /* bytes 4-6 */
+        guint32 src;  /* bytes 8-11 */
+        guint8  cmd;  /* byte 7 */
 
         emem_tree_t *packets;
 } rtmpt_id_t;
@@ -795,6 +806,7 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                 guint       iValueExtra     = 0;
                 gchar      *sValue          = "";
                 int         hfvalue         = -1;
+                guint       encoding        = ENC_NA;
                 guint       iPush           = 0;
                 proto_tree *rtmpt_tree_prop = NULL;
                 proto_item *ti              = NULL;
@@ -825,11 +837,13 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                 case RTMPT_AMF_NUMBER:
                         iValueLength = 8;
                         hfvalue = hf_rtmpt_amf_number;
+                        encoding = ENC_BIG_ENDIAN;
                         sValue = ep_strdup_printf(" %." STRINGIFY(DBL_DIG) "g", tvb_get_ntohieee_double(tvb, iValueOffset));
                         break;
                 case RTMPT_AMF_BOOLEAN:
                         iValueLength = 1;
                         hfvalue = hf_rtmpt_amf_boolean;
+                        encoding = ENC_BIG_ENDIAN;
                         sValue = tvb_get_guint8(tvb, iValueOffset) ? " true" : " false";
                         break;
                 case RTMPT_AMF_STRING:
@@ -837,12 +851,14 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                         iValueOffset += 2;
                         iValueExtra = 3;
                         hfvalue = hf_rtmpt_amf_string;
+                        encoding = ENC_ASCII|ENC_NA;
                         sValue = ep_strdup_printf(" '%s'", tvb_get_ephemeral_string(tvb, iValueOffset, CLAMP(iValueLength, 0, ITEM_LABEL_LENGTH+1)));
                         break;
                 case RTMPT_AMF_OBJECT:
                         /* Uncounted list type, with end marker */
                         iValueLength = 0;
                         hfvalue = hf_rtmpt_amf_object;
+                        encoding = ENC_NA;
                         iPush = 1;
                         break;
                 case RTMPT_AMF_NULL:
@@ -852,6 +868,7 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                 case RTMPT_AMF_REFERENCE:
                         iValueLength = 2;
                         hfvalue = hf_rtmpt_amf_reference;
+                        encoding = ENC_BIG_ENDIAN;
                         sValue = ep_strdup_printf(" %d", tvb_get_ntohs(tvb, iValueOffset));
                         break;
                 case RTMPT_AMF_ECMA_ARRAY:
@@ -866,6 +883,7 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                         iValueOffset += 4;
                         iValueExtra = 5;
                         hfvalue = hf_rtmpt_amf_ecmaarray;
+                        encoding = ENC_NA;
                         iPush = 1;
                         break;
                 case RTMPT_AMF_STRICT_ARRAY:
@@ -875,11 +893,13 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                          * properties */
                         iValueLength = 4;
                         hfvalue = hf_rtmpt_amf_strictarray;
+                        encoding = ENC_NA;
                         iPush = 1;
                         break;
                 case RTMPT_AMF_DATE:
                         iValueLength = 10;
                         hfvalue = hf_rtmpt_amf_date;
+                        encoding = ENC_NA;
                         break;
                 case RTMPT_AMF_LONG_STRING:
                 case RTMPT_AMF_XML: /* same representation */
@@ -887,6 +907,7 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                         iValueOffset += 4;
                         iValueExtra = 5;
                         hfvalue = (iObjType==RTMPT_AMF_XML) ? hf_rtmpt_amf_xml : hf_rtmpt_amf_longstring;
+                        encoding = ENC_ASCII|ENC_NA; /* XXX - code page? */
                         sValue = ep_strdup_printf(" '%s'", tvb_get_ephemeral_string(tvb, iValueOffset, CLAMP(iValueLength, 0, ITEM_LABEL_LENGTH+1)));
                         break;
                 case RTMPT_AMF_UNSUPPORTED:
@@ -895,6 +916,7 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                 case RTMPT_AMF_INT64:
                         iValueLength = 8;
                         hfvalue = hf_rtmpt_amf_int64;
+                        encoding = ENC_BIG_ENDIAN;
                         sValue = ep_strdup_printf(" %" G_GINT64_MODIFIER "d", tvb_get_ntoh64(tvb, iValueOffset));
                         break;
                 default:
@@ -916,7 +938,7 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                                                  iPropertyOffset,
                                                  iPropertyLength+iValueExtra+iValueLength,
                                                  "Property '%s' %s%s",
-                                                 sProperty, val_to_str(iObjType, rtmpt_type_vals, "Unknown"), sValue);
+                                                 sProperty, val_to_str_const(iObjType, rtmpt_type_vals, "Unknown"), sValue);
                         rtmpt_tree_prop = proto_item_add_subtree(ti, ett_rtmpt_property);
 
                         ti = proto_tree_add_text(rtmpt_tree_prop, tvb,
@@ -934,7 +956,7 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                         ti = proto_tree_add_text(rtmpt_tree_prop, tvb,
                                                  iValueOffset-iValueExtra, iValueExtra+iValueLength,
                                                  "%s%s",
-                                                 val_to_str(iObjType, rtmpt_type_vals, "Unknown"), sValue);
+                                                 val_to_str_const(iObjType, rtmpt_type_vals, "Unknown"), sValue);
                         val_tree = proto_item_add_subtree(ti, ett_rtmpt_value);
 
                         proto_tree_add_item(val_tree, hf_rtmpt_amf_type, tvb, iValueOffset-iValueExtra, 1, ENC_BIG_ENDIAN);
@@ -943,8 +965,8 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                         } else if (iObjType==RTMPT_AMF_LONG_STRING || iObjType==RTMPT_AMF_XML) {
                                 proto_tree_add_item(val_tree, hf_rtmpt_amf_longstringlength, tvb, iValueOffset-iValueExtra+1, 4, ENC_BIG_ENDIAN);
                         }
-                        if (iValueLength>0 && hfvalue!=-1) {
-                                proto_tree_add_item(val_tree, hfvalue, tvb, iValueOffset, iValueLength, FALSE);
+                        if (iValueLength>0 && hfvalue != -1) {
+                                proto_tree_add_item(val_tree, hfvalue, tvb, iValueOffset, iValueLength, encoding);
                         }
                 }
 
@@ -957,7 +979,7 @@ dissect_rtmpt_body_command(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree, g
                         ep_stack_push(amfpcs, GINT_TO_POINTER(pc));
                         pc = 0;
                         ep_stack_push(amftis, ti_object);
-                        ti_object = proto_tree_add_item(rtmpt_tree_prop, hfvalue, tvb, iValueOffset+iValueLength, 1, FALSE);
+                        ti_object = proto_tree_add_item(rtmpt_tree_prop, hfvalue, tvb, iValueOffset+iValueLength, 1, encoding);
                         ep_stack_push(amftrs, rtmpt_tree);
                         rtmpt_tree = proto_item_add_subtree(ti_object, ett_rtmpt_array);
 
@@ -1006,10 +1028,10 @@ dissect_rtmpt_body_audio(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree)
         iCtl = tvb_get_guint8(tvb, offset);
         ai = proto_tree_add_uint_format(rtmpt_tree, hf_rtmpt_audio_control, tvb, offset, 1, iCtl,
                                         "Control: 0x%02x (%s %s %s %s)", iCtl,
-                                        val_to_str((iCtl & 0xf0)>>4, rtmpt_audio_codecs, "Unknown codec"),
-                                        val_to_str((iCtl & 0x0c)>>2, rtmpt_audio_rates, "Unknown rate"),
-                                        val_to_str((iCtl & 0x02)>>1, rtmpt_audio_sizes, "Unknown sample size"),
-                                        val_to_str(iCtl & 0x01, rtmpt_audio_types, "Unknown channel count"));
+                                        val_to_str_const((iCtl & 0xf0)>>4, rtmpt_audio_codecs, "Unknown codec"),
+                                        val_to_str_const((iCtl & 0x0c)>>2, rtmpt_audio_rates, "Unknown rate"),
+                                        val_to_str_const((iCtl & 0x02)>>1, rtmpt_audio_sizes, "Unknown sample size"),
+                                        val_to_str_const(iCtl & 0x01, rtmpt_audio_types, "Unknown channel count"));
 
         at = proto_item_add_subtree(ai, ett_rtmpt_audio_control);
         proto_tree_add_uint(at, hf_rtmpt_audio_format, tvb, offset, 1, iCtl);
@@ -1029,8 +1051,8 @@ dissect_rtmpt_body_video(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree)
         iCtl = tvb_get_guint8(tvb, offset);
         vi = proto_tree_add_uint_format(rtmpt_tree, hf_rtmpt_video_control, tvb, offset, 1, iCtl,
                                         "Control: 0x%02x (%s %s)", iCtl,
-                                        val_to_str((iCtl & 0xf0)>>4, rtmpt_video_types, "Unknown frame type"),
-                                        val_to_str(iCtl & 0x0f, rtmpt_video_codecs, "Unknown codec"));
+                                        val_to_str_const((iCtl & 0xf0)>>4, rtmpt_video_types, "Unknown frame type"),
+                                        val_to_str_const(iCtl & 0x0f, rtmpt_video_codecs, "Unknown codec"));
 
         vt = proto_item_add_subtree(vi, ett_rtmpt_video_control);
         proto_tree_add_uint(vt, hf_rtmpt_video_type, tvb, offset, 1, iCtl);
@@ -1054,7 +1076,8 @@ dissect_rtmpt_body_aggregate(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree)
                 iTagType = tvb_get_guint8(tvb, offset + 0);
                 iDataSize = tvb_get_ntoh24(tvb, offset + 1);
 
-                tag_item = proto_tree_add_text(rtmpt_tree, tvb, offset, 11+iDataSize+4, "%s", val_to_str(iTagType, rtmpt_tag_vals, "Unknown Tag"));
+                tag_item = proto_tree_add_text(rtmpt_tree, tvb, offset, 11+iDataSize+4, "%s",
+                                               val_to_str_const(iTagType, rtmpt_tag_vals, "Unknown Tag"));
                 tag_tree = proto_item_add_subtree(tag_item, ett_rtmpt_tag);
                 proto_tree_add_item(tag_tree, hf_rtmpt_tag_type, tvb, offset+0, 1, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tag_tree, hf_rtmpt_tag_datasize, tvb, offset+1, 3, ENC_BIG_ENDIAN);
@@ -1089,17 +1112,17 @@ dissect_rtmpt_body_aggregate(tvbuff_t *tvb, gint offset, proto_tree *rtmpt_tree)
 static void
 dissect_rtmpt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rtmpt_conv_t *rconv, int cdir, rtmpt_packet_t *tp)
 {
-        proto_tree      *rtmpt_tree = NULL;
-        proto_tree      *rtmptroot_tree = NULL;
-        proto_item      *ti = NULL;
-        static guint      iPreviousFrameNumber = 0;
-        gint offset = 0;
+        proto_tree   *rtmpt_tree           = NULL;
+        proto_tree   *rtmptroot_tree       = NULL;
+        proto_item   *ti                   = NULL;
+        static guint  iPreviousFrameNumber = 0;
+        gint          offset               = 0;
 
-        gchar *sDesc = NULL;
-        gint deschasopcode = FALSE;
-        gboolean haveETS = FALSE;
-        guint32 iBodyOffset = 0;
-        guint32 iBodyRemain = 0;
+        gchar        *sDesc                = NULL;
+        gint          deschasopcode        = FALSE;
+        gboolean      haveETS              = FALSE;
+        guint32       iBodyOffset          = 0;
+        guint32       iBodyRemain          = 0;
 
         col_set_str(pinfo->cinfo, COL_PROTOCOL, "RTMP");
 
@@ -1377,7 +1400,6 @@ dissect_rtmpt_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rtmpt_
                                         id = tf->saved.d[0];
                                         header_type = (id>>6) & 3;
                                         basic_hlen = rtmpt_basic_header_length(id);
-                                        message_hlen = rtmpt_message_header_length(id);
 
                                         if (header_type<3 && tf->have<basic_hlen+3 && tf->have+want>=basic_hlen+3) {
                                                 if (pntoh24(tf->saved.d+basic_hlen)==0xffffff) {
@@ -1953,7 +1975,7 @@ proto_register_rtmpt(void)
                     NULL, 0x0, "RTMPT AMF number", HFILL }},
 
                 { &hf_rtmpt_amf_boolean,
-                  { "Boolean", "rtmpt.amf.boolean", FT_BOOLEAN, BASE_DEC,
+                  { "Boolean", "rtmpt.amf.boolean", FT_BOOLEAN, BASE_NONE,
                     NULL, 0x0, "RTMPT AMF boolean", HFILL }},
 
                 { &hf_rtmpt_amf_stringlength,

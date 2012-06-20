@@ -34,14 +34,6 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
-#ifdef HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-
 #include <string.h>
 
 #include <epan/packet.h>
@@ -1534,8 +1526,6 @@ for_param_block_val_spasm(tvbuff_t *tvb, proto_tree *tree, guint len, guint32 of
             tvb, offset, 1,
             "%s :  Reserved",
             bigbuf);
-
-        offset++;
     }
     else
     {
@@ -1569,8 +1559,6 @@ for_param_block_val_spasm(tvbuff_t *tvb, proto_tree *tree, guint len, guint32 of
             tvb, offset, 3,
             "%s :  Reserved",
             bigbuf);
-
-        offset += 3;
     }
 }
 

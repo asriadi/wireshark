@@ -359,7 +359,7 @@ display_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *ajp13_tree, ajp13_con
   case MTYPE_END_RESPONSE:
     if (ajp13_tree)
       proto_tree_add_item(ajp13_tree, hf_ajp13_reusep, tvb, pos, 1, ENC_BIG_ENDIAN);
-    pos+=1;
+    /*pos+=1;*/
     break;
 
   case MTYPE_SEND_HEADERS:
@@ -456,7 +456,7 @@ display_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *ajp13_tree, ajp13_con
     cd->content_length = rlen;
     if (ajp13_tree)
       proto_tree_add_item(ajp13_tree, hf_ajp13_rlen, tvb, pos, 2, ENC_BIG_ENDIAN);
-    pos+=2;
+    /*pos+=2;*/
     break;
   }
 
@@ -783,7 +783,7 @@ dissect_ajp13_tcp_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
   cd = (ajp13_conv_data*)conversation_get_proto_data(conv, proto_ajp13);
   if (!cd) {
-    cd = se_alloc(sizeof(ajp13_conv_data));
+    cd = se_new(ajp13_conv_data);
     cd->content_length = 0;
     cd->was_get_body_chunk = FALSE;
     conversation_add_proto_data(conv, proto_ajp13, cd);
@@ -800,7 +800,7 @@ dissect_ajp13_tcp_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
      * time we've see the packet, and it must be the first "in order"
      * pass through the data.
      */
-    fd = se_alloc(sizeof(ajp13_frame_data));
+    fd = se_new(ajp13_frame_data);
     p_add_proto_data(pinfo->fd, proto_ajp13, fd);
     fd->is_request_body = FALSE;
     if (cd->content_length) {

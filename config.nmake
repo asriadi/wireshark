@@ -18,8 +18,8 @@ SVN_REVISION=0
 # The current Wireshark version. Recommended: Leave unchanged.
 # Updated by make-version.pl
 VERSION_MAJOR=1
-VERSION_MINOR=7
-VERSION_MICRO=1
+VERSION_MINOR=9
+VERSION_MICRO=0
 VERSION_BUILD=$(SVN_REVISION)
 
 # Local build information. Recommended: Unique string for your
@@ -111,9 +111,10 @@ PROCESSOR_ARCHITECTURE=amd64
 #MSVC_VARIANT=MSVC2010EE
 
 # The default if we haven't set a system environment variable or
-# uncommented an entry above.
+# uncommented an entry above.  We default to the version recommended
+# in the Developer's Guide, namely MSVC++ 2010 Express Edition.
 !IFNDEF MSVC_VARIANT
-MSVC_VARIANT=MSVC2008
+MSVC_VARIANT=MSVC2010EE
 !ENDIF
 
 #
@@ -215,17 +216,34 @@ GLIB_VERSION=2.0
 # If you want building with GTK+, set GTK_DIR to the pathname of the
 # directory in which the "include" and "lib" directories reside.
 #
-GTK_DIR=$(WIRESHARK_LIB_DIR)\gtk2
+# Set the name to gtk3 if you want to use gtk3 - Not yet working
+GTK_NAME=gtk2
+GTK_DIR=$(WIRESHARK_LIB_DIR)\$(GTK_NAME)
+
 # These macros are used by the nsis installer script and by the install target.
-PNG_DLL=libpng14-14.dll
-FREETYPE_DLL=freetype6.dll
+#EXPAT_DLL=libexpat-1.dll
+FFI_DLL=libffi-5.dll
 FONTCONFIG_DLL=libfontconfig-1.dll
-EXPAT_DLL=libexpat-1.dll
-INTL_DLL=intl.dll
+FREETYPE_DLL=libfreetype-6.dll
+INTL_DLL=libintl-8.dll
+JASPER_DLL=libjasper-1.dll
+JPEG_DLL=libjpeg-8.dll
+LZMA_DLL=liblzma-5.dll
+PIXMAN_DLL=libpixman-1-0.dll
+PNG_DLL=libpng15-15.dll
+TIFF_DLL=libtiff-5.dll
+XML_DLL=libxml2-2.dll
+
 # This macro is used by the setup target.
+!IF "$(GTK_NAME)" == "gtk2"
 #GTK_PKG=2.16.6-20100912
 #GTK_PKG=2.22.1-20101227
-GTK_PKG=2.24.10-20120208
+GTK_PKG=2.24.10-2.7
+PKG_SUFIX=ws
+!ELSE
+PKG_SUFIX=ws
+GTK_PKG=3.4.2-3.5
+!ENDIF
 
 #
 # Mandatory: Version numbers of GTK and pango.
@@ -233,9 +251,13 @@ GTK_PKG=2.24.10-20120208
 # (MAJOR + MINOR Version number but without MICRO version number)
 # These macros are used by the nsis installer script and by the setup target.
 #
+!IF "$(GTK_NAME)" == "gtk2"
 #GTK_INST_VERSION=2.16
 #GTK_INST_VERSION=2.22
 GTK_INST_VERSION=2.24
+!ELSE
+GTK_INST_VERSION=3.4
+!ENDIF
 
 #
 # Optional: WinPcap developer's pack to capture network traffic.
@@ -299,15 +321,15 @@ ZLIB_DIR=$(WIRESHARK_LIB_DIR)\zlib125
 C_ARES_PKG=1.7.1
 
 #
-# Optional: the GNUTLS library enables ssl decryption.
+# Optional: the GnuTLS library enables ssl decryption.
 #
-# If you have the GNUTLS library, set this to the package version.
+# If you have the GnuTLS library, set this to the package version.
 #
-# If you don't have GNUTLS, comment this line out, so that GNUTLS_PKG
+# If you don't have GnuTLS, comment this line out, so that GNUTLS_PKG
 # isn't defined.
 #
 # Platform SDK conflicts with openssl.h header
-GNUTLS_PKG=2.10.3-1.11
+GNUTLS_PKG=2.12.18-1.2
 
 #
 # Optional: the KFW library enables kerberos/sasl/dcerpc decryption.
@@ -385,7 +407,7 @@ SMI_PKG=svn-40773
 #
 # Used to map IP addresses to MaxMind GeoIP database entries
 #
-GEOIP_DIR=$(WIRESHARK_LIB_DIR)\GeoIP-1.4.6-win32ws\libGeoIP
+GEOIP_PKG=1.4.8-2
 
 !else
 ##### Win64 Libraries #####
@@ -404,19 +426,34 @@ GLIB_VERSION=2.0
 # If you want building with GTK+, set GTK_DIR to the pathname of the
 # directory in which the "include" and "lib" directories reside.
 #
-GTK_DIR=$(WIRESHARK_LIB_DIR)\gtk2
+#
+# Set the name to gtk3 if you want to use gtk3 - Not yet working
+GTK_NAME=gtk2
+GTK_DIR=$(WIRESHARK_LIB_DIR)\$(GTK_NAME)
+
 # These macros are used by the nsis installer script and by the install target.
-PNG_DLL=libpng14-14.dll
-#TIFF_DLL=libtiff-3.dll
-#JPEG_DLL=libjpeg-7.dll
-FREETYPE_DLL=libfreetype-6.dll
+#EXPAT_DLL=libexpat-1.dll
+FFI_DLL=libffi-5.dll
 FONTCONFIG_DLL=libfontconfig-1.dll
-EXPAT_DLL=libexpat-1.dll
+FREETYPE_DLL=libfreetype-6.dll
 INTL_DLL=libintl-8.dll
+JASPER_DLL=libjasper-1.dll
+JPEG_DLL=libjpeg-8.dll
+LZMA_DLL=liblzma-5.dll
+PIXMAN_DLL=libpixman-1-0.dll
+PNG_DLL=libpng15-15.dll
+TIFF_DLL=libtiff-5.dll
+XML_DLL=libxml2-2.dll
 
 # These macros are used by the setup target.
+!IF "$(GTK_NAME)" == "gtk2"
 #GTK_PKG=2.16.6-20100912
-GTK_PKG=2.22.1-20101229
+GTK_PKG=2.24.10-2.7
+PKG_SUFIX=ws
+!ELSE
+PKG_SUFIX=ws
+GTK_PKG=3.4.2-3.5
+!ENDIF
 
 #
 # Mandatory: Version numbers of GTK and pango.
@@ -424,8 +461,12 @@ GTK_PKG=2.22.1-20101229
 # (MAJOR + MINOR Version number but without MICRO version number)
 # These macros are used by the nsis installer script and by the setup target.
 #
+!IF "$(GTK_NAME)" == "gtk2"
 #GTK_INST_VERSION=2.16
-GTK_INST_VERSION=2.22
+GTK_INST_VERSION=2.24
+!ELSE
+GTK_INST_VERSION=3.4
+!ENDIF
 
 #
 # Optional: WinPcap developer's pack to capture network traffic.
@@ -489,15 +530,15 @@ ZLIB_DIR=$(WIRESHARK_LIB_DIR)\zlib125
 C_ARES_PKG=1.7.1
 
 #
-# Optional: the GNUTLS library enables ssl decryption.
+# Optional: the GnuTLS library enables ssl decryption.
 #
-# If you have the GNUTLS library, set this to the package version.
+# If you have the GnuTLS library, set this to the package version.
 #
-# If you don't have GNUTLS, comment this line out, so that GNUTLS_PKG
+# If you don't have GnuTLS, comment this line out, so that GNUTLS_PKG
 # isn't defined.
 #
 # Platform SDK conflicts with openssl.h header
-GNUTLS_PKG=2.10.3-1.7
+GNUTLS_PKG=2.12.18-1.2-1
 
 #
 # Optional: the KFW library enables kerberos/sasl/dcerpc decryption.
@@ -530,7 +571,7 @@ GNUTLS_PKG=2.10.3-1.7
 # If you don't have LUA, comment this line out, so that LUA_DIR
 # isn't defined.
 #
-LUA_DIST=5_1_4_Win64_dll9
+LUA_DIST=-5.1.4_Win64_dll10
 LUA_DIR=$(WIRESHARK_LIB_DIR)\lua5.1.4
 
 #
@@ -575,7 +616,7 @@ SMI_PKG=svn-40773
 #
 # Used to map IP addresses to MaxMind GeoIP database entries
 #
-GEOIP_DIR=$(WIRESHARK_LIB_DIR)\GeoIP-1.4.6-win64ws\libGeoIP
+GEOIP_PKG=1.4.8-2
 
 !endif
 
@@ -711,6 +752,7 @@ MANIFEST_INFO_REQUIRED=1
 #                                     for Wireshark compiles.
 #                                     Warning: using /FR for Wireshark requires ~1Gig of additional disk space
 #                                     XXX: provides less functionality for VC8, ... than for previous compilers ?
+#                                     XXX: .bsc files not usable (not supported ?) with VC10 (Visual Studio 2010) ?
 # /MD                               Use "multithread- and DLL-specific version" of run-time libraries.
 #                                    msvc documentation states that /MD causes _MT and _DLL to be defined
 #                                    See: http://msdn.microsoft.com/en-us/library/2kzt1wy3%28v=VS.90%29.aspx
@@ -971,6 +1013,10 @@ GLIB_LIBS=$(GTK_DIR)\lib\glib-$(GLIB_VERSION).lib \
 	$(GTK_DIR)\lib\gobject-$(GLIB_VERSION).lib
 GTHREAD_LIBS=$(GTK_DIR)\lib\gthread-$(GLIB_VERSION).lib
 
+
+# 2.18 was no good(Theming problem)
+!IF "$(GTK_INST_VERSION)" == "2.24" || "$(GTK_INST_VERSION)" == "2.22" || "$(GTK_INST_VERSION)" == "2.16" || "$(GTK_INST_VERSION)" == "2.14"
+
 # GTK+
 GTK_CFLAGS=$(GLIB_CFLAGS) /I$(GTK_DIR)\include\gtk-2.0 \
 	/I$(GTK_DIR)\include\gdk-pixbuf-2.0 \
@@ -989,39 +1035,108 @@ GTK_LIBS=$(GTK_DIR)\lib\gtk-win32-2.0.lib \
 	$(GTK_DIR)\lib\pangocairo-1.0.lib \
 	$(GLIB_LIBS)
 
-# 2.18 was no good(Theming problem)
-!IF "$(GTK_INST_VERSION)" == "2.24" || "$(GTK_INST_VERSION)" == "2.22" || "$(GTK_INST_VERSION)" == "2.16" || "$(GTK_INST_VERSION)" == "2.14"
 GTK_LIB_DIR=2.10.0
 
 !IFDEF PNG_DLL
-NEED_LIBPNG_DLL=USE
+NEED_PNG_DLL=USE
 !ENDIF
 !IFDEF JPEG_DLL
-NEED_LIBJPEG_DLL=USE
+NEED_JPEG_DLL=USE
 !ENDIF
 !IFDEF TIFF_DLL
-NEED_LIBTIFF_DLL=USE
+NEED_TIFF_DLL=USE
 !ENDIF
 NEED_CAIRO_DLL=USE
 # Pango >=1.24.5 Needs these:
 NEED_FREETYPE_DLL=USE
 NEED_FONTCONFIG_DLL=USE
-NEED_EXPAT_DLL=USE
+#NEED_EXPAT_DLL=USE
+NEED_XML_DLL=USE
+NEED_PIXMAN_DLL=USE
+NEED_FFI_DLL=USE
+NEED_JASPER_DLL=USE
+NEED_JPEG_DLL=USE
+NEED_TIFF_DLL=USE
+NEED_LZMA_DLL=USE
 
 GTK_WIMP_DLLSRC_DIR=$(GTK_DIR)\lib\gtk-2.0\$(GTK_LIB_DIR)\engines
 GTK_WIMP_DLLDST_DIR=lib\gtk-2.0\$(GTK_LIB_DIR)\engines
 GTK_WIMP_RCSRC_DIR=$(GTK_DIR)\share\themes\MS-Windows\gtk-2.0
 GTK_WIMP_RCDST_DIR=etc\gtk-2.0
+#
+# Use of GTK3+ is experimental/not working
+#
+!ELSEIF "$(GTK_INST_VERSION)" == "3.4"
+
+# GTK+
+GTK_CFLAGS=$(GLIB_CFLAGS) /I$(GTK_DIR)\include\gtk-3.0 \
+	/I$(GTK_DIR)\include\gdk-pixbuf-2.0 \
+	/I$(GTK_DIR)\lib\gtk-3.0\include \
+	/I$(GTK_DIR)\include\atk-1.0 \
+	/I$(GTK_DIR)\include\cairo \
+	/I$(GTK_DIR)\include\pango-1.0 \
+	-DGTK_DISABLE_SINGLE_INCLUDES \
+	-DGSEAL_ENABLE
+GTK_LIBS=$(GTK_DIR)\lib\gtk-3.lib \
+	$(GTK_DIR)\lib\gdk-3.lib \
+	$(GTK_DIR)\lib\gdk_pixbuf-2.0.lib \
+	$(GTK_DIR)\lib\cairo.lib \
+	$(GTK_DIR)\lib\pango-1.0.lib \
+	$(GTK_DIR)\lib\pangocairo-1.0.lib \
+	$(GLIB_LIBS)
+
+GTK_LIB_DIR=3.4
+
+!IFDEF _DLL
+!ENDIF
+
+NEED_CAIRO_DLL=USE
+
+!IFDEF EXPAT_DLL
+NEED_EXPAT_DLL=USE
+!ENDIF
+!IFDEF FFI_DLL
+NEED_FFI_DLL=USE
+!ENDIF
+!IFDEF FONTCONFIG_DLL
+NEED_FONTCONFIG_DLL=USE
+!ENDIF
+!IFDEF FREETYPE_DLL
+NEED_FREETYPE_DLL=USE
+!ENDIF
+!IFDEF JASPER_DLL
+NEED_JASPER_DLL=USE
+!ENDIF
+!IFDEF JPEG_DLL
+NEED_JPEG_DLL=USE
+!ENDIF
+!IFDEF LZMA_DLL
+NEED_LZMA_DLL=USE
+!ENDIF
+!IFDEF PIXMAN_DLL
+NEED_PIXMAN_DLL=USE
+!ENDIF
+!IFDEF PNG_DLL
+NEED_PNG_DLL=USE
+!ENDIF
+!IFDEF TIFF_DLL
+NEED_TIFF_DLL=USE
+!ENDIF
+!IFDEF XML_DLL
+NEED_XML_DLL=USE
+!ENDIF
 !ELSE
-!ERROR ? Unknown or invalid GTK_INST_VERSION
+!ERROR ? Unknown or invalid GTK_INST_VERSION "$(GTK_INST_VERSION)"
 !ENDIF
 
 
 !IFDEF AIRPCAP_DIR
 AIRPCAP_CONFIG=^#define HAVE_AIRPCAP 1
+WIRELESS_TOOLBAR_CONFIG=^#define HAVE_WIRELESS_TOOLBAR 1
 #AIRPCAP_CFLAGS=/I$(AIRPCAP_DIR)\include
 !ELSE
 AIRPCAP_CONFIG=
+WIRELESS_TOOLBAR_CONFIG=
 !ENDIF
 
 !IFDEF PCAP_DIR
@@ -1213,12 +1328,14 @@ SMI_CFLAGS=
 SMI_CONFIG=
 !ENDIF
 
-!IFDEF GEOIP_DIR
+!IFDEF GEOIP_PKG
+GEOIP_DIR=$(WIRESHARK_LIB_DIR)\GeoIP-$(GEOIP_PKG)-$(WIRESHARK_TARGET_PLATFORM)ws
 GEOIP_CONFIG=^#define HAVE_GEOIP 1
 GEOIP_V6_CONFIG=^#define HAVE_GEOIP_V6 1
-GEOIP_CFLAGS=/I$(GEOIP_DIR)
-GEOIP_LIBS=$(GEOIP_DIR)\GeoIP.lib
+GEOIP_CFLAGS=/I$(GEOIP_DIR)/include
+GEOIP_LIBS=$(GEOIP_DIR)\lib\libGeoIP-1.lib
 !ELSE
+GEOIP_DIR=
 GEOIP_LIBS=
 GEOIP_CFLAGS=
 GEOIP_CONFIG=

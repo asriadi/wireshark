@@ -46,16 +46,10 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
-#ifdef HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-
 #include <string.h>
+
 #include <glib.h>
+
 #include <epan/packet.h>
 #include <epan/emem.h>
 #include <epan/prefs.h>
@@ -402,7 +396,7 @@ dissect_ncp_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                  * conversation in our hash, create
                  * one */
                 if (request_value == NULL) {
-                    request_value = mncp_hash_insert(conversation, nw_connection, header.task, pinfo);
+                    mncp_hash_insert(conversation, nw_connection, header.task, pinfo);
                 }
             } else {
                 /* It's not part of any conversation
@@ -410,7 +404,7 @@ dissect_ncp_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                  */
                 conversation = conversation_new(pinfo->fd->num, &pinfo->src,
                     &pinfo->dst, PT_NCP, (guint32) pinfo->srcport, (guint32) pinfo->destport, 0);
-                request_value = mncp_hash_insert(conversation, nw_connection, header.task, pinfo);
+                mncp_hash_insert(conversation, nw_connection, header.task, pinfo);
             }
             /* If this is a request packet then we
              * might have a new task
@@ -445,7 +439,7 @@ dissect_ncp_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                  * conversation in our hash, create
                  * one */
                 if (request_value == NULL) {
-                    request_value = mncp_hash_insert(conversation, nw_connection, header.task, pinfo);
+                    mncp_hash_insert(conversation, nw_connection, header.task, pinfo);
                 }
             } else {
                 /* It's not part of any conversation
@@ -453,7 +447,7 @@ dissect_ncp_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                  */
                 conversation = conversation_new(pinfo->fd->num, &pinfo->src,
                     &pinfo->dst, PT_NCP, (guint32) pinfo->srcport, (guint32) pinfo->destport, 0);
-                request_value = mncp_hash_insert(conversation, nw_connection, header.task, pinfo);
+                mncp_hash_insert(conversation, nw_connection, header.task, pinfo);
             }
             /* find the record telling us the request
              * made that caused this reply

@@ -204,7 +204,6 @@ int netscreen_open(wtap *wth, int *err, gchar **err_info)
 	if (file_seek(wth->fh, 0L, SEEK_SET, err) == -1)	/* rewind */
 		return -1;
 
-	wth->data_offset = 0;
 	wth->file_encap = WTAP_ENCAP_UNKNOWN;
 	wth->file_type = WTAP_FILE_NETSCREEN;
 	wth->snapshot_length = 0; /* not known */
@@ -292,7 +291,6 @@ static gboolean netscreen_read(wtap *wth, int *err, gchar **err_info,
 			wth->file_encap = WTAP_ENCAP_PER_PACKET;
 	}
 
-	wth->data_offset = offset;
 	wth->phdr.caplen = caplen;
 	*data_offset = offset;
 	return TRUE;
@@ -360,7 +358,7 @@ parse_netscreen_rec_hdr(wtap *wth, const char *line, char *cap_int,
 	char	direction[2];
 	char	cap_src[13];
 
-	if (sscanf(line, "%9d.%9d: %15[a-z0-9/:.](%1[io]) len=%9d:%12s->%12s/",
+	if (sscanf(line, "%9d.%9d: %15[a-z0-9/:.-](%1[io]) len=%9d:%12s->%12s/",
 		   &sec, &dsec, cap_int, direction, &pkt_len, cap_src, cap_dst) < 5) {
 		*err = WTAP_ERR_BAD_FILE;
 		*err_info = g_strdup("netscreen: Can't parse packet-header");

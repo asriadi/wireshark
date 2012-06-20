@@ -436,7 +436,7 @@ get_auth_arguments(capture_options *capture_opts, const char *arg)
 }
 #endif
 
-int
+static int
 capture_opts_add_iface_opt(capture_options *capture_opts, const char *optarg_str_p)
 {
     long        adapter_index;
@@ -965,12 +965,35 @@ static gboolean capture_opts_output_to_pipe(const char *save_file, gboolean *is_
   return 0;
 }
 
+/*
+ * Add all non-hidden selected interfaces in the "all interfaces" list
+ * to the list of interfaces for the capture.
+ */
 void
 collect_ifaces(capture_options *capture_opts)
 {
   guint i;
   interface_t device;
   interface_options interface_opts;
+
+  /* Empty out the existing list of interfaces. */
+  for (i = capture_opts->ifaces->len; i != 0; i--) {
+    interface_opts = g_array_index(capture_opts->ifaces, interface_options, i - 1);
+    g_free(interface_opts.name);
+    g_free(interface_opts.descr);
+    g_free(interface_opts.cfilter);
+#ifdef HAVE_PCAP_REMOTE
+    if (interface_opts.src_type == CAPTURE_IFREMOTE) {
+      g_free(interface_opts.remote_host);
+      g_free(interface_opts.remote_port);
+      g_free(interface_opts.auth_username);
+      g_free(interface_opts.auth_password);
+    }
+#endif
+    capture_opts->ifaces = g_array_remove_index(capture_opts->ifaces, i - 1);
+  }
+
+  /* Now fill the list up again. */
   for (i = 0; i < capture_opts->all_ifaces->len; i++) {
     device = g_array_index(capture_opts->all_ifaces, interface_t, i);
     if (!device.hidden && device.selected) {
@@ -987,23 +1010,21 @@ collect_ifaces(capture_options *capture_opts)
 #ifdef HAVE_PCAP_CREATE
       interface_opts.monitor_mode = device.monitor_mode_enabled;
 #endif
-      if (!device.local) {
 #ifdef HAVE_PCAP_REMOTE
-        interface_opts.src_type = CAPTURE_IFREMOTE;
-        interface_opts.remote_host = g_strdup(device.remote_opts.remote_host_opts.remote_host);
-        interface_opts.remote_port = g_strdup(device.remote_opts.remote_host_opts.remote_port);
-        interface_opts.auth_type = device.remote_opts.remote_host_opts.auth_type;
-        interface_opts.auth_username = g_strdup(device.remote_opts.remote_host_opts.auth_username);
-        interface_opts.auth_password = g_strdup(device.remote_opts.remote_host_opts.auth_password);
-        interface_opts.datatx_udp = device.remote_opts.remote_host_opts.datatx_udp;
-        interface_opts.nocap_rpcap = device.remote_opts.remote_host_opts.nocap_rpcap;
-        interface_opts.nocap_local = device.remote_opts.remote_host_opts.nocap_local;
+      interface_opts.src_type = CAPTURE_IFREMOTE;
+      interface_opts.remote_host = g_strdup(device.remote_opts.remote_host_opts.remote_host);
+      interface_opts.remote_port = g_strdup(device.remote_opts.remote_host_opts.remote_port);
+      interface_opts.auth_type = device.remote_opts.remote_host_opts.auth_type;
+      interface_opts.auth_username = g_strdup(device.remote_opts.remote_host_opts.auth_username);
+      interface_opts.auth_password = g_strdup(device.remote_opts.remote_host_opts.auth_password);
+      interface_opts.datatx_udp = device.remote_opts.remote_host_opts.datatx_udp;
+      interface_opts.nocap_rpcap = device.remote_opts.remote_host_opts.nocap_rpcap;
+      interface_opts.nocap_local = device.remote_opts.remote_host_opts.nocap_local;
 #endif
 #ifdef HAVE_PCAP_SETSAMPLING
-        interface_opts.sampling_method = device.remote_opts.sampling_method;
-        interface_opts.sampling_param  = device.remote_opts.sampling_param;
+      interface_opts.sampling_method = device.remote_opts.sampling_method;
+      interface_opts.sampling_param  = device.remote_opts.sampling_param;
 #endif
-      }
       g_array_append_val(capture_opts->ifaces, interface_opts);
     } else {
       continue;

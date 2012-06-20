@@ -108,15 +108,17 @@ set(WIRESHARK_C_FLAGS
 	-Wall
 	-W
 	-Wextra
-	-Wdeclaration-after-statement
 	-Wendif-labels
 	-Wpointer-arith
-	-Wno-pointer-sign
 	-Warray-bounds
 	-Wcast-align
 	-Wformat-security
-	-Wold-style-definition
 	-fexcess-precision=fast
+
+	# The following are C only, not C++
+	-Wdeclaration-after-statement
+	-Wno-pointer-sign
+	-Wold-style-definition
 )
 
 set(WIRESHARK_EXTRA_C_FLAGS
@@ -128,7 +130,6 @@ set(WIRESHARK_EXTRA_C_FLAGS
 	-Wunreachable-code
 	-Wunsafe-loop-optimizations
 	-Wno-long-long
-	-Wbad-function-cast
 	-Wcast-qual
 	-Waddress
 	-Warray-bounds
@@ -139,19 +140,23 @@ set(WIRESHARK_EXTRA_C_FLAGS
 	-Wpragmas
 	-Wredundant-decls
 	-Wvla
-	-Wc++-compat
-	-Wjump-misses-init
 	# packet-ncp2222.inc prevents this from going into all warnings
 	-Wwrite-strings
-	# GLib blocks this for now.
-	-Wstrict-prototypes
 	# All the registration functions block these for now.
-	-Wmissing-prototypes
 	-Wmissing-declarations
 	# Problem with packet-afs.c
 	-Wshadow
 	# More cleanup needed for this on LP64
 	-Wshorten-64-to-32
+
+	# The following are C only, not C++
+	-Wbad-function-cast
+	-Wc++-compat
+	-Wjump-misses-init
+	# GLib blocks this for now.
+	-Wstrict-prototypes
+	# All the registration functions block these for now.
+	-Wmissing-prototypes
 )
 
 if(ENABLE_EXTRA_GCC_CHECKS)   # This overrides -Werror
@@ -374,6 +379,7 @@ if(HAVE_LIBADNS)
 endif()
 if(ENABLE_AIRPCAP)
 	set(HAVE_AIRPCAP 1)
+	set(HAVE_WIRELESS_TOOLBAR 1)
 endif()
 # No matter which version of GTK is present
 if(GTK2_FOUND OR GTK3_FOUND)
@@ -406,7 +412,6 @@ if(ENABLE_PLUGINS)
 		plugins/asn1
 		plugins/docsis
 		plugins/ethercat
-		plugins/giop
 		plugins/gryphon
 		plugins/irda
 		plugins/m2m

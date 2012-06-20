@@ -31,11 +31,8 @@
 #include "config.h"
 #endif
 
-#include <stdlib.h>
-#include <ctype.h>
-#include <time.h>
-
 #include <glib.h>
+
 #include <epan/packet.h>
 #include <epan/addr_resolv.h>
 #include <epan/etypes.h>
@@ -979,7 +976,7 @@ proto_register_rtmac(void) {
       { "Padding",
         "tdma-v1.msg.ack_conf.padding",
         FT_UINT8, BASE_HEX, NULL, 0x0,
-        "TDMA PAdding", HFILL }},
+        "TDMA Padding", HFILL }},
 
     { &hf_tdma_v1_msg_ack_conf_mtu,
       { "MTU",

@@ -105,7 +105,7 @@ dfvm_dump(FILE *f, dfilter_t *df)
 	length = df->consts->len;
 	for (id = 0; id < length; id++) {
 
-		insn = g_ptr_array_index(df->consts, id);
+		insn = (dfvm_insn_t	*)g_ptr_array_index(df->consts, id);
 		arg1 = insn->arg1;
 		arg2 = insn->arg2;
 
@@ -147,7 +147,7 @@ dfvm_dump(FILE *f, dfilter_t *df)
 	length = df->insns->len;
 	for (id = 0; id < length; id++) {
 
-		insn = g_ptr_array_index(df->insns, id);
+		insn = (dfvm_insn_t	*)g_ptr_array_index(df->insns, id);
 		arg1 = insn->arg1;
 		arg2 = insn->arg2;
 		arg3 = insn->arg3;
@@ -190,7 +190,7 @@ dfvm_dump(FILE *f, dfilter_t *df)
 				for (range_list = arg3->value.drange->range_list;
 				     range_list != NULL;
 				     range_list = range_list->next) {
-					range_item = range_list->data;
+					range_item = (drange_node *)range_list->data;
 					switch (range_item->ending) {
 
 					case DRANGE_NODE_END_T_UNINITIALIZED:
@@ -316,11 +316,7 @@ read_tree(dfilter_t *df, proto_tree *tree, header_field_info *hfinfo, int reg)
 
 	while (hfinfo) {
 		finfos = proto_get_finfo_ptr_array(tree, hfinfo->id);
-		if (!finfos) {
-			hfinfo = hfinfo->same_name_next;
-			continue;
-		}
-		else if (g_ptr_array_len(finfos) == 0) {
+		if ((finfos == NULL) || (g_ptr_array_len(finfos) == 0)) {
 			hfinfo = hfinfo->same_name_next;
 			continue;
 		}
@@ -330,7 +326,7 @@ read_tree(dfilter_t *df, proto_tree *tree, header_field_info *hfinfo, int reg)
 
 		len = finfos->len;
 		for (i = 0; i < len; i++) {
-			finfo = g_ptr_array_index(finfos, i);
+			finfo = (field_info *)g_ptr_array_index(finfos, i);
 			fvalues = g_list_prepend(fvalues, &finfo->value);
 		}
 
@@ -405,7 +401,7 @@ mk_range(dfilter_t *df, int from_reg, int to_reg, drange *d_range)
 	from_list = df->registers[from_reg];
 
 	while (from_list) {
-		old_fv = from_list->data;
+		old_fv = (fvalue_t*)from_list->data;
 		new_fv = fvalue_slice(old_fv, d_range);
 		/* Assert here because semcheck.c should have
 		 * already caught the cases in which a slice
@@ -442,7 +438,7 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 	for (id = 0; id < length; id++) {
 
 	  AGAIN:
-		insn = g_ptr_array_index(df->insns, id);
+		insn = (dfvm_insn_t	*)g_ptr_array_index(df->insns, id);
 		arg1 = insn->arg1;
 		arg2 = insn->arg2;
 
@@ -585,7 +581,7 @@ dfvm_init_const(dfilter_t *df)
 
 	for (id = 0; id < length; id++) {
 
-		insn = g_ptr_array_index(df->consts, id);
+		insn = (dfvm_insn_t	*)g_ptr_array_index(df->consts, id);
 		arg1 = insn->arg1;
 		arg2 = insn->arg2;
 

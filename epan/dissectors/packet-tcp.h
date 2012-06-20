@@ -59,6 +59,7 @@ typedef struct tcpheader {
 	guint16 th_dport;
 	guint8  th_hlen;
 	guint16 th_flags;
+	guint32 th_stream; /* this stream index field is included to help differentiate when address/port pairs are reused */
 	address ip_src;
 	address ip_dst;
 } tcp_info_t;
@@ -118,7 +119,7 @@ struct tcp_acked {
 	guint32  rto_frame;
 	nstime_t rto_ts;	/* Time since previous packet for
 				   retransmissions. */
-	guint16 flags;
+	guint16 flags; /* see TCP_A_* in packet-tcp.c */
 	guint32 dupack_num;	/* dup ack number */
 	guint32 dupack_frame;	/* dup ack to frame # */
 	guint32 bytes_in_flight; /* number of bytes in flight */
@@ -229,11 +230,16 @@ struct tcp_analysis {
 	 */
 	nstime_t	ts_prev;
 
-        /* Keep track of tcp stream numbers instead of using the conversation
-         * index (as how it was done before). This prevents gaps in the 
-         * stream index numbering
-         */
-        guint32         stream; 
+	/* Keep track of tcp stream numbers instead of using the conversation
+	 * index (as how it was done before). This prevents gaps in the 
+	 * stream index numbering
+	 */
+	guint32         stream;
+
+	/* Remembers the server port on the SYN (or SYN|ACK) packet to
+	 * help determine which dissector to call
+	 */
+	guint16 server_port;
 };
 
 /* Structure that keeps per packet data. First used to be able

@@ -42,6 +42,8 @@
 
 #include <epan/packet_info.h>
 
+#include "../../globals.h"
+
 #include "ui/recent.h"
 #include "ui/ui_util.h"
 
@@ -57,8 +59,6 @@
 #include "image/wsicon32.xpm"
 #include "image/wsicon48.xpm"
 #include "image/wsicon64.xpm"
-
-#include "../version_info.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -123,19 +123,17 @@ window_icon_realize_cb (GtkWidget *win, gpointer data _U_)
     GdkPixbuf        *icon;
 
 
-	icon = gdk_pixbuf_new_from_xpm_data ((const char **) wsicon16_xpm);
-	ws_icon_list = g_list_append (ws_icon_list, icon);
-	icon = gdk_pixbuf_new_from_xpm_data ((const char **) wsicon32_xpm);
-	ws_icon_list = g_list_append (ws_icon_list, icon);
-	icon = gdk_pixbuf_new_from_xpm_data ((const char **) wsicon48_xpm);
-	ws_icon_list = g_list_append (ws_icon_list, icon);
-	icon = gdk_pixbuf_new_from_xpm_data ((const char **) wsicon64_xpm);
-	ws_icon_list = g_list_append (ws_icon_list, icon);
-	gtk_window_set_icon_list(GTK_WINDOW(win), ws_icon_list);
-	/* set icon by name, this allows us to use even SVG icon if it is present */
-	gtk_window_set_icon_name(GTK_WINDOW(win), "wireshark");
-
-
+    icon = gdk_pixbuf_new_from_xpm_data ((const char **) wsicon16_xpm);
+    ws_icon_list = g_list_append (ws_icon_list, icon);
+    icon = gdk_pixbuf_new_from_xpm_data ((const char **) wsicon32_xpm);
+    ws_icon_list = g_list_append (ws_icon_list, icon);
+    icon = gdk_pixbuf_new_from_xpm_data ((const char **) wsicon48_xpm);
+    ws_icon_list = g_list_append (ws_icon_list, icon);
+    icon = gdk_pixbuf_new_from_xpm_data ((const char **) wsicon64_xpm);
+    ws_icon_list = g_list_append (ws_icon_list, icon);
+    gtk_window_set_icon_list(GTK_WINDOW(win), ws_icon_list);
+    /* set icon by name, this allows us to use even SVG icon if it is present */
+    gtk_window_set_icon_name(GTK_WINDOW(win), "wireshark");
 #endif
 }
 
@@ -317,7 +315,7 @@ window_get_geometry(GtkWidget *widget, window_geometry_t *geom)
         http://mail.gnome.org/archives/gtk-devel-list/2001-March/msg00289.html
         http://www.gtk.org/faq/#AEN606
 
-		As gdk_window_get_deskrelative_origin() is deprecated it has been removed 2011-07-24.
+        As gdk_window_get_deskrelative_origin() is deprecated it has been removed 2011-07-24.
      */
 
     memset (geom, 0, sizeof (window_geometry_t));
@@ -325,17 +323,17 @@ window_get_geometry(GtkWidget *widget, window_geometry_t *geom)
     widget_window = gtk_widget_get_window(widget);
 
     gdk_window_get_root_origin(widget_window,
-        &geom->x,
-        &geom->y);
+                               &geom->x,
+                               &geom->y);
 
     /* XXX - Is this the "approved" method? */
 #if GTK_CHECK_VERSION(2,24,0)
-	geom->width = gdk_window_get_width(widget_window);
-	geom->height = gdk_window_get_height (widget_window);
+    geom->width = gdk_window_get_width(widget_window);
+    geom->height = gdk_window_get_height (widget_window);
 #else
     gdk_drawable_get_size(widget_window,
-        &geom->width,
-        &geom->height);
+                          &geom->width,
+                          &geom->height);
 #endif
     state = gdk_window_get_state(widget_window);
     geom->maximized = (state == GDK_WINDOW_STATE_MAXIMIZED);
@@ -346,33 +344,33 @@ window_get_geometry(GtkWidget *widget, window_geometry_t *geom)
 void
 window_set_geometry(GtkWidget *widget, window_geometry_t *geom)
 {
-	GdkScreen *default_screen;
-	GdkRectangle viewable_area;
-	gint monitor_num;
+    GdkScreen *default_screen;
+    GdkRectangle viewable_area;
+    gint monitor_num;
 
     /* as we now have the geometry from the recent file, set it */
     /* if the window was minimized, x and y are -32000 (at least on Win32) */
     if (geom->set_pos && geom->x != -32000 && geom->y != -32000) {
-		/* Per Wireshark bug #553, GTK has a problem on MS Windows
-		 * where the upper-left corner of the window may appear off
-		 * screen when when a single desktop spans multiple monitors
-		 * of different resolutions and positions relative to each
-		 * other.
-		 *
-		 * If the requested (x,y) position isn't within the monitor's
-		 * viewable area, change it to the viewable area's (0,0). */
+        /* Per Wireshark bug #553, GTK has a problem on MS Windows
+         * where the upper-left corner of the window may appear off
+         * screen when when a single desktop spans multiple monitors
+         * of different resolutions and positions relative to each
+         * other.
+         *
+         * If the requested (x,y) position isn't within the monitor's
+         * viewable area, change it to the viewable area's (0,0). */
 
-		default_screen = gdk_screen_get_default();
-		monitor_num = gdk_screen_get_monitor_at_point(default_screen,
-							      geom->x, geom->y);
-		gdk_screen_get_monitor_geometry(default_screen, monitor_num,
-						&viewable_area);
+        default_screen = gdk_screen_get_default();
+        monitor_num = gdk_screen_get_monitor_at_point(default_screen,
+                                                      geom->x, geom->y);
+        gdk_screen_get_monitor_geometry(default_screen, monitor_num,
+                                        &viewable_area);
 
-		if(geom->x < viewable_area.x || geom->x > viewable_area.width)
-			geom->x = viewable_area.x;
+        if(geom->x < viewable_area.x || geom->x > viewable_area.width)
+            geom->x = viewable_area.x;
 
-		if(geom->y < viewable_area.y || geom->y > viewable_area.height)
-			geom->y = viewable_area.y;
+        if(geom->y < viewable_area.y || geom->y > viewable_area.height)
+            geom->y = viewable_area.y;
 
         gtk_window_move(GTK_WINDOW(widget),
                         geom->x,
@@ -581,54 +579,28 @@ GtkWidget *pixbuf_to_widget(const char * pb_data) {
 }
 
 /*
- * Key to attach the "un-decorated" title to the window, so that if the
- * user-specified decoration changes, we can correctly update the
- * window title.
+ * Alert box for an invalid display filter expression.
+ * Assumes "dfilter_error_msg" has been set by "dfilter_compile()" to the
+ * error message for the filter.
+ *
+ * XXX - should this have a "Help" button that pops up the display filter
+ * help?
  */
-#define MAIN_WINDOW_NAME_KEY  "main_window_name"
-
-/* Set the name of the top level main_window_name with the specified string and call
-   update_main_window_title() to construct the full title and display it in the main window
-   and its icon title. */
 void
-set_main_window_name(const gchar *window_name)
+bad_dfilter_alert_box(GtkWidget *parent, const char *dftext)
 {
-    gchar *old_window_name;
+    GtkWidget *msg_dialog;
 
-    /* Attach the new un-decorated window name to the window. */
-    old_window_name = g_object_get_data(G_OBJECT(top_level), MAIN_WINDOW_NAME_KEY);
-    g_free(old_window_name);
-    g_object_set_data(G_OBJECT(top_level), MAIN_WINDOW_NAME_KEY, g_strdup(window_name));
-
-    update_main_window_title();
-}
-
-/* Construct the main window's title with the current main_window_name, optionally appended
-   with the user-specified title and/or wireshark version. Display the result in the main
-   window title bar and in its icon title.
-   NOTE: The name was changed from '_name' to '_title' because main_window_name is actually
-         set in set_main_window_name() and is only one of the components of the title. */
-void
-update_main_window_title(void)
-{
-    gchar *window_name;
-    gchar *title;
-
-    /* Get the current filename or other title set in set_main_window_name */
-    window_name = g_object_get_data(G_OBJECT(top_level), MAIN_WINDOW_NAME_KEY);
-    if (window_name != NULL) {
-        /* Optionally append the user-defined window title */
-        title = create_user_window_title(window_name);
-
-        /* Optionally append the version */
-        if (prefs.gui_version_in_start_page) {
-            gchar *old_title = title;
-            title = g_strdup_printf("%s   [Wireshark %s %s]", title, VERSION, wireshark_svnversion);
-            g_free(old_title);
-        }
-        gtk_window_set_title(GTK_WINDOW(top_level), title);
-        g_free(title);
-    }
+    msg_dialog = gtk_message_dialog_new(GTK_WINDOW(parent),
+                                        GTK_DIALOG_DESTROY_WITH_PARENT,
+                                        GTK_MESSAGE_ERROR,
+                                        GTK_BUTTONS_OK,
+            "The filter expression \"%s\" isn't a valid display filter. (%s)",
+                                        dftext, dfilter_error_msg);
+    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(msg_dialog),
+         "See the help for a description of the display filter syntax.");
+    gtk_dialog_run(GTK_DIALOG(msg_dialog));
+    gtk_widget_destroy(msg_dialog);
 }
 
 /* update the main window */
@@ -1211,7 +1183,25 @@ create_user_window_title(const gchar *caption)
     return g_strdup_printf("%s   [%s]", caption, prefs.gui_window_title);
 }
 
-/* XXX move toggle_tree over from proto_draw.c to handle GTK+ 1 */
+/*
+ * Set the title of a window based on a supplied caption and the
+ * display name for the capture file.
+ *
+ * XXX - should this include the user preference as well?
+ */
+void
+set_window_title(GtkWidget *win, const gchar *caption)
+{
+    char *title;
+    char *display_name;
+
+    display_name = cf_get_display_name(&cfile);
+    title = g_strdup_printf("%s: %s", caption, display_name);
+    g_free(display_name);
+    gtk_window_set_title(GTK_WINDOW(win), title);
+    g_free(title);
+}
+
 /*
  * This callback is invoked when keyboard focus is within either
  * the packetlist view or the detail view.  The keystrokes processed
@@ -1884,3 +1874,59 @@ gdk_pixbuf_get_from_surface  (cairo_surface_t *surface,
 }
 #endif /* !GTK_CHECK_VERSION(3,0,0) */
 #endif /* GTK_CHECK_VERSION(2,22,0) */
+
+
+GtkWidget * ws_gtk_box_new(GtkOrientation orientation, gint spacing, gboolean homogeneous)
+{
+#if !GTK_CHECK_VERSION(3,0,0)
+    if (orientation == GTK_ORIENTATION_HORIZONTAL)
+        return gtk_hbox_new(homogeneous, spacing);
+    else
+        return gtk_vbox_new(homogeneous, spacing);
+#else
+    GtkWidget *widget;
+
+    widget = gtk_box_new(orientation, spacing);
+    gtk_box_set_homogeneous(GTK_BOX(widget), homogeneous);
+
+    return widget;
+#endif /* GTK_CHECK_VERSION(3,0,0) */
+}
+
+#if !GTK_CHECK_VERSION(3,0,0)
+GtkWidget * gtk_button_box_new(GtkOrientation orientation)
+{
+    if (orientation == GTK_ORIENTATION_HORIZONTAL){
+        return gtk_hbutton_box_new();
+    }else{
+        return gtk_vbutton_box_new();
+    }
+}
+
+GtkWidget * gtk_scrollbar_new(GtkOrientation orientation, GtkAdjustment *adjustment)
+{
+    if (orientation == GTK_ORIENTATION_HORIZONTAL){
+        return gtk_hscrollbar_new(adjustment);
+    }else{
+        return gtk_vscrollbar_new(adjustment);
+    }
+}
+
+GtkWidget * gtk_paned_new(GtkOrientation orientation)
+{
+    if (orientation == GTK_ORIENTATION_HORIZONTAL){
+        return gtk_hpaned_new();
+    }else{
+        return gtk_vpaned_new();
+    }
+}
+
+GtkWidget * gtk_separator_new (GtkOrientation orientation)
+{
+    if (orientation == GTK_ORIENTATION_HORIZONTAL){
+        return gtk_hseparator_new ();
+    }else{
+        return gtk_vseparator_new ();
+    }
+}
+#endif /* GTK_CHECK_VERSION(3,0,0) */

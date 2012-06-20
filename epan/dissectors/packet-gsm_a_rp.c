@@ -36,7 +36,7 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
+#include <glib.h>
 
 #include <epan/packet.h>
 #include <epan/tap.h>
@@ -262,7 +262,7 @@ guint16 (*rp_elem_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gu
 /*
  * [5] 7.3.1.1
  */
-static void
+void
 rp_data_n_ms(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len)
 {
 	guint32	curr_offset;
@@ -425,7 +425,7 @@ rp_error_ms_n(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offse
 static gint ett_gsm_rp_msg[NUM_GSM_RP_MSG];
 static void (*rp_msg_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len) = {
 	rp_data_ms_n,	/* RP-DATA (MS to Network) */
-	rp_data_n_ms,	/* RP-DATA (Network to MS */
+	rp_data_n_ms,	/* RP-DATA (Network to MS) */
 	rp_ack_ms_n,	/* RP-ACK (MS to Network) */
 	rp_ack_n_ms,	/* RP-ACK (Network to MS) */
 	rp_error_ms_n,	/* RP-ERROR (MS to Network) */
@@ -539,7 +539,7 @@ proto_register_gsm_a_rp(void)
 	},
 	{ &hf_gsm_a_rp_elem_id,
 		{ "Element ID",	"gsm_a_rp.elem_id",
-		FT_UINT8, BASE_DEC, NULL, 0,
+		FT_UINT8, BASE_HEX, NULL, 0,
 		NULL, HFILL }
 	},
 	};

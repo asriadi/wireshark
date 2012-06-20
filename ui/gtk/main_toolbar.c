@@ -1,4 +1,4 @@
-/* toolbar.c
+/* main_toolbar.c
  * The main toolbar
  * Copyright 2003, Ulf Lamping <ulf.lamping@web.de>
  *
@@ -36,6 +36,7 @@
 #include <epan/prefs.h>
 #include <epan/dfilter/dfilter.h>
 
+#include "../cfile.h"
 #include "../color_filters.h"
 
 #include "ui/recent.h"
@@ -51,8 +52,8 @@
 #include "ui/gtk/color_dlg.h"
 #include "ui/gtk/prefs_dlg.h"
 #include "ui/gtk/main.h"
-#include "ui/gtk/menus.h"
 #include "ui/gtk/main_toolbar.h"
+#include "ui/gtk/main_toolbar_private.h"
 #include "ui/gtk/help_dlg.h"
 #include "ui/gtk/gtkglobals.h"
 #include "ui/gtk/stock_icons.h"
@@ -103,35 +104,45 @@ toolbar_redraw_all(void)
 }
 
 /* Enable or disable toolbar items based on whether you have a capture file
-   you've finished reading. */
-void set_toolbar_for_capture_file(gboolean have_capture_file, gboolean can_save_as) {
+   and, if so, whether you've finished reading it and whether there's stuff
+   in it that hasn't yet been saved to a permanent file. */
+void set_toolbar_for_capture_file(capture_file *cf) {
     if (toolbar_init) {
-	gtk_widget_set_sensitive(GTK_WIDGET(save_button), have_capture_file && can_save_as);
-        gtk_widget_set_sensitive(GTK_WIDGET(close_button), have_capture_file);
-        gtk_widget_set_sensitive(GTK_WIDGET(reload_button), have_capture_file);
-    }
-}
-
-/* Enable or disable menu items based on whether you have an unsaved
-   capture file you've finished reading. */
-void set_toolbar_for_unsaved_capture_file(gboolean have_unsaved_capture_file) {
-
-    if (toolbar_init) {
-        if(have_unsaved_capture_file) {
-            if (strcmp(gtk_tool_button_get_stock_id(GTK_TOOL_BUTTON(save_button)), GTK_STOCK_SAVE) != 0) {
-                gtk_tool_button_set_stock_id(GTK_TOOL_BUTTON(save_button), GTK_STOCK_SAVE);
-                gtk_widget_set_tooltip_text(GTK_WIDGET(save_button),SAVE_BUTTON_TOOLTIP_TEXT);
-                g_object_set_data(G_OBJECT(save_button), "save", GINT_TO_POINTER(1));
-            }
-        } else {
+        if (cf == NULL || cf->state == FILE_READ_IN_PROGRESS) {
+            /* We have no open capture file, or we have one but we're in
+               the process of reading it.  Disable everything having to
+               do with the file*/
             if (strcmp(gtk_tool_button_get_stock_id(GTK_TOOL_BUTTON(save_button)), GTK_STOCK_SAVE_AS) != 0) {
                 gtk_tool_button_set_stock_id(GTK_TOOL_BUTTON(save_button), GTK_STOCK_SAVE_AS);
                 gtk_widget_set_tooltip_text(GTK_WIDGET(save_button), SAVE_AS_BUTTON_TOOLTIP_TEXT);
                 g_object_set_data(G_OBJECT(save_button), "save", GINT_TO_POINTER(0));
             }
+            gtk_widget_set_sensitive(GTK_WIDGET(save_button), FALSE);
+            gtk_widget_set_sensitive(GTK_WIDGET(close_button), FALSE);
+            gtk_widget_set_sensitive(GTK_WIDGET(reload_button), FALSE);
+        } else {
+            /* We have an open capture file and we're finished reading it.
+               Enable "Save As", "Close", and "Reload"; enable "Save" iff
+               it has stuff not saved to a permanent file (and we support
+               saving in its format). */
+            if (cf->is_tempfile || cf->unsaved_changes) {
+                if (strcmp(gtk_tool_button_get_stock_id(GTK_TOOL_BUTTON(save_button)), GTK_STOCK_SAVE) != 0) {
+                    gtk_tool_button_set_stock_id(GTK_TOOL_BUTTON(save_button), GTK_STOCK_SAVE);
+                    gtk_widget_set_tooltip_text(GTK_WIDGET(save_button),SAVE_BUTTON_TOOLTIP_TEXT);
+                    g_object_set_data(G_OBJECT(save_button), "save", GINT_TO_POINTER(1));
+                }
+            } else {
+                if (strcmp(gtk_tool_button_get_stock_id(GTK_TOOL_BUTTON(save_button)), GTK_STOCK_SAVE_AS) != 0) {
+                    gtk_tool_button_set_stock_id(GTK_TOOL_BUTTON(save_button), GTK_STOCK_SAVE_AS);
+                    gtk_widget_set_tooltip_text(GTK_WIDGET(save_button), SAVE_AS_BUTTON_TOOLTIP_TEXT);
+                    g_object_set_data(G_OBJECT(save_button), "save", GINT_TO_POINTER(0));
+                }
+            }
+            gtk_widget_set_sensitive(GTK_WIDGET(save_button),
+                                     (cf->is_tempfile || cf->unsaved_changes) && cf_can_save_as(cf));
+            gtk_widget_set_sensitive(GTK_WIDGET(close_button), TRUE);
+            gtk_widget_set_sensitive(GTK_WIDGET(reload_button), TRUE);
         }
-        /*gtk_widget_set_sensitive((GTK_WIDGET(save_button), have_unsaved_capture_file);
-        gtk_widget_set_sensitive(GTK_WIDGET(save_as_button), !have_unsaved_capture_file);*/
     }
 }
 
@@ -177,6 +188,24 @@ void set_toolbar_for_capture_in_progress(gboolean capture_in_progress) {
         }*/
 #endif /* HAVE_LIBPCAP */
         gtk_widget_set_sensitive(GTK_WIDGET(open_button), !capture_in_progress);
+    }
+}
+
+/* set toolbar state "stopping a capture" */
+void set_toolbar_for_capture_stopping(void) {
+
+    if (toolbar_init) {
+#ifdef HAVE_LIBPCAP
+        gtk_widget_set_sensitive(GTK_WIDGET(stop_button), FALSE);
+        gtk_widget_set_sensitive(GTK_WIDGET(clear_button), FALSE);
+        /*if (capture_in_progress) {
+            gtk_widget_hide(GTK_WIDGET(new_button));
+            gtk_widget_show(GTK_WIDGET(stop_button));
+        } else {
+            gtk_widget_show(GTK_WIDGET(new_button));
+            gtk_widget_hide(GTK_WIDGET(stop_button));
+        }*/
+#endif /* HAVE_LIBPCAP */
     }
 }
 
@@ -246,7 +275,7 @@ static void toolbar_append_separator(GtkWidget *toolbar) {
 
 static void
 colorize_toggle_cb(GtkWidget *toggle_button, gpointer user_data _U_)  {
-    menu_colorize_changed(TOGGLE_BUTTON_GET_ACTIVE(TOGGLE_BUTTON(toggle_button)));
+    main_colorize_changed(TOGGLE_BUTTON_GET_ACTIVE(TOGGLE_BUTTON(toggle_button)));
 }
 
 void
@@ -259,7 +288,7 @@ toolbar_colorize_changed(gboolean packet_list_colorize) {
 #ifdef HAVE_LIBPCAP
 static void
 auto_scroll_live_toggle_cb(GtkWidget *autoscroll_button_lcl, gpointer user_data _U_) {
-    menu_auto_scroll_live_changed(TOGGLE_BUTTON_GET_ACTIVE(TOGGLE_BUTTON(autoscroll_button_lcl)));
+    main_auto_scroll_live_changed(TOGGLE_BUTTON_GET_ACTIVE(TOGGLE_BUTTON(autoscroll_button_lcl)));
 }
 
 void
@@ -408,9 +437,8 @@ toolbar_new(void)
 
     /* disable all "sensitive" items by default */
     toolbar_init = TRUE;
-    set_toolbar_for_unsaved_capture_file(FALSE);
     set_toolbar_for_captured_packets(FALSE);
-    set_toolbar_for_capture_file(FALSE, FALSE);
+    set_toolbar_for_capture_file(NULL);
 #ifdef HAVE_LIBPCAP
     set_toolbar_for_capture_in_progress(FALSE);
 #endif /* HAVE_LIBPCAP */

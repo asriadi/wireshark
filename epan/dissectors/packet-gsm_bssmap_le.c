@@ -30,7 +30,7 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
+#include <glib.h>
 
 #include <epan/packet.h>
 #include <epan/tap.h>
@@ -318,16 +318,16 @@ de_bmaple_decihp_keys(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, g
 	/* Extract the Ciphering Key Flag and add to protocol tree */
 	proto_tree_add_bits_item(tree, hf_gsm_bssmap_le_ciphering_key_flag, tvb, bit_offset, 1, ENC_BIG_ENDIAN);
 	bit_offset++;
-	offset++;
+	/*offset++;*/
 
 	/* Extract the Current Deciphering Key Value and add to protocol tree */
 	proto_tree_add_bits_item(tree, hf_gsm_bssmap_le_current_deciphering_key_value, tvb, bit_offset, 56, ENC_NA);
 	bit_offset += 56;
-	offset += 7;
+	/*offset += 7;*/
 
 	/* Extract the Next Deciphering Key Value and add to protocol tree */
 	proto_tree_add_bits_item(tree, hf_gsm_bssmap_le_next_deciphering_key_value, tvb, bit_offset, 56, ENC_NA);
-	offset += 7;
+	/*offset += 7;*/
 
 	return(len);
 }
@@ -481,7 +481,7 @@ de_bmaple_client(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint3
 
 	/* Extract the client subtype and add to protocol tree */
 	proto_tree_add_bits_item(tree, hf_gsm_bssmap_le_client_subtype, tvb, bitCount, 4, ENC_BIG_ENDIAN);
-	bitCount = bitCount + 4;
+	/*bitCount = bitCount + 4;*/
 	curr_offset++;
 
 	return(curr_offset - offset);
@@ -543,7 +543,7 @@ de_bmaple_lcs_qos(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
 	}
 
 	proto_tree_add_bits_item(tree, hf_gsm_bssmap_le_response_time_category, tvb, bitCount, 2, ENC_BIG_ENDIAN);
-	bitCount = bitCount + 2;
+	/*bitCount = bitCount + 2;*/
 
 	return(len);
 }
@@ -1024,7 +1024,7 @@ proto_register_gsm_bssmap_le(void)
 		},
 		{ &hf_gsm_bssmap_le_elem_id,
 		  { "Element ID",	"bssmap_le.elem_id",
-		    FT_UINT8, BASE_DEC, NULL, 0,
+		    FT_UINT8, BASE_HEX, NULL, 0,
 		    NULL, HFILL }
 		},
 		{ &hf_gsm_bssmap_le_apdu_protocol_id,

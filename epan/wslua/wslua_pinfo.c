@@ -982,12 +982,13 @@ static int Pinfo_tostring(lua_State *L) { lua_pushstring(L,"a Pinfo"); return 1;
 
 #define PINFO_GET_ADDRESS(name,role) static int name(lua_State *L) { \
     Pinfo pinfo = checkPinfo(L,1); \
-    Address addr = g_malloc(sizeof(address)); \
+    Address addr; \
     if (!pinfo) return 0; \
     if (pinfo->expired) { \
         luaL_error(L,"expired_pinfo"); \
         return 0; \
     } \
+    addr = g_new(address,1); \
     COPY_ADDRESS(addr, &(pinfo->ws_pinfo->role)); \
     pushAddress(L,addr); \
     return 1; \
@@ -1221,7 +1222,7 @@ typedef struct _pinfo_method_t {
 
 static int Pinfo_hi(lua_State *L) {
     Pinfo pinfo = checkPinfo(L,1);
-    Address addr = g_malloc(sizeof(address));
+    Address addr;
 
     if (!pinfo) return 0;
     if (pinfo->expired) {
@@ -1229,6 +1230,7 @@ static int Pinfo_hi(lua_State *L) {
         return 0;
     }
 
+    addr = g_malloc(sizeof(address));
     if (CMP_ADDRESS(&(pinfo->ws_pinfo->src), &(pinfo->ws_pinfo->dst) ) >= 0) {
         COPY_ADDRESS(addr, &(pinfo->ws_pinfo->src));
     } else {
@@ -1241,7 +1243,7 @@ static int Pinfo_hi(lua_State *L) {
 
 static int Pinfo_lo(lua_State *L) {
     Pinfo pinfo = checkPinfo(L,1);
-    Address addr = g_malloc(sizeof(address));
+    Address addr;
 
     if (!pinfo) return 0;
     if (pinfo->expired) {
@@ -1249,6 +1251,7 @@ static int Pinfo_lo(lua_State *L) {
         return 0;
     }
 
+    addr = g_malloc(sizeof(address));
     if (CMP_ADDRESS(&(pinfo->ws_pinfo->src), &(pinfo->ws_pinfo->dst) ) < 0) {
         COPY_ADDRESS(addr, &(pinfo->ws_pinfo->src));
     } else {

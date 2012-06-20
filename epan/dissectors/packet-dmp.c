@@ -547,7 +547,7 @@ static guint    dmp_struct_length = 1;
 
 typedef struct _dmp_security_class_t {
   guint nation;
-  guint dmp_class;
+  guint sec_class;
   char *name;
 } dmp_security_class_t;
 
@@ -1003,9 +1003,9 @@ static const value_string thales_ipm_id_modifier[] = {
   { 0, NULL }
 };
 
-UAT_VS_DEF(dmp_security_class, nation, dmp_security_class_t, 0, "None");
-UAT_DEC_CB_DEF(dmp_security_class, dmp_class, dmp_security_class_t);
-UAT_CSTRING_CB_DEF(dmp_security_class, name, dmp_security_class_t);
+UAT_VS_DEF(dmp_security_class, nation, dmp_security_class_t, 0, "None")
+UAT_DEC_CB_DEF(dmp_security_class, sec_class, dmp_security_class_t)
+UAT_CSTRING_CB_DEF(dmp_security_class, name, dmp_security_class_t)
 
 static void *
 dmp_class_copy_cb(void *dest, const void *orig, size_t len _U_)
@@ -1014,7 +1014,7 @@ dmp_class_copy_cb(void *dest, const void *orig, size_t len _U_)
   const dmp_security_class_t *o = (const dmp_security_class_t *)orig;
 
   u->nation = o->nation;
-  u->dmp_class = o->dmp_class;
+  u->sec_class = o->sec_class;
   u->name = g_strdup(o->name);
 
   return dest;
@@ -1035,7 +1035,7 @@ static gchar *dmp_national_sec_class (guint nation, guint dmp_sec_class)
   for (i = 0; i < num_dmp_security_classes; i++) {
     dmp_security_class_t *u = &(dmp_security_classes[i]);
 
-    if (u->nation == nation && u->dmp_class == dmp_sec_class) {
+    if (u->nation == nation && u->sec_class == dmp_sec_class) {
       return u->name;
     }
   }
@@ -4289,10 +4289,10 @@ void proto_register_dmp (void)
       { "Reporting Name Number", "dmp.reporting_name", FT_NONE,
         BASE_NONE, NULL, 0x0, "Reporting Name", HFILL } },
     { &hf_addr_dl_expanded,
-      { "DL Expanded", "dmp.dl_expanded", FT_BOOLEAN, 8,
+      { "DL Expanded", "dmp.dl_expanded", FT_BOOLEAN, BASE_NONE,
         NULL, 0x0, "Message has been DL expanded", HFILL } },
     { &hf_addr_int_rec,
-      { "Intended Recipient", "dmp.int_rec", FT_BOOLEAN, 8,
+      { "Intended Recipient", "dmp.int_rec", FT_BOOLEAN, BASE_NONE,
         NULL, 0x0, "Message has an intended recipient", HFILL } },
 
     /*
@@ -4964,7 +4964,7 @@ void proto_register_dmp (void)
 
   static uat_field_t attributes_flds[] = {
     UAT_FLD_VS(dmp_security_class,nation, "Nation", nat_pol_id, 0),
-    UAT_FLD_DEC(dmp_security_class,dmp_class, "Classification", "Security Classification"),
+    UAT_FLD_DEC(dmp_security_class,sec_class, "Classification", "Security Classification"),
     UAT_FLD_CSTRING(dmp_security_class,name, "Name", "Classification Name"),
     UAT_END_FIELDS
   };

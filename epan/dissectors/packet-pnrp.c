@@ -685,7 +685,7 @@ static int dissect_pnrp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
                         /* Entry Length: Must be 0x0002 */
                         proto_tree_add_item(pnrp_message_tree, hf_pnrp_message_classifier_entryLength, tvb, offset + 10, 2, ENC_BIG_ENDIAN);
                         /* The actual classifier String */
-                        proto_tree_add_text(pnrp_message_tree, tvb, offset + 12, tvb_get_ntohs(tvb,offset+6)-8, "Classifier: %s",tvb_get_ephemeral_unicode_string(tvb, offset + 12, (tvb_get_ntohs(tvb,offset+6)-8)/2, ENC_BIG_ENDIAN));
+                        proto_tree_add_text(pnrp_message_tree, tvb, offset + 12, tvb_get_ntohs(tvb,offset+6)-8, "Classifier: %s",tvb_get_ephemeral_unicode_string(tvb, offset + 12, tvb_get_ntohs(tvb,offset+6)-8, ENC_BIG_ENDIAN));
                     }
 
                     /* There might be padding, so fill up to the next byte */
@@ -1155,10 +1155,10 @@ void proto_register_pnrp(void)
                 NULL, HFILL }},
         /* Ack Flags */
         { &hf_pnrp_message_ack_flags_reserved,
-            { "Reserved", "pnrp.segment.ack.flags.reserved", FT_BOOLEAN, BASE_DEC, NULL, 0x0,
+            { "Reserved", "pnrp.segment.ack.flags.reserved", FT_BOOLEAN, BASE_NONE, NULL, 0x0,
                 NULL, HFILL }},
         { &hf_pnrp_message_ack_flags_Nbit,
-            { "(N)ot found Bit", "pnrp.segment.ack.flags.Nbit", FT_BOOLEAN, BASE_DEC, NULL, 0x0,
+            { "(N)ot found Bit", "pnrp.segment.ack.flags.Nbit", FT_BOOLEAN, BASE_NONE, NULL, 0x0,
                 NULL, HFILL }},
         /* Authority Flags */
         { &hf_pnrp_message_authority_flags,
@@ -1184,10 +1184,10 @@ void proto_register_pnrp(void)
                 NULL, HFILL }},
         /* Flood Control Flags */
         { &hf_pnrp_message_flood_flags_reserved1,
-            { "Reserved", "pnrp.segment.flood.flags.reserved", FT_BOOLEAN, BASE_DEC, NULL, 0x0,
+            { "Reserved", "pnrp.segment.flood.flags.reserved", FT_BOOLEAN, BASE_NONE, NULL, 0x0,
                 NULL, HFILL }},
         { &hf_pnrp_message_flood_flags_Dbit,
-            { "(D)on't send ACK", "pnrp.segment.flood.flags.Dbit", FT_BOOLEAN, BASE_DEC, NULL, 0x0,
+            { "(D)on't send ACK", "pnrp.segment.flood.flags.Dbit", FT_BOOLEAN, BASE_NONE, NULL, 0x0,
                 NULL, HFILL }},
         /* Split Controls */
         { &hf_pnrp_message_splitControls_authorityBuffer,
@@ -1249,7 +1249,7 @@ void proto_register_pnrp(void)
             { "Service Location", "pnrp.encodedCPA.serviceLocation", FT_BYTES,BASE_NONE, NULL, 0x0,
                 NULL, HFILL }},
         { &hf_pnrp_encodedCPA_binaryAuthority,
-            { "Binary Authoriy", "pnrp.encodedCPA.binaryAuthority", FT_BYTES,BASE_NONE, NULL, 0x0,
+            { "Binary Authority", "pnrp.encodedCPA.binaryAuthority", FT_BYTES,BASE_NONE, NULL, 0x0,
                 "SHA-1 Hash of PublicKey Data field", HFILL }},
         { &hf_pnrp_encodedCPA_classifiertHash,
             { "Classifiert Hash", "pnrp.encodedCPA.classifierHash", FT_BYTES,BASE_NONE, NULL, 0x0,

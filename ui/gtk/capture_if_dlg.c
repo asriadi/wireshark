@@ -32,11 +32,6 @@
 
 #include <string.h>
 
-#ifdef __linux__
-#include <sys/types.h>
-#include <sys/stat.h>
-#endif
-
 #include <epan/prefs.h>
 
 #include "../capture_ifinfo.h"
@@ -68,7 +63,6 @@
 #include "ui/gtk/network_icons.h"
 #include "ui/gtk/pipe_icon.h"
 #include "ui/gtk/main_welcome.h"
-#include "ui/gtk/menus.h"
 
 #include "ui/gtk/old-gtk-compat.h"
 
@@ -139,6 +133,7 @@ typedef struct if_dlg_data_s {
 #ifdef _WIN32
     GtkWidget   *details_bt;
 #endif
+    gboolean    hidden;
 } if_dlg_data_t;
 
 static gboolean gbl_capture_in_progress = FALSE;
@@ -156,6 +151,7 @@ add_interface(void)
 #ifdef _WIN32
   data.details_bt = NULL;
 #endif
+  data.hidden     = FALSE;
   g_array_append_val(gtk_list, data);
   refresh_if_window();
 }
@@ -215,17 +211,16 @@ store_selected(GtkWidget *choose_bt, gpointer name)
 
 /* start capture button was pressed */
 static void
-#ifdef HAVE_AIRPCAP
-capture_do_cb(GtkWidget *capture_bt _U_, gpointer if_data)
-#else
 capture_do_cb(GtkWidget *capture_bt _U_, gpointer if_data _U_)
-#endif
 {
   if_dlg_data_t data;
   guint ifs;
 
   for (ifs = 0; ifs < gtk_list->len; ifs++) {
     data = g_array_index(gtk_list, if_dlg_data_t, ifs);
+    if (data.hidden) {
+      continue;
+    }
     gtk_widget_set_sensitive(data.choose_bt, FALSE);
     gtk_list = g_array_remove_index(gtk_list, ifs);
     g_array_insert_val(gtk_list, ifs, data);
@@ -368,6 +363,15 @@ set_capture_if_dialog_for_capture_in_progress(gboolean capture_in_progress)
   }
 }
 
+/* a live capture is being stopped */
+void
+set_capture_if_dialog_for_capture_stopping(void)
+{
+  if (cap_if_w) {
+    gtk_widget_set_sensitive(stop_bt, FALSE);
+  }
+}
+
 
 /* the window was closed, cleanup things */
 static void
@@ -382,7 +386,8 @@ capture_if_destroy_cb(GtkWidget *win _U_, gpointer user_data _U_)
   /* Note that we no longer have a "Capture Options" dialog box. */
   cap_if_w = NULL;
 #ifdef HAVE_AIRPCAP
-  airpcap_set_toolbar_stop_capture(airpcap_if_active);
+  if (airpcap_if_active)
+    airpcap_set_toolbar_stop_capture(airpcap_if_active);
 #endif
 }
 
@@ -418,7 +423,7 @@ GtkWidget * capture_get_if_icon(interface_t *device)
   case IF_DIALUP:
     return xpm_to_widget(modem_16_xpm);
 #endif
-  case IF_WIRELESS: 
+  case IF_WIRELESS:
     return pixbuf_to_widget(network_wireless_pb_data);
 #ifdef HAVE_AIRPCAP
   case IF_AIRPCAP:
@@ -573,6 +578,9 @@ capture_if_stop_cb(GtkWidget *w _U_, gpointer d _U_)
 
   for (ifs = 0; ifs < gtk_list->len; ifs++) {
     data = g_array_index(gtk_list, if_dlg_data_t, ifs);
+    if (data.hidden) {
+      continue;
+    }
     gtk_widget_set_sensitive(data.choose_bt, TRUE);
     gtk_list = g_array_remove_index(gtk_list, ifs);
     g_array_insert_val(gtk_list, ifs, data);
@@ -598,6 +606,7 @@ make_gtk_array(void)
 #ifdef _WIN32
      data.details_bt = NULL;
 #endif
+     data.hidden     = FALSE;
      g_array_append_val(gtk_list, data);
   }
 }
@@ -606,8 +615,9 @@ make_gtk_array(void)
 void
 capture_if_cb(GtkWidget *w _U_, gpointer d _U_)
 {
-  GtkWidget         *main_vb,
-                    *main_sw,
+  GtkWidget         *top_vb,
+                    *if_vb,
+                    *if_sw,
                     *bbox,
                     *close_bt,
                     *help_bt;
@@ -633,7 +643,7 @@ capture_if_cb(GtkWidget *w _U_, gpointer d _U_)
     reactivate_window(cap_if_w);
     return;
   }
-  
+
   if (global_capture_opts.all_ifaces->len == 0) {
     simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                   "There are no interfaces on which a capture can be done.");
@@ -654,40 +664,44 @@ capture_if_cb(GtkWidget *w _U_, gpointer d _U_)
 #ifdef HAVE_AIRPCAP
   /* LOAD AIRPCAP INTERFACES */
 
-  decryption_cb = g_object_get_data(G_OBJECT(airpcap_tb),AIRPCAP_TOOLBAR_DECRYPTION_KEY);
+  decryption_cb = g_object_get_data(G_OBJECT(wireless_tb),AIRPCAP_TOOLBAR_DECRYPTION_KEY);
   update_decryption_mode_list(decryption_cb);
 
   /* If no airpcap interface is present, gray everything */
   if (airpcap_if_active == NULL) {
     if (airpcap_if_list == NULL) {
       /*No airpcap device found */
-      airpcap_enable_toolbar_widgets(airpcap_tb,FALSE);
+      airpcap_enable_toolbar_widgets(wireless_tb,FALSE);
     } else {
       /* default adapter is not airpcap... or is airpcap but is not found*/
-      airpcap_set_toolbar_stop_capture(airpcap_if_active);
-      airpcap_enable_toolbar_widgets(airpcap_tb,FALSE);
+      if (airpcap_if_active)
+        airpcap_set_toolbar_stop_capture(airpcap_if_active);
+      airpcap_enable_toolbar_widgets(wireless_tb,FALSE);
     }
   }
-
-  airpcap_set_toolbar_start_capture(airpcap_if_active);
+  if (airpcap_if_active)
+    airpcap_set_toolbar_start_capture(airpcap_if_active);
 #endif
 
   make_gtk_array();
   cap_if_w = dlg_window_new("Wireshark: Capture Interfaces");  /* transient_for top_level */
   gtk_window_set_destroy_with_parent (GTK_WINDOW(cap_if_w), TRUE);
 
-  main_sw = gtk_scrolled_window_new(NULL, NULL);
-  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(main_sw), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-  gtk_container_add(GTK_CONTAINER(cap_if_w), main_sw);
+  top_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
+  gtk_container_add(GTK_CONTAINER(cap_if_w), top_vb);
 
-  main_vb = gtk_vbox_new(FALSE, 0);
-  gtk_container_set_border_width(GTK_CONTAINER(main_vb), 5);
-  gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(main_sw), main_vb);
+  if_sw = gtk_scrolled_window_new(NULL, NULL);
+  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(if_sw), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+  gtk_box_pack_start(GTK_BOX(top_vb), if_sw, TRUE, TRUE, 0);
+
+  if_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
+  gtk_container_set_border_width(GTK_CONTAINER(if_vb), 5);
+  gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(if_sw), if_vb);
 
   if_tb = gtk_table_new(1,9, FALSE);
   gtk_table_set_row_spacings(GTK_TABLE(if_tb), 3);
   gtk_table_set_col_spacings(GTK_TABLE(if_tb), 3);
-  gtk_box_pack_start(GTK_BOX(main_vb), if_tb, FALSE, FALSE, 0);
+  gtk_box_pack_start(GTK_BOX(if_vb), if_tb, FALSE, FALSE, 0);
 
   row = 0;
   height = 0;
@@ -729,6 +743,9 @@ capture_if_cb(GtkWidget *w _U_, gpointer d _U_)
     g_string_assign(if_tool_str, "");
     /* Continue if capture device is hidden */
     if (device.hidden) {
+      data.hidden = TRUE;
+      gtk_list = g_array_remove_index(gtk_list, ifs);
+      g_array_insert_val(gtk_list, ifs, data);
       continue;
     }
     data.choose_bt = gtk_check_button_new();
@@ -818,13 +835,13 @@ capture_if_cb(GtkWidget *w _U_, gpointer d _U_)
 #endif
     gtk_list = g_array_remove_index(gtk_list, ifs);
     g_array_insert_val(gtk_list, ifs, data);
-    
+
     row++;
-    if (row <= 10) {
-        /* Lets add up 10 rows of interfaces, otherwise the window may become too high */
+    if (row <= 20) {
+        /* Lets add up 20 rows of interfaces, otherwise the window may become too high */
       gtk_widget_get_preferred_size(GTK_WIDGET(data.choose_bt), &requisition, NULL);
       height += requisition.height;
-    } 
+    }
   }
 
   g_string_free(if_tool_str, TRUE);
@@ -832,7 +849,7 @@ capture_if_cb(GtkWidget *w _U_, gpointer d _U_)
   /* Button row: close, help, stop, start, and options button */
   bbox = dlg_button_row_new(GTK_STOCK_HELP, WIRESHARK_STOCK_CAPTURE_START, WIRESHARK_STOCK_CAPTURE_OPTIONS, WIRESHARK_STOCK_CAPTURE_STOP, GTK_STOCK_CLOSE, NULL);
 
-  gtk_box_pack_start(GTK_BOX(main_vb), bbox, FALSE, FALSE, 5);
+  gtk_box_pack_end(GTK_BOX(top_vb), bbox, FALSE, FALSE, 5);
   help_bt = (GtkWidget *)g_object_get_data(G_OBJECT(bbox), GTK_STOCK_HELP);
   g_signal_connect(help_bt, "clicked", G_CALLBACK(topic_cb), (gpointer)(HELP_CAPTURE_INTERFACES_DIALOG));
 
@@ -842,9 +859,9 @@ capture_if_cb(GtkWidget *w _U_, gpointer d _U_)
   window_set_cancel_button(cap_if_w, close_bt, window_cancel_button_cb);
   gtk_widget_set_tooltip_text(close_bt, "Close this window.");
   options_bt = (GtkWidget *)g_object_get_data(G_OBJECT(bbox), WIRESHARK_STOCK_CAPTURE_OPTIONS);
-  g_signal_connect(options_bt, "clicked", G_CALLBACK(capture_prepare_cb), device.name);
+  g_signal_connect(options_bt, "clicked", G_CALLBACK(capture_prepare_cb), NULL);
   capture_bt = (GtkWidget *)g_object_get_data(G_OBJECT(bbox), WIRESHARK_STOCK_CAPTURE_START);
-  g_signal_connect(capture_bt, "clicked", G_CALLBACK(capture_do_cb), device.name);
+  g_signal_connect(capture_bt, "clicked", G_CALLBACK(capture_do_cb), NULL);
   gtk_widget_get_preferred_size(GTK_WIDGET(close_bt), &requisition, NULL);
   /* height + static offset + what the GTK MS Windows Engine needs in addition per interface */
   height += requisition.height + 40 + ifs;

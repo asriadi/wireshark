@@ -85,6 +85,19 @@ extern gboolean file_selection_set_current_folder(GtkWidget *fs, const gchar *fi
  */
 extern void file_selection_set_extra_widget(GtkWidget *fs, GtkWidget *extra);
 
+#ifndef _WIN32
+/** If the specified file doesn't exist, return TRUE.
+ *  If it exists and is neither user-immutable nor not writable, return
+ *  TRUE.
+ *  Otherwise, as the user whether they want to overwrite it anyway, and
+ *  return TRUE if the file should be overwritten and FALSE otherwise.
+ *
+ * @param chooser_w the GtkFileChooser used to select the file in question
+ * @param cf_name the current name chosen
+ */
+extern gboolean file_target_unwritable_ui(GtkWidget *chooser_w, char *cf_name);
+#endif
+
 /** The function file_selection_browse() will g_object_set_data() itself on it's parent window.
  *  When destroying the parent window, it can close the corresponding file selection. */
 #define E_FILE_SEL_DIALOG_PTR_KEY "file_sel_dialog_ptr"

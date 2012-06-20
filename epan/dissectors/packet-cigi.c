@@ -33,8 +33,6 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
-
 #include <glib.h>
 
 #include <epan/packet.h>
@@ -2977,7 +2975,7 @@ cigi2_add_tree(tvbuff_t *tvb, proto_tree *cigi_tree)
         }
 
         /* Does the packet offset match the supposed length of the packet? */
-        DISSECTOR_ASSERT((offset - init_offset == packet_length) && "Packet offset does not match packet length");
+        DISSECTOR_ASSERT_HINT(offset - init_offset == packet_length, "Packet offset does not match packet length");
     }
 }
 
@@ -3371,7 +3369,7 @@ cigi3_add_tree(tvbuff_t *tvb, proto_tree *cigi_tree)
         }
 
         /* Does the packet offset match the supposed length of the packet? */
-        DISSECTOR_ASSERT((offset - init_offset == packet_length) && "Packet offset does not match packet length");
+        DISSECTOR_ASSERT_HINT(offset - init_offset == packet_length, "Packet offset does not match packet length");
     }
 }
 
@@ -5411,7 +5409,7 @@ cigi3_add_environmental_conditions_request(tvbuff_t *tvb, proto_tree *tree, gint
     offset++;
 
     proto_tree_add_item(tree, hf_cigi3_environmental_conditions_request_id, tvb, offset, 1, cigi_byte_order);
-    offset += 5;;
+    offset += 5;
 
     proto_tree_add_item(tree, hf_cigi3_environmental_conditions_request_lat, tvb, offset, 8, cigi_byte_order);
     offset += 8;
@@ -5591,7 +5589,7 @@ cigi3_3_add_symbol_line_definition(tvbuff_t *tvb, proto_tree *tree, gint offset)
     proto_tree_add_item(tree, hf_cigi3_3_symbol_line_definition_stipple_pattern, tvb, offset, 2, cigi_byte_order);
     offset += 2;
 
-    proto_tree_add_item(tree, hf_cigi3_3_symbol_line_definition_line_width, tvb, offset, 4, cigi_byte_order);;
+    proto_tree_add_item(tree, hf_cigi3_3_symbol_line_definition_line_width, tvb, offset, 4, cigi_byte_order);
     offset += 4;
 
     proto_tree_add_item(tree, hf_cigi3_3_symbol_line_definition_stipple_pattern_length, tvb, offset, 4, cigi_byte_order);
@@ -10599,7 +10597,7 @@ proto_register_cigi(void)
                 "Specifies whether the symbol should be hidden, visible, or destroyed", HFILL }
         },
         { &hf_cigi3_3_short_symbol_control_attach_state,
-            { "Atach State", "cigi.short_symbol_control.attach_state",
+            { "Attach State", "cigi.short_symbol_control.attach_state",
                 FT_BOOLEAN, 8, TFS(&cigi3_3_symbol_control_attach_state_tfs), 0x04,
                 "Specifies whether this symbol should be attached to another", HFILL }
         },

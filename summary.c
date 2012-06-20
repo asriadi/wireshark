@@ -26,9 +26,7 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
+#include <wiretap/pcap-encap.h>
 
 #include <epan/packet.h>
 #include "cfile.h"
@@ -109,10 +107,14 @@ tally_frame_data(frame_data *cur_frame, summary_tally *sum_tally)
 void
 summary_fill_in(capture_file *cf, summary_tally *st)
 {
-
   frame_data    *first_frame, *cur_frame;
   guint32        framenum;
   wtapng_section_t* shb_inf;
+  iface_options iface;
+  guint i;
+  wtapng_iface_descriptions_t* idb_info;
+  wtapng_if_descr_t wtapng_if_descr;
+  wtapng_if_stats_t *if_stats;
 
   st->packet_count_ts = 0;
   st->start_time = 0;
@@ -145,8 +147,10 @@ summary_fill_in(capture_file *cf, summary_tally *st)
   st->filename = cf->filename;
   st->file_length = cf->f_datalen;
   st->file_type = cf->cd_t;
+  st->iscompressed = cf->iscompressed;
   st->is_tempfile = cf->is_tempfile;
-  st->encap_type = cf->lnk_t;
+  st->file_encap_type = cf->lnk_t;
+  st->packet_encap_types = cf->linktypes;
   st->has_snap = cf->has_snap;
   st->snap = cf->snap;
   st->elapsed_time = nstime_to_sec(&cf->elapsed_time);
@@ -157,24 +161,42 @@ summary_fill_in(capture_file *cf, summary_tally *st)
 
   /* Get info from SHB */
   shb_inf = wtap_file_get_shb_info(cf->wth);
-
-  shb_inf = wtap_file_get_shb_info(cf->wth);
   if(shb_inf == NULL){
-	  st->opt_comment    = NULL;
-	  st->shb_hardware   = NULL;
-	  st->shb_os         = NULL;
-	  st->shb_user_appl  = NULL;
+    st->opt_comment    = NULL;
+    st->shb_hardware   = NULL;
+    st->shb_os         = NULL;
+    st->shb_user_appl  = NULL;
   }else{
-	  st->opt_comment    = shb_inf->opt_comment;
-	  st->shb_hardware   = shb_inf->shb_hardware;
-	  st->shb_os         = shb_inf->shb_os;
-	  st->shb_user_appl  = shb_inf->shb_user_appl;
-	  g_free(shb_inf);
+    st->opt_comment    = shb_inf->opt_comment;
+    st->shb_hardware   = shb_inf->shb_hardware;
+    st->shb_os         = shb_inf->shb_os;
+    st->shb_user_appl  = shb_inf->shb_user_appl;
+    g_free(shb_inf);
   }
 
   st->ifaces  = g_array_new(FALSE, FALSE, sizeof(iface_options));
+  idb_info = wtap_file_get_idb_info(cf->wth);
+  for (i = 0; i < idb_info->number_of_interfaces; i++) {
+    wtapng_if_descr = g_array_index(idb_info->interface_data, wtapng_if_descr_t, i);
+    iface.cfilter = g_strdup(wtapng_if_descr.if_filter_str);
+    iface.name = g_strdup(wtapng_if_descr.if_name);
+    iface.descr = g_strdup(wtapng_if_descr.if_description);
+    iface.drops_known = FALSE;
+    iface.drops = 0;
+    iface.snap = wtapng_if_descr.snap_len;
+    iface.has_snap = (iface.snap != 65535);
+    iface.encap_type = wtapng_if_descr.wtap_encap;
+    if(wtapng_if_descr.num_stat_entries == 1){
+      /* dumpcap only writes one ISB, only handle that for now */
+      if_stats = &g_array_index(wtapng_if_descr.interface_statistics, wtapng_if_stats_t, 0);
+      iface.drops_known = TRUE;
+      iface.drops = if_stats->isb_ifdrop;
+      iface.isb_comment = if_stats->opt_comment;
+    }
+    g_array_append_val(st->ifaces, iface);
+  }
+  g_free(idb_info);
 }
-
 
 #ifdef HAVE_LIBPCAP
 void
@@ -183,17 +205,11 @@ summary_fill_in_capture(capture_file *cf,capture_options *capture_opts, summary_
   iface_options iface;
   interface_t device;
   guint i;
-  wtapng_iface_descriptions_t* idb_info;
-  wtapng_if_descr_t wtapng_if_descr;
 
-  while (st->ifaces->len > 0) {
-    iface = g_array_index(st->ifaces, iface_options, 0);
-    st->ifaces = g_array_remove_index(st->ifaces, 0);
-    g_free(iface.name);
-    g_free(iface.descr);
-    g_free(iface.cfilter);
-  }
-  if (st->is_tempfile) {
+  if (st->ifaces->len == 0) {
+    /*
+     * XXX - do this only if we have a live capture.
+     */
     for (i = 0; i < capture_opts->all_ifaces->len; i++) {
       device = g_array_index(capture_opts->all_ifaces, interface_t, i);
       if (!device.selected) {
@@ -206,33 +222,9 @@ summary_fill_in_capture(capture_file *cf,capture_options *capture_opts, summary_
       iface.drops = cf->drops;
       iface.has_snap = device.has_snaplen;
       iface.snap = device.snaplen;
-      iface.linktype = device.active_dlt;
+      iface.encap_type = wtap_pcap_encap_to_wtap_encap(device.active_dlt);
       g_array_append_val(st->ifaces, iface);
     }
-  } else {
-    idb_info = wtap_file_get_idb_info(cf->wth);
-    for (i = 0; i < idb_info->number_of_interfaces; i++) {
-      wtapng_if_descr = g_array_index(idb_info->interface_data, wtapng_if_descr_t, i);
-      iface.cfilter = g_strdup(wtapng_if_descr.if_filter_str);
-      iface.name = g_strdup(wtapng_if_descr.if_name);
-      iface.descr = g_strdup(wtapng_if_descr.if_description);
-      iface.drops_known = FALSE;
-      iface.drops = 0;
-      iface.snap = wtapng_if_descr.snap_len;
-      iface.has_snap = (iface.snap != 65535);
-      iface.linktype = wtapng_if_descr.link_type;
-      g_array_append_val(st->ifaces, iface);
-    }
-    g_free(idb_info);
   }
 }
 #endif
-
-void
-summary_update_comment(capture_file *cf, gchar *comment)
-{
-
-  /* Get info from SHB */
-  wtap_write_shb_comment(cf->wth, comment);
-
-}

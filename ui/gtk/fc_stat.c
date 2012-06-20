@@ -26,10 +26,6 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
 #include <string.h>
 
 #include <gtk/gtk.h>
@@ -65,12 +61,7 @@ typedef struct _fcstat_t {
 static void
 fcstat_set_title(fcstat_t *fc)
 {
-	char		*title;
-
-	title = g_strdup_printf("Fibre Channel Service Response Time statistics: %s",
-	    cf_get_display_name(&cfile));
-	gtk_window_set_title(GTK_WINDOW(fc->win), title);
-	g_free(title);
+	set_window_title(fc->win, "Fibre Channel Service Response Time statistics");
 }
 
 static void
@@ -154,7 +145,7 @@ gtk_fcstat_init(const char *optarg, void *userdata _U_)
 	gtk_window_set_default_size(GTK_WINDOW(fc->win), 550, 400);
 	fcstat_set_title(fc);
 
-	vbox=gtk_vbox_new(FALSE, 3);
+	vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 3, FALSE);
 	gtk_container_add(GTK_CONTAINER(fc->win), vbox);
 	gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
 

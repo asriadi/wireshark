@@ -1174,6 +1174,7 @@ calc_xcrc(guint8* data, guint8 length)
 	guint8 next;
 	int y, x;
 
+	memset(bits, 0, sizeof(bits));
 	for(y=0;y<=length-4;y++)
 	{
 		dect_setbit(bits, y, dect_getbit(data, y+48*(1+(int)(y/16))));
@@ -1261,8 +1262,8 @@ dissect_bfield(gboolean dect_packet_type _U_, guint8 ba,
 	guint8 xcrc/*, xcrclen*/;
 	guint16 blen;
 	gint start_offset;
-	char *bfield_str;
-	char *bfield_short_str;
+	const char *bfield_str;
+	const char *bfield_short_str;
 
 	proto_item *bfieldti        = NULL;
 	proto_tree *BField          = NULL;

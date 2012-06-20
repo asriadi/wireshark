@@ -27,7 +27,6 @@
 #
 
 # an existing capture file
-CAPFILE=./dhcp.pcap
 USE_COLOR=1
 RUN_SUITE=""
 PRINT_USAGE=0
@@ -49,8 +48,15 @@ if [ $PRINT_USAGE -ne 0 ] ; then
 Usage: $THIS [-c] [-h] [-s <suite>]
   -c: Disable color output
   -h: Print this message and exit
-  -s: Run a suite.  Must be one of: all, capture, clopts, io, or
+  -s: Run a suite.  Must be one of:
+      all
+      capture
+      clopts
+      decryption
+      fileformats
+      io
       prerequisites
+      unittests
 FIN
         exit 0
 fi
@@ -62,6 +68,8 @@ source suite-clopts.sh
 source suite-io.sh
 source suite-capture.sh
 source suite-unittests.sh
+source suite-fileformats.sh
+source suite-decryption.sh
 
 
 #check prerequisites
@@ -82,9 +90,22 @@ test_step_prerequisites() {
 	fi
 }
 
+# Dump version information
+test_step_tshark_version() {
+        test_remark_add "Printing TShark version"
+	$TSHARK -v
+	RETURNVALUE=$?
+	if [ ! $RETURNVALUE -eq $EXIT_OK ]; then
+		test_step_failed "Failed to print version information"
+		return
+	fi
+	test_step_ok
+}
+
 
 prerequisites_suite() {
 	test_step_add "Prerequisites settings" test_step_prerequisites
+	test_step_add "Version information" test_step_tshark_version
 }
 
 test_suite() {
@@ -93,6 +114,8 @@ test_suite() {
 	test_suite_add "File I/O" io_suite
 	test_suite_add "Capture" capture_suite
 	test_suite_add "Unit tests" unittests_suite
+	test_suite_add "File formats" fileformats_suite
+	test_suite_add "Decryption" decryption_suite
 }
 
 
@@ -120,11 +143,20 @@ if [ -n "$RUN_SUITE" ] ; then
 	  "clopts")
 	    test_suite_run "Command line options" clopt_suite
             exit $? ;;
+	  "decryption")
+	    test_suite_run "Decryption" decryption_suite
+            exit $? ;;
+	  "fileformats")
+            test_suite_run "File formats" fileformats_suite
+            exit $? ;;
 	  "io")
 	    test_suite_run "File I/O" io_suite
             exit $? ;;
 	  "prerequisites")
             test_suite_run "Prerequisites" prerequisites_suite
+            exit $? ;;
+	  "unittests")
+            test_suite_run "Unit tests" unittests_suite
             exit $? ;;
         esac
 fi

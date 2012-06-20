@@ -40,20 +40,27 @@ extern "C" {
 
 /** Return values from functions that only can succeed or fail. */
 typedef enum {
-	CF_OK,			    /**< operation succeeded */
-	CF_ERROR	/**< operation got an error (function may provide err with details) */
+    CF_OK,      /**< operation succeeded */
+    CF_ERROR    /**< operation got an error (function may provide err with details) */
 } cf_status_t;
 
 /** Return values from functions that read capture files. */
 typedef enum {
-	CF_READ_OK,		/**< operation succeeded */
-	CF_READ_ERROR,		/**< operation got an error (function may provide err with details) */
-	CF_READ_ABORTED		/**< operation aborted by user */
+    CF_READ_OK,	     /**< operation succeeded */
+    CF_READ_ERROR,   /**< operation got an error (function may provide err with details) */
+    CF_READ_ABORTED  /**< operation aborted by user */
 } cf_read_status_t;
+
+/** Return values from functions that write out packets. */
+typedef enum {
+    CF_WRITE_OK,      /**< operation succeeded */
+    CF_WRITE_ERROR,   /**< operation got an error (function may provide err with details) */
+    CF_WRITE_ABORTED, /**< operation aborted by user */
+} cf_write_status_t;
 
 /** Return values from functions that print sets of packets. */
 typedef enum {
-	CF_PRINT_OK,		    /**< print operation succeeded */
+	CF_PRINT_OK,            /**< print operation succeeded */
 	CF_PRINT_OPEN_ERROR,    /**< print operation failed while opening printer */
 	CF_PRINT_WRITE_ERROR    /**< print operation failed while writing to the printer */
 } cf_print_status_t;
@@ -63,13 +70,22 @@ typedef enum {
     cf_cb_file_closed,
     cf_cb_file_read_started,
     cf_cb_file_read_finished,
+    cf_cb_file_reload_started,
+    cf_cb_file_reload_finished,
+    cf_cb_file_rescan_started,
+    cf_cb_file_rescan_finished,
+    cf_cb_file_fast_save_finished,
     cf_cb_packet_selected,
     cf_cb_packet_unselected,
     cf_cb_field_unselected,
     cf_cb_file_save_started,
     cf_cb_file_save_finished,
-    cf_cb_file_save_reload_finished,
-    cf_cb_file_save_failed
+    cf_cb_file_save_failed,
+    cf_cb_file_save_stopped,
+    cf_cb_file_export_specified_packets_started,
+    cf_cb_file_export_specified_packets_finished,
+    cf_cb_file_export_specified_packets_failed,
+    cf_cb_file_export_specified_packets_stopped
 } cf_cbs;
 
 typedef void (*cf_callback_t) (gint event, gpointer data, gpointer user_data);
@@ -117,7 +133,7 @@ void cf_reload(capture_file *cf);
  * Read all packets of a capture file into the internal structures.
  *
  * @param cf the capture file to be read
- * @param from_save reread asked from cf_save
+ * @param from_save reread asked from cf_save_packets
  * @return one of cf_read_status_t
  */
 cf_read_status_t cf_read(capture_file *cf, gboolean from_save);
@@ -195,24 +211,55 @@ cf_read_status_t cf_finish_tail(capture_file *cf, int *err);
 gboolean cf_can_save_as(capture_file *cf);
 
 /**
- * Save a capture file (or a range of it).
+ * Save all packets in a capture file to a new file, and, if that succeeds,
+ * make that file the current capture file.  If there's already a file with
+ * that name, do a "safe save", writing to a temporary file in the same
+ * directory and, if the write succeeds, renaming the new file on top of the
+ * old file, so that if the write fails, the old file is still intact.
  *
  * @param cf the capture file to save to
  * @param fname the filename to save to
- * @param range the range of packets to save
  * @param save_format the format of the file to save (libpcap, ...)
  * @param compressed whether to gzip compress the file
- * @return one of cf_status_t
+ * @discard_comments TRUE if we should discard comments if the save
+ * succeeds (because we saved in a format that doesn't support
+ * comments)
+ * @param dont_reopen TRUE if it shouldn't reopen and make that file the
+ * current capture file
+ * @return one of cf_write_status_t
  */
-cf_status_t cf_save(capture_file * cf, const char *fname, packet_range_t *range, guint save_format, gboolean compressed);
+cf_write_status_t cf_save_packets(capture_file * cf, const char *fname,
+                                  guint save_format, gboolean compressed,
+                                  gboolean discard_comments,
+                                  gboolean dont_reopen);
+
+/**
+ * Export some or all packets from a capture file to a new file.  If there's
+ * already a file with that name, do a "safe save", writing to a temporary
+ * file in the same directory and, if the write succeeds, renaming the new
+ * file on top of the old file, so that if the write fails, the old file is
+ * still intact.
+ *
+ * @param cf the capture file to write to
+ * @param fname the filename to write to
+ * @param range the range of packets to write
+ * @param save_format the format of the file to write (libpcap, ...)
+ * @param compressed whether to gzip compress the file
+ * @return one of cf_write_status_t
+ */
+cf_write_status_t cf_export_specified_packets(capture_file *cf,
+                                              const char *fname,
+                                              packet_range_t *range,
+                                              guint save_format,
+                                              gboolean compressed);
 
 /**
  * Get a displayable name of the capture file.
  *
  * @param cf the capture file
- * @return the displayable name (don't have to be g_free'd)
+ * @return the displayable name (must be g_free'd)
  */
-const gchar *cf_get_display_name(capture_file *cf);
+gchar *cf_get_display_name(capture_file *cf);
 
 /**
  * Set the source of the capture data for temporary files, e.g.
@@ -596,6 +643,22 @@ const gchar* cf_read_shb_comment(capture_file *cf);
  */
 void cf_update_capture_comment(capture_file *cf, gchar *comment);
 
+/**
+ * Update(replace) the comment on a capture from a frame
+ *
+ * @param cf the capture file
+ * @param fdata the frame_data structure for the frame
+ * @param comment the string replacing the old comment
+ */
+void cf_update_packet_comment(capture_file *cf, frame_data *fdata, gchar *comment);
+
+/**
+ * Does this capture file have any comments?
+ *
+ * @param cf the capture file
+ * @return TRUE if it does, FALSE if it doesn't
+ */
+gboolean cf_has_comments(capture_file *cf);
 
 #if defined(HAVE_HEIMDAL_KERBEROS) || defined(HAVE_MIT_KERBEROS)
 void read_keytab_file(const char *);

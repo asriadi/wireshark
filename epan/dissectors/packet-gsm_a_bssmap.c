@@ -4,8 +4,9 @@
  * Copyright 2003, Michael Lum <mlum [AT] telostech.com>
  * In association with Telos Technology Inc.
  *
- * Updated to 3GPP TS 48.008 version 8.4.0 Release 8
+ * Updated to 3GPP TS 48.008 version 9.8.0 Release 9
  * Copyright 2008, Anders Broman <anders.broman [at] ericsson.com
+ * Copyright 2012, Pascal Quantin <pascal.quantin [at] gmail.com
  * Title        3GPP            Other
  *
  *   Reference [2]
@@ -14,6 +15,7 @@
  *   Layer 3 specification
  *   (GSM 08.08 version 7.7.0 Release 1998) TS 100 590 v7.7.0
  *   3GPP TS 48.008 version 8.4.0 Release 8
+ *   3GPP TS 48.008 version 9.8.0 Release 9
  *
  * $Id$
  *
@@ -40,7 +42,7 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
+#include <glib.h>
 
 #include <epan/packet.h>
 #include <epan/tap.h>
@@ -54,6 +56,8 @@
 #include "packet-e212.h"
 #include "packet-ranap.h"
 #include "packet-rrc.h"
+#include "packet-rtp.h"
+#include "packet-gsm_map.h"
 
 /* PROTOTYPES/FORWARDS */
 
@@ -305,6 +309,9 @@ const value_string gsm_bssmap_elem_strings[] = {
     { 0x7e, "Speech Codec" },
     { 0x7f, "Call Identifier" },
     { 0x80, "Call Identifier List" },
+    { 0x81, "A-Interface Selector for RESET" },
+    { 0x83, "Kc128" },
+    { 0x84, "CSG Identifier" },
     { 0, NULL }
 };
 
@@ -372,16 +379,16 @@ static const value_string gsm_a_rr_channel_needed_vals[] = {
 };
 
 static const value_string bssmap_positioning_methods[] = {
-    { 0, "Timing Advance" },
-    { 1, "Reserved (Note)" },
-    { 2, "Reserved (Note)" },
-    { 3, "Mobile Assisted E-OTD" },
-    { 4, "Mobile Based E-OTD" },
-    { 5, "Mobile Assisted GPS" },
-    { 6, "Mobile Based GPS" },
-    { 7, "Conventional GPS" },
-    { 8, "U-TDOA" },
-    { 9, "Reserved for UTRAN use only" },
+    {  0, "Timing Advance" },
+    {  1, "Reserved (Note)" },
+    {  2, "Reserved (Note)" },
+    {  3, "Mobile Assisted E-OTD" },
+    {  4, "Mobile Based E-OTD" },
+    {  5, "Mobile Assisted GPS" },
+    {  6, "Mobile Based GPS" },
+    {  7, "Conventional GPS" },
+    {  8, "U-TDOA" },
+    {  9, "Reserved for UTRAN use only" },
     { 10, "Reserved for UTRAN use only" },
     { 11, "Reserved for UTRAN use only" },
     { 12, "Cell ID" },
@@ -439,18 +446,18 @@ static const value_string chan_mode_vals[] = {
 };
 
 static const value_string fe_cur_chan_type2_chan_field_vals[] = {
-    { 1, "SDCCH" },
-    { 8, "1 Full rate TCH" },
-    { 9, "1 Half rate TCH" },
+    {  1, "SDCCH" },
+    {  8, "1 Full rate TCH" },
+    {  9, "1 Half rate TCH" },
     { 10, "2 Full Rate TCHs" },
     { 11, "3 Full Rate TCHs" },
     { 12, "4 Full Rate TCHs" },
     { 13, "5 Full Rate TCHs" },
     { 14, "6 Full Rate TCHs" },
     { 15, "7 Full Rate TCHs" },
-    { 4, "8 Full Rate TCHs" },
-    { 0, "reserved" },
-    { 0, NULL}
+    {  4, "8 Full Rate TCHs" },
+    {  0, "reserved" },
+    {  0, NULL}
 };
 
 /* Initialize the protocol and registered fields */
@@ -471,6 +478,7 @@ static int hf_gsm_a_bssmap_be_cell_id_disc = -1;
 static int hf_gsm_a_bssmap_pci = -1;
 static int hf_gsm_a_bssmap_qa = -1;
 static int hf_gsm_a_bssmap_pvi = -1;
+static int hf_gsm_a_bssmap_interference_bands = -1;
 static int hf_gsm_a_bssmap_lsa_only = -1;
 static int hf_gsm_a_bssmap_act = -1;
 static int hf_gsm_a_bssmap_pref = -1;
@@ -479,6 +487,10 @@ static int hf_gsm_a_bssmap_seq_len = -1;
 static int hf_gsm_a_bssmap_seq_no = -1;
 static int hf_gsm_a_bssap_cell_id_list_seg_cell_id_disc = -1;
 static int hf_gsm_a_bssap_res_ind_method = -1;
+static int hf_gsm_a_bssap_cic_list_range = -1;
+static int hf_gsm_a_bssap_cic_list_status = -1;
+static int hf_gsm_a_bssap_diag_error_pointer = -1;
+static int hf_gsm_a_bssap_diag_msg_rcv = -1;
 static int hf_gsm_a_bssmap_ch_mode = -1;
 static int hf_gsm_a_bssmap_cur_ch_mode = -1;
 static int hf_gsm_a_bssmap_channel = -1;
@@ -502,9 +514,25 @@ static int hf_gsm_a_bssmap_ep = -1;
 static int hf_gsm_a_bssmap_lcs_pri = -1;
 static int hf_gsm_a_bssmap_num_ms = -1;
 static int hf_gsm_a_bssmap_talker_pri = -1;
+static int hf_gsm_a_bssmap_rr_mode = -1;
+static int hf_gsm_a_bssmap_group_cipher_key_nb = -1;
+static int hf_gsm_a_bssmap_vgcs_vbs_cell_status = -1;
 static int hf_gsm_a_bssmap_paging_cause = -1;
 static int hf_gsm_a_bssmap_paging_inf_flg = -1;
 static int hf_gsm_a_bssmap_serv_ho_inf = -1;
+static int hf_gsm_a_bssmap_max_nb_traffic_chan = -1;
+static int hf_gsm_a_bssmap_acceptable_chan_coding_bit5 = -1;
+static int hf_gsm_a_bssmap_acceptable_chan_coding_bit4 = -1;
+static int hf_gsm_a_bssmap_acceptable_chan_coding_bit3 = -1;
+static int hf_gsm_a_bssmap_acceptable_chan_coding_bit2 = -1;
+static int hf_gsm_a_bssmap_acceptable_chan_coding_bit1 = -1;
+static int hf_gsm_a_bssmap_allowed_data_rate_bit8 = -1;
+static int hf_gsm_a_bssmap_allowed_data_rate_bit7 = -1;
+static int hf_gsm_a_bssmap_allowed_data_rate_bit6 = -1;
+static int hf_gsm_a_bssmap_allowed_data_rate_bit5 = -1;
+static int hf_gsm_a_bssmap_allowed_data_rate_bit4 = -1;
+static int hf_gsm_a_bssmap_vstk_rand = -1;
+static int hf_gsm_a_bssmap_vstk = -1;
 static int hf_gsm_a_bssmap_spare_bits = -1;
 static int hf_gsm_a_bssmap_tpind = -1;
 static int hf_gsm_a_bssmap_asind_b2 = -1;
@@ -515,6 +543,8 @@ static int hf_gsm_a_bssmap_filler_bits = -1;
 static int hf_gsm_a_bssmap_method = -1;
 static int hf_gsm_a_bssmap_ganss_id = -1;
 static int hf_gsm_a_bssmap_usage = -1;
+static int hf_gsm_a_bssmap_data_id = -1;
+static int hf_gsm_a_bssmap_bt_ind = -1;
 static int hf_gsm_a_bssmap_aoip_trans_ipv4 = -1;
 static int hf_gsm_a_bssmap_aoip_trans_ipv6 = -1;
 static int hf_gsm_a_bssmap_aoip_trans_port = -1;
@@ -540,6 +570,11 @@ static int hf_gsm_a_bssmap_location_type_positioning_method = -1;
 static int hf_gsm_a_bssmap_chan_type_extension = -1;
 static int hf_gsm_a_bssmap_cause_extension = -1;
 static int hf_gsm_a_bssmap_emlpp_prio = -1;
+static int hf_gsm_a_bssmap_rip = -1;
+static int hf_gsm_a_bssmap_rtd = -1;
+static int hf_gsm_a_bssmap_kc128 = -1;
+static int hf_gsm_a_bssmap_csg_id = -1;
+static int hf_gsm_a_bssmap_cell_access_mode = -1;
 static int hf_fe_extra_info_prec = -1;
 static int hf_fe_extra_info_lcs = -1;
 static int hf_fe_extra_info_ue_prob = -1;
@@ -574,6 +609,7 @@ static dissector_handle_t gsm_bsslap_handle = NULL;
 static dissector_handle_t dtap_handle;
 static dissector_handle_t bssgp_handle;
 static dissector_handle_t rrc_handle;
+static dissector_handle_t rtp_handle;
 
 static packet_info *g_pinfo;
 static proto_tree *g_tree;
@@ -592,120 +628,123 @@ Note this enum must be of the same size as the element decoding list
 
 typedef enum
 {
-    BE_CIC,          /. Circuit Identity Code ./
-    BE_RSVD_1,       /. Reserved ./
-    BE_RES_AVAIL,    /. Resource Available ./
-    BE_CAUSE,        /. Cause ./
-    BE_CELL_ID,      /. Cell Identifier ./
-    BE_PRIO,         /. Priority ./
-    BE_L3_HEADER_INFO,      /. Layer 3 Header Information ./
-    BE_IMSI,         /. IMSI ./
-    BE_TMSI,         /. TMSI ./
-    BE_ENC_INFO,     /. Encryption Information ./
-    BE_CHAN_TYPE,    /. Channel Type ./
-    BE_PERIODICITY,  /. Periodicity ./
-    BE_EXT_RES_IND,  /. Extended Resource Indicator ./
-    BE_NUM_MS,       /. Number Of MSs ./
-    BE_RSVD_2,       /. Reserved ./
-    BE_RSVD_3,       /. Reserved ./
-    BE_RSVD_4,       /. Reserved ./
-    BE_CM_INFO_2,    /. Classmark Information Type 2 ./
-    BE_CM_INFO_3,    /. Classmark Information Type 3 ./
-    BE_INT_BAND,     /. Interference Band To Be Used ./
-    BE_RR_CAUSE,     /. RR Cause ./
-    BE_RSVD_5,       /. Reserved ./
-    BE_L3_INFO,      /. Layer 3 Information ./
-    BE_DLCI,         /. DLCI ./
-    BE_DOWN_DTX_FLAG,        /. Downlink DTX Flag ./
-    BE_CELL_ID_LIST,         /. Cell Identifier List ./
-    BE_RESP_REQ,     /. Response Request ./
-    BE_RES_IND_METHOD,       /. Resource Indication Method ./
-    BE_CM_INFO_1,    /. Classmark Information Type 1 ./
-    BE_CIC_LIST,     /. Circuit Identity Code List ./
-    BE_DIAG,         /. Diagnostic ./
-    BE_L3_MSG,       /. Layer 3 Message Contents ./
-    BE_CHOSEN_CHAN,  /. Chosen Channel ./
-    BE_TOT_RES_ACC,  /. Total Resource Accessible ./
-    BE_CIPH_RESP_MODE,       /. Cipher Response Mode ./
-    BE_CHAN_NEEDED,  /. Channel Needed ./
-    BE_TRACE_TYPE,   /. Trace Type ./
-    BE_TRIGGERID,    /. TriggerID ./
-    BE_TRACE_REF,    /. Trace Reference ./
-    BE_TRANSID,      /. TransactionID ./
-    BE_MID,  /. Mobile Identity ./
-    BE_OMCID,        /. OMCID ./
-    BE_FOR_IND,      /. Forward Indicator ./
-    BE_CHOSEN_ENC_ALG,       /. Chosen Encryption Algorithm ./
-    BE_CCT_POOL,     /. Circuit Pool ./
-    BE_CCT_POOL_LIST,        /. Circuit Pool List ./
-    BE_TIME_IND,     /. Time Indication ./
-    BE_RES_SIT,      /. Resource Situation ./
-    BE_CURR_CHAN_1,  /. Current Channel Type 1 ./
-    BE_QUE_IND,      /. Queueing Indicator ./
-    BE_SPEECH_VER,   /. Speech Version ./
-    BE_ASS_REQ,      /. Assignment Requirement ./
-    BE_TALKER_FLAG,  /. Talker Flag ./
-    BE_CONN_REL_REQ,         /. Connection Release Requested ./
-    BE_GROUP_CALL_REF,       /. Group Call Reference ./
-    BE_EMLPP_PRIO,   /. eMLPP Priority ./
-    BE_CONF_EVO_IND, /. Configuration Evolution Indication ./
-    BE_OLD2NEW_INFO, /. Old BSS to New BSS Information ./
-    BE_LSA_ID,       /. LSA Identifier ./
-    BE_LSA_ID_LIST,  /. LSA Identifier List ./
-    BE_LSA_INFO,     /. LSA Information ./
-    BE_LCS_QOS,      /. LCS QoS ./
-    BE_LSA_ACC_CTRL, /. LSA access control suppression ./
-    BE_LCS_PRIO,     /. LCS Priority ./
-    BE_LOC_TYPE,     /. Location Type ./
-    BE_LOC_EST,      /. Location Estimate ./
-    BE_POS_DATA,     /. Positioning Data ./
-    BE_LCS_CAUSE,    /. 3.2.2.66 LCS Cause ./
-    BE_LCS_CLIENT,   /. LCS Client Type ./
-    BE_APDU,         /. APDU ./
-    BE_NE_ID,        /. Network Element Identity ./
-    BE_GPS_ASSIST_DATA,     /. GPS Assistance Data ./
-    BE_DECIPH_KEYS,  /. Deciphering Keys ./
-    BE_RET_ERR_REQ,  /. Return Error Request ./
-    BE_RET_ERR_CAUSE,       /. Return Error Cause ./
-    BE_SEG,          /. Segmentation ./
-    BE_SERV_HO,      /. Service Handover ./
-    BE_SRC_RNC_TO_TAR_RNC_UMTS,     /. Source RNC to target RNC transparent information (UMTS) ./
-    BE_SRC_RNC_TO_TAR_RNC_CDMA,     /. Source RNC to target RNC transparent information (cdma2000) ./
-    BE_GERAN_CLS_M,  /. GERAN Classmark ./
-    BE_GRAN_BSC_CONT,       /. GERAN BSC Container ./
-    BE_NEW_BSS_TO_OLD_BSS_INF,      /. New BSS to Old BSS Information ./
-    BE_INTER_SYS_INF,       /. Inter-System Information ./
-    BE_SNA_ACC_INF,         /. SNA Access Information ./
-    BE_VSTK_RAND_INF,       /. VSTK_RAND Information ./
-    BE_VSTK_INF,            /. VSTK Information ./
-    BE_PAGING_INF,          /. Paging Information ./
-    BE_IMEI,                /. IMEI ./
-    BE_VEL_EST,             /. Velocity Estimate ./
-    BE_VGCS_FEAT_FLG,       /. VGCS Feature Flags ./
-    BE_TALKER_PRI,          /. Talker Priority ./
-    BE_EMRG_SET_IND,        /. Emergency Set Indication ./
-    BE_TALKER_ID,           /. Talker Identity ./
-    BE_CELL_ID_LIST_SEG,    /. Cell Identifier List Segment ./
-    BE_SMS_TO_VGCS,         /. SMS to VGCS ./
-    BE_VGCS_TALKER_MOD,     /. VGCS Talker Mode ./
-    BE_VGS_VBS_CELL_STAT,   /. VGCS/VBS Cell Status ./
-    BE_CELL_ID_LST_SEG_F_EST_CELLS,    /. Cell Identifier List Segment for established cells ./
-    BE_CELL_ID_LST_SEG_F_CELL_TB_EST,  /. Cell Identifier List Segment for cells to be established ./
-    BE_CELL_ID_LST_SEG_F_REL_CELL,     /. Cell Identifier List Segment for released cells - no user present ./
-    BE_CELL_ID_LST_SEG_F_NOT_EST_CELL, /. Cell Identifier List Segment for not established cells - no establishment possible ./
-    BE_GANSS_ASS_DTA,       /. GANSS Assistance Data ./
-    BE_GANSS_POS_DTA,       /. GANSS Positioning Data ./
-    BE_GANSS_LOC_TYP,       /. GANSS Location Type ./
-    BE_APP_DATA,            /. Application Data ./
-    BE_DATA_ID              /. Data Identity ./
-    BE_APP_DATA_INF,        /. Application Data Information ./
-    BE_MSISDN,              /. MSISDN ./
-    BE_AOIP_TRANS_LAY_ADD,  /. AoIP Transport Layer Address ./
-    BE_SPEECH_CODEC_LST,    /. Speech Codec List ./
-    BE_SPEECH_CODEC,        /. Speech Codec ./
-    BE_CALL_ID,             /. Call Identifier ./
-    BE_CALL_ID_LST,         /. Call Identifier List ./
-    BE_NONE /. NONE ./
+    BE_CIC,                            /* Circuit Identity Code */
+    BE_RSVD_1,                         /* Reserved */
+    BE_RES_AVAIL,                      /* Resource Available */
+    BE_CAUSE,                          /* Cause */
+    BE_CELL_ID,                        /* Cell Identifier */
+    BE_PRIO,                           /* Priority */
+    BE_L3_HEADER_INFO,                 /* Layer 3 Header Information */
+    BE_IMSI,                           /* IMSI */
+    BE_TMSI,                           /* TMSI */
+    BE_ENC_INFO,                       /* Encryption Information */
+    BE_CHAN_TYPE,                      /* Channel Type */
+    BE_PERIODICITY,                    /* Periodicity */
+    BE_EXT_RES_IND,                    /* Extended Resource Indicator */
+    BE_NUM_MS,                         /* Number Of MSs */
+    BE_RSVD_2,                         /* Reserved */
+    BE_RSVD_3,                         /* Reserved */
+    BE_RSVD_4,                         /* Reserved */
+    BE_CM_INFO_2,                      /* Classmark Information Type 2 */
+    BE_CM_INFO_3,                      /* Classmark Information Type 3 */
+    BE_INT_BAND,                       /* Interference Band To Be Used */
+    BE_RR_CAUSE,                       /* RR Cause */
+    BE_RSVD_5,                         /* Reserved */
+    BE_L3_INFO,                        /* Layer 3 Information */
+    BE_DLCI,                           /* DLCI */
+    BE_DOWN_DTX_FLAG,                  /* Downlink DTX Flag */
+    BE_CELL_ID_LIST,                   /* Cell Identifier List */
+    BE_RESP_REQ,                       /* Response Request */
+    BE_RES_IND_METHOD,                 /* Resource Indication Method */
+    BE_CM_INFO_1,                      /* Classmark Information Type 1 */
+    BE_CIC_LIST,                       /* Circuit Identity Code List */
+    BE_DIAG,                           /* Diagnostic */
+    BE_L3_MSG,                         /* Layer 3 Message Contents */
+    BE_CHOSEN_CHAN,                    /* Chosen Channel */
+    BE_TOT_RES_ACC,                    /* Total Resource Accessible */
+    BE_CIPH_RESP_MODE,                 /* Cipher Response Mode */
+    BE_CHAN_NEEDED,                    /* Channel Needed */
+    BE_TRACE_TYPE,                     /* Trace Type */
+    BE_TRIGGERID,                      /* TriggerID */
+    BE_TRACE_REF,                      /* Trace Reference */
+    BE_TRANSID,                        /* TransactionID */
+    BE_MID,                            /* Mobile Identity */
+    BE_OMCID,                          /* OMCID */
+    BE_FOR_IND,                        /* Forward Indicator */
+    BE_CHOSEN_ENC_ALG,                 /* Chosen Encryption Algorithm */
+    BE_CCT_POOL,                       /* Circuit Pool */
+    BE_CCT_POOL_LIST,                  /* Circuit Pool List */
+    BE_TIME_IND,                       /* Time Indication */
+    BE_RES_SIT,                        /* Resource Situation */
+    BE_CURR_CHAN_1,                    /* Current Channel Type 1 */
+    BE_QUE_IND,                        /* Queueing Indicator */
+    BE_SPEECH_VER,                     /* Speech Version */
+    BE_ASS_REQ,                        /* Assignment Requirement */
+    BE_TALKER_FLAG,                    /* Talker Flag */
+    BE_CONN_REL_REQ,                   /* Connection Release Requested */
+    BE_GROUP_CALL_REF,                 /* Group Call Reference */
+    BE_EMLPP_PRIO,                     /* eMLPP Priority */
+    BE_CONF_EVO_IND,                   /* Configuration Evolution Indication */
+    BE_OLD2NEW_INFO,                   /* Old BSS to New BSS Information */
+    BE_LSA_ID,                         /* LSA Identifier */
+    BE_LSA_ID_LIST,                    /* LSA Identifier List */
+    BE_LSA_INFO,                       /* LSA Information */
+    BE_LCS_QOS,                        /* LCS QoS */
+    BE_LSA_ACC_CTRL,                   /* LSA access control suppression */
+    BE_LCS_PRIO,                       /* LCS Priority */
+    BE_LOC_TYPE,                       /* Location Type */
+    BE_LOC_EST,                        /* Location Estimate */
+    BE_POS_DATA,                       /* Positioning Data */
+    BE_LCS_CAUSE,                      /* 3*2*2*66 LCS Cause */
+    BE_LCS_CLIENT,                     /* LCS Client Type */
+    BE_APDU,                           /* APDU */
+    BE_NE_ID,                          /* Network Element Identity */
+    BE_GPS_ASSIST_DATA,                /* GPS Assistance Data */
+    BE_DECIPH_KEYS,                    /* Deciphering Keys */
+    BE_RET_ERR_REQ,                    /* Return Error Request */
+    BE_RET_ERR_CAUSE,                  /* Return Error Cause */
+    BE_SEG,                            /* Segmentation */
+    BE_SERV_HO,                        /* Service Handover */
+    BE_SRC_RNC_TO_TAR_RNC_UMTS,        /* Source RNC to target RNC transparent information (UMTS) */
+    BE_SRC_RNC_TO_TAR_RNC_CDMA,        /* Source RNC to target RNC transparent information (cdma2000) */
+    BE_GERAN_CLS_M,                    /* GERAN Classmark */
+    BE_GERAN_BSC_CONT,                 /* GERAN BSC Container */
+    BE_NEW_BSS_TO_OLD_BSS_INF,         /* New BSS to Old BSS Information */
+    BE_INTER_SYS_INF,                  /* Inter-System Information */
+    BE_SNA_ACC_INF,                    /* SNA Access Information */
+    BE_VSTK_RAND_INF,                  /* VSTK_RAND Information */
+    BE_VSTK_INF,                       /* VSTK Information */
+    BE_PAGING_INF,                     /* Paging Information */
+    BE_IMEI,                           /* IMEI */
+    BE_VEL_EST,                        /* Velocity Estimate */
+    BE_VGCS_FEAT_FLG,                  /* VGCS Feature Flags */
+    BE_TALKER_PRI,                     /* Talker Priority */
+    BE_EMRG_SET_IND,                   /* Emergency Set Indication */
+    BE_TALKER_ID,                      /* Talker Identity */
+    BE_CELL_ID_LIST_SEG,               /* Cell Identifier List Segment */
+    BE_SMS_TO_VGCS,                    /* SMS to VGCS */
+    BE_VGCS_TALKER_MOD,                /* VGCS Talker Mode */
+    BE_VGS_VBS_CELL_STAT,              /* VGCS/VBS Cell Status */
+    BE_CELL_ID_LST_SEG_F_EST_CELLS,    /* Cell Identifier List Segment for established cells */
+    BE_CELL_ID_LST_SEG_F_CELL_TB_EST,  /* Cell Identifier List Segment for cells to be established */
+    BE_CELL_ID_LST_SEG_F_REL_CELL,     /* Cell Identifier List Segment for released cells - no user present */
+    BE_CELL_ID_LST_SEG_F_NOT_EST_CELL, /* Cell Identifier List Segment for not established cells - no establishment possible */
+    BE_GANSS_ASS_DTA,                  /* GANSS Assistance Data */
+    BE_GANSS_POS_DTA,                  /* GANSS Positioning Data */
+    BE_GANSS_LOC_TYP,                  /* GANSS Location Type */
+    BE_APP_DATA,                       /* Application Data */
+    BE_DATA_ID                         /* Data Identity */
+    BE_APP_DATA_INF,                   /* Application Data Information */
+    BE_MSISDN,                         /* MSISDN */
+    BE_AOIP_TRANS_LAY_ADD,             /* AoIP Transport Layer Address */
+    BE_SPEECH_CODEC_LST,               /* Speech Codec List */
+    BE_SPEECH_CODEC,                   /* Speech Codec */
+    BE_CALL_ID,                        /* Call Identifier */
+    BE_CALL_ID_LST,                    /* Call Identifier List */
+    BE_A_ITF_SEL_FOR_RESET,            /* A-Interface Selector for RESET */
+    BE_KC128,                          /* Kc128 */
+    BE_CSG_ID,                         /* CSG Identifier */
+    BE_NONE                            /* NONE */
 }
 bssmap_elem_idx_t;
 #endif
@@ -762,11 +801,11 @@ be_res_avail(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 of
 {
     guint32 curr_offset;
     guint16 value;
-    int i;
+    int     i;
 
     curr_offset = offset;
 
-    for (i=0; i < 5; i++){
+    for (i=0; i < 5; i++) {
         value = tvb_get_ntohl(tvb, curr_offset);
         proto_tree_add_text(tree, tvb, curr_offset, len, "Number of full rate channels available in band %u %u",i+1,value);
         curr_offset+=2;
@@ -783,9 +822,9 @@ be_res_avail(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 of
 static guint16
 be_cause(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string, int string_len)
 {
-    guint8  oct;
-    guint32 value;
-    guint32 curr_offset;
+    guint8       oct;
+    guint32      value;
+    guint32      curr_offset;
     const gchar *str = NULL;
 
     curr_offset = offset;
@@ -1030,8 +1069,6 @@ be_l3_header_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
 
     curr_offset = offset;
 
-    oct = tvb_get_guint8(tvb, curr_offset);
-
     proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, curr_offset<<3, 4, ENC_BIG_ENDIAN);
 
     proto_tree_add_item(tree, hf_gsm_a_L3_protocol_discriminator, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
@@ -1127,10 +1164,10 @@ be_enc_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 off
 guint16
 be_chan_type(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string, int string_len)
 {
-    guint8  oct;
-    guint8  sdi;
-    guint8  num_chan;
-    guint32 curr_offset;
+    guint8       oct;
+    guint8       sdi;
+    guint8       num_chan;
+    guint32      curr_offset;
     const gchar *str;
 
     curr_offset = offset;
@@ -1549,7 +1586,7 @@ be_tot_res_acc(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
     curr_offset+=2;
     /* Total number of accessible half rate channels */
     proto_tree_add_item(tree, hf_gsm_a_bssmap_tot_no_of_hr_ch, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
-    curr_offset+=2;
+    /*curr_offset+=2;*/
 
 
     return(len);
@@ -1572,7 +1609,7 @@ be_lsa_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offse
      * 1 it is a universal LSA.
      */
     proto_tree_add_item(tree, hf_gsm_a_bssmap_lsa_id, tvb, curr_offset, 3, ENC_BIG_ENDIAN);
-    curr_offset+=3;
+    /*curr_offset+=3;*/
 
 
     return(len);
@@ -1595,7 +1632,7 @@ be_lsa_id_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
 
     /* LSA identification 1 - n */
 
-    while (curr_offset-offset < len){
+    while (curr_offset-offset < len) {
         proto_tree_add_item(tree, hf_gsm_a_bssmap_lsa_id, tvb, curr_offset, 3, ENC_BIG_ENDIAN);
         curr_offset+=3;
     }
@@ -1659,7 +1696,7 @@ be_cell_id_aux(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
         if (add_string)
             g_snprintf(add_string, string_len, " - LAC (0x%04x)", value);
         /* FALLTHRU */
-        if (disc == 0x0b){
+        if (disc == 0x0b) {
             /* If SAI, SAC follows */
             proto_tree_add_item(tree, hf_gsm_a_bssmap_sac, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
             curr_offset += 2;
@@ -1668,7 +1705,7 @@ be_cell_id_aux(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
 
     case 0x09: /* For intersystem handover from GSM to UMTS or cdma2000: */
 
-        if ((disc == 0x08) ||(disc == 0x09) || (disc == 0x0a)|| (disc == 0x0c)){
+        if ((disc == 0x08) ||(disc == 0x09) || (disc == 0x0a)|| (disc == 0x0c)) {
             /* RNC-ID
              * The octets 9-10 are coded as the RNC-ID (0..4095) or the
              * Extended RNC-ID (4096..65535) specified in 3GPP TS 25.413 [31]:
@@ -1771,8 +1808,8 @@ static const true_false_string bssmap_pvi_value = {
 guint16
 be_prio(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string, int string_len)
 {
-    guint8  oct;
-    guint32 curr_offset;
+    guint8       oct;
+    guint32      curr_offset;
     const gchar *str;
 
     curr_offset = offset;
@@ -1836,10 +1873,12 @@ be_int_band(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 off
 
     curr_offset = offset;
 
-    proto_tree_add_text(tree, tvb, curr_offset, len, "Not decoded yet");
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, curr_offset<<3, 3, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_interference_bands, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    curr_offset++;
 
 
-    return(len);
+    return(curr_offset - offset);
 }
 /*
  * 3.2.2.22 RR Cause
@@ -1866,7 +1905,7 @@ be_lsa_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 off
     proto_tree_add_item(tree, hf_gsm_a_bssmap_lsa_only, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
     curr_offset++;
 
-    while (curr_offset-offset < len){
+    while (curr_offset-offset < len) {
         /* LSA identification and attributes */
         /* 8    7   6   5    4  3   2   1
          * spare    act pref priority
@@ -1888,8 +1927,8 @@ be_lsa_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 off
 static guint16
 be_l3_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
 {
-    guint32 curr_offset;
-    tvbuff_t    *l3_tvb;
+    guint32   curr_offset;
+    tvbuff_t *l3_tvb;
 
     curr_offset = offset;
 
@@ -1944,10 +1983,10 @@ be_l3_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offs
 static guint16
 be_dlci(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
-    guint8  oct;
-    guint32 curr_offset;
-    proto_item  *item = NULL;
-    proto_tree  *subtree = NULL;
+    guint8      oct;
+    guint32     curr_offset;
+    proto_item *item    = NULL;
+    proto_tree *subtree = NULL;
 
     curr_offset = offset;
 
@@ -2004,13 +2043,13 @@ be_down_dtx_flag(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint3
 guint16
 be_cell_id_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len)
 {
-    guint8  oct;
-    guint16 consumed;
-    guint8  disc;
-    guint8  num_cells;
-    guint32 curr_offset;
-    proto_item  *item = NULL;
-    proto_tree  *subtree = NULL;
+    guint8      oct;
+    guint16     consumed;
+    guint8      disc;
+    guint8      num_cells;
+    guint32     curr_offset;
+    proto_item *item    = NULL;
+    proto_tree *subtree = NULL;
 
     curr_offset = offset;
 
@@ -2230,8 +2269,8 @@ be_cic_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 off
 
     curr_offset = offset;
 
-    proto_tree_add_text(tree, tvb, curr_offset, len, "Not decoded yet");
-
+    proto_tree_add_item(tree, hf_gsm_a_bssap_cic_list_range, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssap_cic_list_status, tvb, (curr_offset+1), (len-1), ENC_NA);
 
     return(len);
 }
@@ -2239,14 +2278,16 @@ be_cic_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 off
  * 3.2.2.32 Diagnostics
  */
 static guint16
-be_diag(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+be_diag(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len , gchar *add_string _U_, int string_len _U_)
 {
     guint32 curr_offset;
 
     curr_offset = offset;
 
-    proto_tree_add_text(tree, tvb, curr_offset, len, "Not decoded yet");
-
+    proto_tree_add_item(tree, hf_gsm_a_bssap_diag_error_pointer, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
+    curr_offset += 2;
+    NO_MORE_DATA_CHECK(len);
+    proto_tree_add_item(tree, hf_gsm_a_bssap_diag_msg_rcv, tvb, curr_offset, (len-2), ENC_NA);
 
     return(len);
 }
@@ -2270,7 +2311,7 @@ static const value_string gsm_a_bssmap_ch_mode_vals[] = {
     { 7,    "data, 14.5 kbit/s downlink and 43.5 kbit/s uplink" },
     { 10,   "data, 14.5 kbit/s downlink and 29.0 kbit/s uplink" },
     { 15,   "data, 29.0 kbit/s downlink and 43.5 kbit/s uplink" },
-    { 0, NULL },
+    { 0, NULL }
 };
 static const value_string gsm_a_bssmap_channel_vals[] = {
     { 0,    "None(Current Channel Type 1 - Reserved)" },
@@ -2289,28 +2330,28 @@ static const value_string gsm_a_bssmap_channel_vals[] = {
     { 14,   "6 Full Rate TCHs" },
     { 15,   "7 Full Rate TCHs" },
     { 4,    "8 Full Rate TCHs" },
-    { 0, NULL },
+    { 0, NULL }
 };
 static const value_string gsm_a_bssmap_trace_bss_record_type_vals[] = {
     { 0,    "Basic" },
     { 1,    "Handover" },
     { 2,    "Radio" },
     { 3,    "No BSS Trace" },
-    { 0, NULL },
+    { 0, NULL }
 };
 static const value_string gsm_a_bssmap_trace_msc_record_type_vals[] = {
     { 0,    "Basic" },
     { 1,    "Detailed (optional)" },
     { 2,    "Spare" },
     { 3,    "No MSC Trace" },
-    { 0, NULL },
+    { 0, NULL }
 };
 static const value_string gsm_a_bssmap_trace_invoking_event_vals[] = {
     { 0,    "MOC, MTC, SMS MO, SMS MT, PDS MO, PDS MT, SS, Location Updates, IMSI attach, IMSI detach" },
     { 1,    "MOC, MTC, SMS_MO, SMS_MT, PDS MO, PDS MT, SS only" },
     { 2,    "Location updates, IMSI attach IMSI detach only" },
     { 3,    "Operator definable" },
-    { 0, NULL },
+    { 0, NULL }
 };
 static guint16
 be_chosen_chan(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
@@ -2367,23 +2408,19 @@ be_ciph_resp_mode(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
 static guint16
 be_l3_msg(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
 {
-    guint32 curr_offset;
-    tvbuff_t    *l3_tvb;
+    tvbuff_t *l3_tvb;
 
-    curr_offset = offset;
-
-    proto_tree_add_text(tree, tvb, curr_offset, len,
+    proto_tree_add_text(tree, tvb, offset, len,
         "Layer 3 Message Contents");
 
     /*
      * dissect the embedded DTAP message
      */
-    l3_tvb = tvb_new_subset(tvb, curr_offset, len, len);
+    l3_tvb = tvb_new_subset(tvb, offset, len, len);
 
     /* Octet j (j = 3, 4, ..., n) is the unchanged octet j of a radio interface layer 3 message
      * as defined in 3GPP TS 24.008, n is equal to the length of that radio interface layer 3 message. */
     call_dissector(dtap_handle, l3_tvb, g_pinfo, g_tree);
-    curr_offset += len;
 
     return(len);
 }
@@ -2413,7 +2450,7 @@ static guint16
 be_trace_type(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
     guint32 curr_offset;
-    gint bit_offset;
+    gint    bit_offset;
 
     bit_offset = (offset<<3);
     curr_offset = offset;
@@ -2427,7 +2464,7 @@ be_trace_type(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 o
     proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_trace_msc_record_type, tvb, bit_offset, 2, ENC_BIG_ENDIAN);
     bit_offset += 2;
     proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_trace_invoking_event, tvb, bit_offset, 2, ENC_BIG_ENDIAN);
-    bit_offset += 2;
+    /*bit_offset += 2;*/
     curr_offset++;
 
     /* no length check possible */
@@ -2521,8 +2558,8 @@ be_trace_omc_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32
 static guint16
 be_for_ind(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
-    guint8  oct;
-    guint32 curr_offset;
+    guint8       oct;
+    guint32      curr_offset;
     const gchar *str = NULL;
 
     curr_offset = offset;
@@ -2560,8 +2597,8 @@ be_for_ind(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offs
 static guint16
 be_chosen_enc_alg(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string, int string_len)
 {
-    guint8  oct;
-    guint32 curr_offset;
+    guint8       oct;
+    guint32      curr_offset;
     const gchar *str = NULL;
 
     curr_offset = offset;
@@ -2604,8 +2641,8 @@ be_chosen_enc_alg(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
 static guint16
 be_cct_pool(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string, int string_len)
 {
-    guint8  oct;
-    guint32 curr_offset;
+    guint8       oct;
+    guint32      curr_offset;
     const gchar *str = NULL;
 
     curr_offset = offset;
@@ -2704,9 +2741,9 @@ be_que_ind(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offs
 static guint16
 be_speech_ver(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string, int string_len)
 {
-    guint8  oct;
-    guint32 curr_offset;
-    const gchar *str = NULL;
+    guint8       oct;
+    guint32      curr_offset;
+    const gchar *str       = NULL;
     const gchar *short_str = NULL;
 
     curr_offset = offset;
@@ -2823,7 +2860,7 @@ static const value_string gsm_a_bssmap_smi_vals[] = {
     { 5,    "Reserved" },
     { 6,    "Reserved" },
     { 7,    "Reserved" },
-    { 0, NULL },
+    { 0, NULL }
 };
 
 static guint16
@@ -2905,7 +2942,7 @@ static guint16
 be_loc_type(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
     guint32 curr_offset;
-    guint8 location_information;
+    guint8  location_information;
 
     curr_offset = offset;
 
@@ -2914,7 +2951,7 @@ be_loc_type(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 off
     proto_tree_add_item(tree, hf_gsm_a_bssmap_location_type_location_information, tvb, offset, 1, ENC_BIG_ENDIAN);
     curr_offset++;
 
-    if(location_information == 1 || location_information == 2)
+    if (location_information == 1 || location_information == 2)
     {
         /* protocol method  */
         proto_tree_add_item(tree, hf_gsm_a_bssmap_location_type_positioning_method, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
@@ -2933,7 +2970,7 @@ static guint16
 be_loc_est(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
     tvbuff_t *data_tvb;
-    guint32 curr_offset;
+    guint32   curr_offset;
 
     curr_offset = offset;
 
@@ -2950,9 +2987,9 @@ static guint16
 be_pos_data(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
     guint32 curr_offset;
-    guint8 i;
+    guint8  i;
     guint64 pos_data_disc;
-    gint bit_offset;
+    gint    bit_offset;
 
     curr_offset = offset;
 
@@ -3009,14 +3046,14 @@ static const value_string gsm_a_apdu_protocol_id_strings[] = {
     { 1,    "BSSLAP" },
     { 2,    "LLP" },
     { 3,    "SMLCPP" },
-    { 0, NULL },
+    { 0, NULL }
 };
 
 static guint16
 be_apdu(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
 {
-    guint32 curr_offset;
-    guint8  apdu_protocol_id;
+    guint32   curr_offset;
+    guint8    apdu_protocol_id;
     tvbuff_t *APDU_tvb;
 
     curr_offset = offset;
@@ -3036,13 +3073,13 @@ be_apdu(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset,
     curr_offset++;
     len--;
 
-    switch(apdu_protocol_id){
+    switch (apdu_protocol_id) {
     case 1:
         /* BSSLAP
          * the embedded message is as defined in 3GPP TS 08.71(3GPP TS 48.071 version 7.2.0 Release 7)
          */
         APDU_tvb = tvb_new_subset(tvb, curr_offset, len, len);
-        if(gsm_bsslap_handle)
+        if (gsm_bsslap_handle)
             call_dissector(gsm_bsslap_handle, APDU_tvb, g_pinfo, g_tree);
         break;
     case 2:
@@ -3148,7 +3185,7 @@ static const value_string gsm_a_bssmap_serv_ho_inf_vals[] = {
     { 5,    "no information available for service based handover" },
     { 6,    "no information available for service based handover" },
     { 7,    "no information available for service based handover" },
-    { 0, NULL },
+    { 0, NULL }
 };
 static guint16
 be_serv_ho(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
@@ -3205,22 +3242,64 @@ be_src_rnc_to_tar_rnc_cdma(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _
 /*
  * 3.2.2.78 GERAN Classmark
  */
-
+static const value_string gsm_a_max_nb_traffic_chan_vals[] = {
+    { 0x00, "1 TCH" },
+    { 0x01, "2 TCHs" },
+    { 0x02, "3 TCHs" },
+    { 0x03, "4 TCHs" },
+    { 0x04, "5 TCHs" },
+    { 0x05, "6 TCHs" },
+    { 0,    NULL }
+};
+static const true_false_string gsm_a_bssmap_accept_not_accept_vals = {
+    "Acceptable",
+    "Not acceptable"
+};
 static guint16
-be_geran_cls_m(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+be_geran_cls_m(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
     guint32 curr_offset;
 
     curr_offset = offset;
 
-    proto_tree_add_text(tree, tvb, curr_offset, len , "Not decoded yet");
+    if (len > 2) {
+        de_sup_codec_list(tvb, tree, pinfo, curr_offset, (len-2), NULL, 0);
+    }
+    curr_offset += len-2;
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, curr_offset<<3, 5, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_max_nb_traffic_chan, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    curr_offset++;
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, curr_offset<<3, 3, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_acceptable_chan_coding_bit5, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_acceptable_chan_coding_bit4, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_acceptable_chan_coding_bit3, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_acceptable_chan_coding_bit2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_acceptable_chan_coding_bit1, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
 
     return(len);
 }
 /*
  * 3.2.2.79 GERAN BSC Container
  */
+static guint16
+be_geran_bsc_cont(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+{
+    guint32 curr_offset;
 
+    curr_offset = offset;
+
+    proto_tree_add_item(tree, hf_gsm_a_bssap_speech_codec, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    curr_offset++;
+    NO_MORE_DATA_CHECK(len);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_allowed_data_rate_bit8, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_allowed_data_rate_bit7, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_allowed_data_rate_bit6, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_allowed_data_rate_bit5, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_allowed_data_rate_bit4, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_max_nb_traffic_chan, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+
+    return(len);
+}
 /*
  * 3.2.2.80 New BSS to Old BSS Information
  */
@@ -3251,11 +3330,13 @@ bssmap_new_bss_to_old_bss_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pin
 static guint16
 be_inter_sys_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
-    guint32 curr_offset;
+    tvbuff_t *new_tvb;
 
-    curr_offset = offset;
+    new_tvb = tvb_new_subset(tvb, offset, len, len);
 
-    proto_tree_add_text(tree, tvb, curr_offset, len , "Not decoded yet");
+    if (new_tvb) {
+        dissect_ranap_InterSystemInformation_TransparentContainer_PDU(new_tvb, pinfo, tree);
+    }
 
     return(len);
 }
@@ -3277,9 +3358,31 @@ be_sna_acc_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
 /*
  * 3.2.2.83 VSTK_RAND Information
  */
+static guint16
+be_vstk_rand_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+{
+    guint32 curr_offset;
+    guint64 vstk_rand;
+
+    curr_offset = offset;
+
+    vstk_rand = tvb_get_ntoh40(tvb, curr_offset);
+    vstk_rand >>= 4;
+    proto_tree_add_uint64(tree, hf_gsm_a_bssmap_vstk_rand, tvb, curr_offset, 5, vstk_rand);
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, (((curr_offset+4)<<3)+4), 4, ENC_BIG_ENDIAN);
+
+    return(len);
+}
 /*
  * 3.2.2.84 VSTK information
  */
+static guint16
+be_vstk_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+{
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_vstk, tvb, offset, 16, ENC_NA);
+
+    return(len);
+}
 /*
  * 3.2.2.85 Paging Information
  */
@@ -3297,7 +3400,7 @@ static const value_string gsm_a_bssmap_paging_cause_vals[] = {
     { 1,    "Paging is for a short message" },
     { 2,    "Paging is for a USSD" },
     { 3,    "Spare" },
-    { 0, NULL },
+    { 0, NULL }
 };
 
 static guint16
@@ -3323,13 +3426,9 @@ be_paging_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 o
  * 3.2.2.87 Velocity Estimate
  */
 static guint16
-be_vel_est(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+be_vel_est(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string, int string_len)
 {
-    guint32 curr_offset;
-
-    curr_offset = offset;
-
-    proto_tree_add_text(tree, tvb, curr_offset, len, "Not decoded yet");
+    dissect_description_of_velocity(tvb, tree, pinfo, offset, len, add_string, string_len);
 
     return(len);
 }
@@ -3391,7 +3490,7 @@ static const value_string gsm_a_bssmap_talker_pri_vals[] = {
     { 1,    "Privileged Priority" },
     { 2,    "Emergency Priority" },
     { 3,    "Reserved for future use" },
-    { 0, NULL },
+    { 0, NULL }
 };
 
 static guint16
@@ -3434,16 +3533,12 @@ be_talker_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 of
  * 3.2.2.92 SMS to VGCS
  */
 static guint16
-be_sms_to_vgcs(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+be_sms_to_vgcs(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
 {
-    guint32 curr_offset;
-
-    curr_offset = offset;
-
-    proto_tree_add_text(tree, tvb, curr_offset, len, "Not decoded yet");
     /* The SMS content field is coded as follows -  this field contains
      * the RP-DATA message as defined in 3GPP TS 24.011.
      */
+    rp_data_n_ms(tvb, tree, pinfo, offset, len);
 
 
     return(len);
@@ -3451,6 +3546,30 @@ be_sms_to_vgcs(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
 /*
  * 3.2.2.93 VGCS talker mode
  */
+static const value_string gsm_a_bssmap_rr_mode_vals[] = {
+    { 0, "dedicated mode (i.e. dedicated channel)"},
+    { 1, "group transmit mode (i.e. voice group channel)"},
+    { 0, NULL }
+};
+static const value_string gsm_a_bssmap_group_cipher_key_nb_vals[] = {
+    { 0x0, "no ciphering"},
+    { 0x1, "cipher key number 1"},
+    { 0x2, "cipher key number 2"},
+    { 0x3, "cipher key number 3"},
+    { 0x4, "cipher key number 4"},
+    { 0x5, "cipher key number 5"},
+    { 0x6, "cipher key number 6"},
+    { 0x7, "cipher key number 7"},
+    { 0x8, "cipher key number 8"},
+    { 0x9, "cipher key number 9"},
+    { 0xa, "cipher key number A"},
+    { 0xb, "cipher key number B"},
+    { 0xc, "cipher key number C"},
+    { 0xd, "cipher key number D"},
+    { 0xe, "cipher key number E"},
+    { 0xf, "cipher key number F"},
+    { 0,    NULL }
+};
 static guint16
 be_vgcs_talker_mode(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
@@ -3458,13 +3577,38 @@ be_vgcs_talker_mode(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
 
     curr_offset = offset;
 
-    proto_tree_add_text(tree, tvb, curr_offset, len, "Not decoded yet");
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_rr_mode, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_group_cipher_key_nb, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, ((curr_offset<<3)+6), 2, ENC_BIG_ENDIAN);
 
     return(len);
 }
 /*
  * 3.2.2.94 VGCS/VBS Cell Status
  */
+static const value_string gsm_a_bssmap_vgcs_vbs_cell_status_vals[] = {
+    { 0, "Cell is established for the voice group or broadcast call"},
+    { 1, "Cell is not established for the voice group or broadcast call. Establishment by the BSS is to be attempted"},
+    { 2, "Cell is released for the voice group or broadcast call because no user is present"},
+    { 3, "Cell is not established for the voice group or broadcast call. No establishment by the BSS is to be attempted"},
+    { 4, "Reserved"},
+    { 5, "Reserved"},
+    { 6, "Reserved"},
+    { 7, "Reserved"},
+    { 0, NULL }
+};
+static guint16
+be_vgcs_vbs_cell_status(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+{
+    guint32 curr_offset;
+
+    curr_offset = offset;
+
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, (curr_offset<<3), 5, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_vgcs_vbs_cell_status, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+
+    return(len);
+}
 /*
  * 3.2.2.95 GANSS Assistance Data
  * The GANSS Assistance Data octets 3 to n are coded as the Requested GANSS Data element of 3GPP TS 49.031 (BSSAP-LE)
@@ -3543,14 +3687,8 @@ be_ganss_loc_type(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
 /*
  * 3.2.2.98 Application Data
  */
-/*
- * 3.2.2.99 Data Identity
- */
-/*
- * 3.2.2.100    Application Data Information
- */
-static guint16
-be_app_data_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+guint16
+be_app_data(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
     guint32 curr_offset;
 
@@ -3561,9 +3699,50 @@ be_app_data_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32
     return(len);
 }
 /*
+ * 3.2.2.99 Data Identity
+ */
+guint16
+be_app_data_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
+{
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_data_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+
+    return(len);
+}
+/*
+ * 3.2.2.100    Application Data Information
+ */
+static const true_false_string gsm_a_bssmap_bt_ind_val = {
+    "BSS has already transmitted the application data to cells",
+    "BSS has not transmitted the application data to cells"
+};
+static guint16
+be_app_data_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+{
+    guint32 curr_offset;
+
+    curr_offset = offset;
+
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, (curr_offset<<3), 7, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_bt_ind, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+
+    return(len);
+}
+/*
  * 3.2.2.101    MSISDN
  * Octets 3-12 contain the digits of an MSISDN, coded as in 3GPP TS 24.008, Calling party BCD number, octets 4 - 13.
  */
+ static guint16
+ be_msisdn(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
+ {
+    tvbuff_t    *new_tvb;
+
+    new_tvb = tvb_new_subset(tvb, offset, len, len);
+    if (new_tvb) {
+        dissect_gsm_map_msisdn(new_tvb, pinfo , tree);
+    }
+
+    return len;
+}
  /*
   * 3.2.2.102   AoIP Transport Layer Address
   */
@@ -3571,6 +3750,11 @@ static guint16
 be_aoip_trans_lay_add(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
 {
     guint32 curr_offset;
+    guint8  addr_type = 0;
+    guint32 rtp_ipv4_address;
+    guint16 rtp_port;
+    address rtp_dst_addr;
+    struct e_in6_addr rtp_addr_ipv6;
 
     curr_offset = offset;
 
@@ -3578,15 +3762,19 @@ be_aoip_trans_lay_add(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, g
      * for the Transport Layer information of the connection end point.
      * The Length differentiates between IPv4 and IPv6.
      */
-    switch(len){
+    switch (len) {
         case 6:
             /* IPv4 */
+            addr_type = 1;
             proto_tree_add_item(tree, hf_gsm_a_bssmap_aoip_trans_ipv4, tvb, curr_offset, 4, ENC_BIG_ENDIAN);
+            rtp_ipv4_address = tvb_get_ipv4(tvb, curr_offset);
             curr_offset+=4;
             break;
         case 18:
             /* IPv6 */
+            addr_type = 2;
             proto_tree_add_item(tree, hf_gsm_a_bssmap_aoip_trans_ipv6, tvb, curr_offset, 16, ENC_NA);
+            tvb_get_ipv6(tvb, offset + 5, &rtp_addr_ipv6);
             curr_offset+=16;
             break;
         default:
@@ -3595,8 +3783,29 @@ be_aoip_trans_lay_add(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, g
             return(len);
     }
     proto_tree_add_item(tree, hf_gsm_a_bssmap_aoip_trans_port, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
+    rtp_port = tvb_get_ntohs(tvb,curr_offset);
     curr_offset+=2;
 
+    switch (addr_type) {
+    case 0:
+        break;
+    case 1:
+        /* IPv4 */
+        rtp_dst_addr.type = AT_IPv4;
+        rtp_dst_addr.len = 4;
+        rtp_dst_addr.data = (guint8 *)&rtp_ipv4_address;
+        break;
+    case 2:
+        /* IPv6 */
+        rtp_dst_addr.type = AT_IPv6;
+        rtp_dst_addr.len = 16;
+        rtp_dst_addr.data = (guint8 *)&rtp_addr_ipv6;
+        break;
+    }
+
+    if ((!pinfo->fd->flags.visited) && rtp_port != 0 && rtp_handle && addr_type != 0) {
+        rtp_add_address(pinfo, &rtp_dst_addr, rtp_port, 0, "BSS MAP", pinfo->fd->num, FALSE, 0);
+    }
     return(curr_offset - offset);
 }
 /*
@@ -3642,8 +3851,8 @@ static const true_false_string bssmap_pt_vals = {
 };
 /* 26.103 Table 6.3-1: Coding of the selected Codec_Type (long form) */
 static const value_string bssap_speech_codec_values[] = {
-    { 0x00,     "GSM FR " },
-    { 0x01,     "GSM HR " },
+    { 0x00,     "GSM FR" },
+    { 0x01,     "GSM HR" },
     { 0x02,     "GSM EFR" },
     { 0x03,     "FR_AMR" },
     { 0x04,     "HR_AMR" },
@@ -3657,6 +3866,10 @@ static const value_string bssap_speech_codec_values[] = {
     { 0x0c,     "OFR_AMR-WB" },
     { 0x0d,     "OHR_AMR-WB" },
     { 0x0e,     "Reserved" },
+    { 0x0f,     "Codec Extension" },
+    { 0xfd,     "CSData" },
+    { 0xfe,     "MuMe2" },
+    { 0xff,     "MuMe" },
     { 0,        NULL }
 };
 static value_string_ext bssap_speech_codec_values_ext = VALUE_STRING_EXT_INIT(bssap_speech_codec_values);
@@ -3677,13 +3890,13 @@ be_speech_codec_lst(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
 
     curr_offset = offset;
 
-    while (curr_offset-offset < len){
+    while (curr_offset-offset < len) {
         number++;
-        consumed=0;
+        consumed = 0;
         item = proto_tree_add_text(tree, tvb, curr_offset, 1, "Speech Codec Element %u",number);
         subtree = proto_item_add_subtree(item, ett_codec_lst);
         codec = tvb_get_guint8(tvb,curr_offset)&0x0f;
-        switch(codec){
+        switch (codec) {
             case 0:
                 /* GSM_FR is coded "0000" */
                 /* fall through */
@@ -3703,7 +3916,10 @@ be_speech_codec_lst(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
                 proto_tree_add_item(subtree, hf_gsm_a_bssmap_tf, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
                 /* Codec Type */
                 proto_tree_add_item(subtree, hf_gsm_a_bssap_speech_codec, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-				proto_item_append_text(item, " - %s",val_to_str(tvb_get_guint8(tvb, curr_offset) & 0x0f, bssap_speech_codec_values, "Unknown"));
+                proto_item_append_text(item, " - %s",
+                                       val_to_str_const(tvb_get_guint8(tvb, curr_offset) & 0x0f,
+                                                        bssap_speech_codec_values,
+                                                        "Unknown"));
                 curr_offset++;
                 consumed++;
                 break;
@@ -3726,7 +3942,10 @@ be_speech_codec_lst(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
                 proto_tree_add_item(subtree, hf_gsm_a_bssmap_tf, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
                 /* Codec Type */
                 proto_tree_add_item(subtree, hf_gsm_a_bssap_speech_codec, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-				proto_item_append_text(item, " - %s",val_to_str(tvb_get_guint8(tvb, curr_offset) & 0x0f, bssap_speech_codec_values, "Unknown"));
+                proto_item_append_text(item, " - %s",
+                                       val_to_str_const(tvb_get_guint8(tvb, curr_offset) & 0x0f,
+                                                        bssap_speech_codec_values,
+                                                        "Unknown"));
                 curr_offset++;
                 consumed++;
                 proto_tree_add_text(subtree, tvb, curr_offset, 2, "S0 - S15");
@@ -3752,7 +3971,10 @@ be_speech_codec_lst(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
                 proto_tree_add_item(subtree, hf_gsm_a_bssmap_tf, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
                 /* Codec Type */
                 proto_tree_add_item(subtree, hf_gsm_a_bssap_speech_codec, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-				proto_item_append_text(item, " - %s",val_to_str(tvb_get_guint8(tvb, curr_offset) & 0x0f, bssap_speech_codec_values, "Unknown"));
+                proto_item_append_text(item, " - %s",
+                                       val_to_str_const(tvb_get_guint8(tvb, curr_offset) & 0x0f,
+                                                        bssap_speech_codec_values,
+                                                        "Unknown"));
                 curr_offset++;
                 consumed++;
                 proto_tree_add_text(subtree, tvb, curr_offset, 1, "S0 - S7");
@@ -3771,7 +3993,10 @@ be_speech_codec_lst(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
                 consumed++;
                 /* Codec Extension */
                 proto_tree_add_item(subtree, hf_gsm_a_bssap_extended_codec, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-				proto_item_append_text(item, " - %s",val_to_str(tvb_get_guint8(tvb, curr_offset), bssap_extended_codec_values, "Unknown"));
+                proto_item_append_text(item, " - %s",
+                                       val_to_str_const(tvb_get_guint8(tvb, curr_offset),
+                                                        bssap_extended_codec_values,
+                                                        "Unknown"));
                 curr_offset++;
                 consumed++;
                 proto_tree_add_item(subtree, hf_gsm_a_bssap_extended_codec_r2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
@@ -3819,13 +4044,39 @@ be_speech_codec(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32
 
     curr_offset = offset;
 
-    while (curr_offset-offset < len){
+    while (curr_offset-offset < len) {
         number++;
-        consumed=0;
+        consumed = 0;
         item = proto_tree_add_text(tree, tvb, curr_offset, 1, "Speech Codec Element %u",number);
         subtree = proto_item_add_subtree(item, ett_codec_lst);
         codec = tvb_get_guint8(tvb,curr_offset)&0x0f;
-        switch(codec){
+        switch (codec) {
+            case 0:
+                /* GSM_FR is coded "0000" */
+                /* fall through */
+            case 1:
+                /* GSM_HR is coded "0001" */
+                /* fall through */
+            case 2:
+                /* GSM_EFR is coded "0010" */
+                /* fall through */
+                /* FI indicates Full IP */
+                proto_tree_add_item(subtree, hf_gsm_a_bssmap_fi, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+                /* PI indicates PCMoIP */
+                proto_tree_add_item(subtree, hf_gsm_a_bssmap_pi, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+                /* PT indicates PCMoTDM */
+                proto_tree_add_item(subtree, hf_gsm_a_bssmap_pt, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+                /* TF indicates TFO support */
+                proto_tree_add_item(subtree, hf_gsm_a_bssmap_tf, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+                /* Codec Type */
+                proto_tree_add_item(subtree, hf_gsm_a_bssap_speech_codec, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+                proto_item_append_text(item, " - %s",
+                                       val_to_str_const(tvb_get_guint8(tvb, curr_offset) & 0x0f,
+                                                        bssap_speech_codec_values,
+                                                        "Unknown"));
+                curr_offset++;
+                consumed++;
+                break;
             case 3:
                 /* fall through */
             case 4:
@@ -3845,7 +4096,11 @@ be_speech_codec(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32
                 proto_tree_add_item(subtree, hf_gsm_a_bssmap_tf2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
                 /* Codec Type */
                 proto_tree_add_item(subtree, hf_gsm_a_bssap_speech_codec, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-                curr_offset++;
+                proto_item_append_text(item, " - %s",
+                                       val_to_str_const(tvb_get_guint8(tvb, curr_offset) & 0x0f,
+                                                        bssap_speech_codec_values,
+                                                        "Unknown"));
+				curr_offset++;
                 consumed++;
                 proto_tree_add_text(subtree, tvb, curr_offset, 2, "S0 - S15");
                 curr_offset+=2;
@@ -3870,6 +4125,10 @@ be_speech_codec(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32
                 proto_tree_add_item(subtree, hf_gsm_a_bssmap_tf2, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
                 /* Codec Type */
                 proto_tree_add_item(subtree, hf_gsm_a_bssap_speech_codec, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+                proto_item_append_text(item, " - %s",
+                                       val_to_str_const(tvb_get_guint8(tvb, curr_offset) & 0x0f,
+                                                        bssap_speech_codec_values,
+                                                        "Unknown"));
                 curr_offset++;
                 consumed++;
                 proto_tree_add_text(subtree, tvb, curr_offset, 1, "S0 - S7");
@@ -3934,13 +4193,77 @@ be_call_id_lst(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
     guint32 curr_offset;
     curr_offset = offset;
 
-    if (len==0){
+    if (len==0) {
         proto_tree_add_text(tree, tvb, curr_offset, len, "all resources and references associated to all Call Identifiers in use between the BSC and the MSC need to be released");
     }
-    while (curr_offset-offset < len){
+    while (curr_offset-offset < len) {
         proto_tree_add_item(tree, hf_gsm_a_bssmap_call_id, tvb, curr_offset, 4, ENC_LITTLE_ENDIAN);
         curr_offset+=4;
     }
+
+    return(len);
+}
+/*
+ * 3.2.2.107    A-Interface Selector for RESET
+ */
+static const true_false_string gsm_a_bssmap_rip_value = {
+    "all calls associated to IP links shall be cleared",
+    "calls associated to IP links shall not be cleared"
+};
+static const true_false_string gsm_a_bssmap_rtd_value = {
+    "all calls associated to TDM links shall be cleared",
+    "calls associated to TDM links shall not be cleared"
+};
+static guint16
+be_a_itf_sel_for_reset(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+{
+    guint32 curr_offset;
+    curr_offset = offset;
+
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, (curr_offset<<3), 6, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_rip, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_rtd, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
+    curr_offset++;
+
+    return(curr_offset - offset);
+}
+/*
+ * 3.2.2.109    Kc128
+ */
+static guint16
+be_kc128(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len _U_, gchar *add_string _U_, int string_len _U_)
+{
+    guint32 curr_offset;
+    curr_offset = offset;
+
+    proto_tree_add_item(tree, hf_gsm_a_bssmap_kc128, tvb, curr_offset, 16, ENC_NA);
+    curr_offset+=16;
+
+    return(curr_offset - offset);
+}
+/*
+ * 3.2.2.110    CSG Identifier
+ */
+static const crumb_spec_t gsm_a_bssmap_csg_id_crumbs[] = {
+    { 0, 24},
+    { 29, 3},
+    { 0, 0}
+};
+static const true_false_string gsm_a_bssmap_cell_access_mode_value = {
+    "Hybrid cell",
+    "CSG cell"
+};
+static guint16
+be_csg_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len, gchar *add_string _U_, int string_len _U_)
+{
+    guint32 bit_offset;
+    bit_offset = offset<<3;
+
+    proto_tree_add_split_bits_item_ret_val(tree, hf_gsm_a_bssmap_csg_id, tvb, bit_offset, gsm_a_bssmap_csg_id_crumbs, NULL);
+    bit_offset += 32;
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_spare_bits, tvb, bit_offset, 7, ENC_BIG_ENDIAN);
+    bit_offset += 7;
+    proto_tree_add_bits_item(tree, hf_gsm_a_bssmap_cell_access_mode, tvb, bit_offset, 1, ENC_BIG_ENDIAN);
 
     return(len);
 }
@@ -4026,12 +4349,12 @@ guint16 (*bssmap_elem_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo
     be_src_rnc_to_tar_rnc_umts, /* Source RNC to target RNC transparent information (UMTS) */
     be_src_rnc_to_tar_rnc_cdma, /* Source RNC to target RNC transparent information (cdma2000) */
     be_geran_cls_m,     /* GERAN Classmark */
-    NULL,               /* GERAN BSC Container */
+    be_geran_bsc_cont,  /* GERAN BSC Container */
     be_field_element_dissect,   /* New BSS to Old BSS Information */
     be_inter_sys_inf,   /*  Inter-System Information */
     be_sna_acc_inf,     /* SNA Access Information */
-    NULL,               /* VSTK_RAND Information */
-    NULL,               /* VSTK Information */
+    be_vstk_rand_info,  /* VSTK_RAND Information */
+    be_vstk_info,       /* VSTK Information */
     be_paging_inf,      /* Paging Information */
     de_mid,             /* 3.2.2.86 IMEI (use same dissector as IMSI)*/
     be_vel_est,         /* Velocity Estimate */
@@ -4042,7 +4365,7 @@ guint16 (*bssmap_elem_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo
     be_cell_id_list_seg,    /* Cell Identifier List Segment */
     be_sms_to_vgcs,     /* SMS to VGCS */
     be_vgcs_talker_mode,/*  VGCS Talker Mode */
-    NULL,               /*  VGCS/VBS Cell Status */
+    be_vgcs_vbs_cell_status,            /* VGCS/VBS Cell Status */
     be_cell_id_lst_seg_f_est_cells,     /* Cell Identifier List Segment for established cells */
     be_cell_id_lst_seg_f_cell_tb_est,   /* Cell Identifier List Segment for cells to be established */
     be_cell_id_lst_seg_f_rel_cell,      /* Cell Identifier List Segment for released cells - no user present */
@@ -4050,15 +4373,18 @@ guint16 (*bssmap_elem_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo
     be_ganss_ass_dta,   /*  GANSS Assistance Data */
     be_ganss_pos_dta,   /*  GANSS Positioning Data */
     be_ganss_loc_type,  /* GANSS Location Type */
-    NULL,               /* Application Data */
-    NULL,               /* Data Identity */
+    be_app_data,        /* Application Data */
+    be_app_data_id,     /* Data Identity */
     be_app_data_inf,    /*  Application Data Information */
-    NULL,               /* MSISDN */
+    be_msisdn,          /* MSISDN */
     be_aoip_trans_lay_add,  /*  AoIP Transport Layer Address */
     be_speech_codec_lst,/* Speech Codec List */
     be_speech_codec,    /* Speech Codec */
     be_call_id,         /* Call Identifier */
     be_call_id_lst,     /* Call Identifier List */
+    be_a_itf_sel_for_reset, /* A-Interface Selector for RESET */
+    be_kc128,           /* Kc128 */
+    be_csg_id,          /* CSG Identifier */
 
     NULL,   /* NONE */
 };
@@ -4150,19 +4476,19 @@ be_fe_gprs_suspend_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
 static const value_string gsm_a_bssmap_dtm_info_dtm_ind_vals[] = {
     { 0,    "The MS has resources allocated exclusively for the CS domain in the old cell" },
     { 1,    "The MS has resources allocated for both the CS and PS domains in the old cell" },
-    { 0, NULL },
+    { 0, NULL }
 };
 
 static const value_string gsm_a_bssmap_dtm_info_sto_ind_vals[] = {
     { 0,    "The MS is in multislot operation in the old cell" },
     { 1,    "The MS is in single timeslot operation in the old cell" },
-    { 0, NULL },
+    { 0, NULL }
 };
 
 static const value_string gsm_a_bssmap_dtm_info_egprs_ind_vals[] = {
     { 0,    "The MS has no TBF using E-GPRS in the old cell" },
     { 1,    "The MS has a TBF using E-GPRS in the old cell" },
-    { 0, NULL },
+    { 0, NULL }
 };
 
 static guint16
@@ -4205,7 +4531,7 @@ static const value_string gsm_a_bssmap_cell_load_nrt_vals[] = {
     { 1,    "NRT load is medium" },
     { 2,    "NRT load is high. (Probability to admit a new user is low.)" },
     { 3,    "NRT overload. (Probability to admit a new user is low, packets are discarded and the source is recommended to reduce the data flow.)" },
-    { 0, NULL },
+    { 0, NULL }
 };
 
 /* 3.2.3.11 Cell Load Information Group */
@@ -4379,7 +4705,7 @@ bssmap_ass_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
     /* LSA Access Control Suppression   3.2.2.61    MSC-BSS O (note 8)  2 */
     ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_LSA_ACC_CTRL].value, GSM_A_PDU_TYPE_BSSMAP, BE_LSA_ACC_CTRL, NULL);
     /* Service Handover 3.2.2.75    MSC-BSS O (note 9)  3 */
-    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_SERV_HO].value, GSM_A_PDU_TYPE_BSSMAP, BE_SERV_HO, NULL);
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SERV_HO].value, GSM_A_PDU_TYPE_BSSMAP, BE_SERV_HO, NULL);
     /* Encryption Information   3.2.2.10    MSC-BSS O (note 10) 3-n */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_ENC_INFO].value, GSM_A_PDU_TYPE_BSSMAP, BE_ENC_INFO, NULL);
     /* Talker Priority  3.2.2.89    MSC-BSS O (note 11) 2 */
@@ -4388,8 +4714,10 @@ bssmap_ass_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_AOIP_TRANS_LAY_ADD].value, GSM_A_PDU_TYPE_BSSMAP, BE_AOIP_TRANS_LAY_ADD, NULL);
     /* Codec List (MSC Preferred)   3.2.2.103   MSC-BSS O (note 13) 3-n */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SPEECH_CODEC_LST].value, GSM_A_PDU_TYPE_BSSMAP, BE_SPEECH_CODEC_LST, "(MSC Preferred)");
-    /* Call Identifier  3.2.2.104   MSC-BSS O (note 12) 5 */
+    /* Call Identifier  3.2.2.105   MSC-BSS O (note 12) 5 */
     ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CALL_ID].value, GSM_A_PDU_TYPE_BSSMAP, BE_CALL_ID, NULL);
+    /* Kc128  3.2.2.109   MSC-BSS C (note 15) 17 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_KC128].value, GSM_A_PDU_TYPE_BSSMAP, BE_KC128, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -4429,6 +4757,8 @@ bssmap_ass_complete(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_AOIP_TRANS_LAY_ADD].value, GSM_A_PDU_TYPE_BSSMAP, BE_AOIP_TRANS_LAY_ADD, NULL);
     /* Speech Codec (Chosen)    3.2.2.104   BSS-MSC O (note 10)     3-5 */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SPEECH_CODEC].value, GSM_A_PDU_TYPE_BSSMAP, BE_SPEECH_CODEC, "(Chosen)");
+    /* Codec List (BSS supported)   3.2.2.103   MSC-BSS O (note 11) 3-n */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SPEECH_CODEC_LST].value, GSM_A_PDU_TYPE_BSSMAP, BE_SPEECH_CODEC_LST, "(BSS Supported)");
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -4603,7 +4933,7 @@ bssmap_ho_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 o
     /* LSA Access Control Suppression   3.2.2.61    MSC-BSS O (note 15)     2 */
     ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_LSA_ACC_CTRL].value, GSM_A_PDU_TYPE_BSSMAP, BE_LSA_ACC_CTRL, NULL);
     /* Service Handover 3.2.2.75    MSC-BSS O (note 21) 3 */
-    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_SERV_HO].value, GSM_A_PDU_TYPE_BSSMAP, BE_SERV_HO, NULL);
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SERV_HO].value, GSM_A_PDU_TYPE_BSSMAP, BE_SERV_HO, NULL);
     /* IMSI 3.2.2.6 MSC-BSC O (note 16) 3-10 */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_IMSI].value, GSM_A_PDU_TYPE_BSSMAP, BE_IMSI, NULL);
     /* Source RNC to target RNC transparent information (UMTS)  3.2.2.76    MSC-BSS O (note 18) n-m */
@@ -4620,6 +4950,8 @@ bssmap_ho_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 o
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SPEECH_CODEC_LST].value, GSM_A_PDU_TYPE_BSSMAP, BE_SPEECH_CODEC_LST, "(MSC Preferred)");
     /* Call Identifier  3.2.2.105   MSC-BSS O (note 24) 5 */
     ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CALL_ID].value, GSM_A_PDU_TYPE_BSSMAP, BE_CALL_ID, NULL);
+    /* Kc128  3.2.2.109   MSC-BSS C (note 27) 17 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_KC128].value, GSM_A_PDU_TYPE_BSSMAP, BE_KC128, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -4663,6 +4995,8 @@ bssmap_ho_reqd(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 
     ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_TALKER_PRI].value, GSM_A_PDU_TYPE_BSSMAP, BE_TALKER_PRI, NULL);
     /* Speech Codec (Used)  3.2.2.104   BSS-MSC O (note 10) 3-5 */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SPEECH_CODEC].value, GSM_A_PDU_TYPE_BSSMAP, BE_SPEECH_CODEC, "(Used)");
+    /* CSG Identifier  3.2.2.110   BSS-MSC O (note 11) 7 */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_CSG_ID].value, GSM_A_PDU_TYPE_BSSMAP, BE_CSG_ID, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -4754,6 +5088,10 @@ bssmap_ho_complete(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guin
     ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_TALKER_PRI].value, GSM_A_PDU_TYPE_BSSMAP, BE_TALKER_PRI, NULL);
     /* Speech Codec (Chosen)    3.2.2.nn    BSS-MSC O (note 2)  3-5 */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SPEECH_CODEC].value, GSM_A_PDU_TYPE_BSSMAP, BE_SPEECH_CODEC, "(Chosen)");
+    /* Chosen Encryption Algorithm  3.2.2.44    BSS-MSC O (note 4)  2 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CHOSEN_ENC_ALG].value, GSM_A_PDU_TYPE_BSSMAP, BE_CHOSEN_ENC_ALG, NULL);
+    /* Chosen Channel   3.2.2.33    BSS-MSC O (note 5)  2 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CHOSEN_CHAN].value, GSM_A_PDU_TYPE_BSSMAP, BE_CHOSEN_CHAN, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -4996,14 +5334,31 @@ bssmap_reset(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 of
 
     /* Cause    3.2.2.5 Both    M   3-4 */
     ELEM_MAND_TLV(gsm_bssmap_elem_strings[BE_CAUSE].value, GSM_A_PDU_TYPE_BSSMAP, BE_CAUSE, NULL);
+    /* A-Interface Selector for RESET  3.2.2.107   Both O 2 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_A_ITF_SEL_FOR_RESET].value, GSM_A_PDU_TYPE_BSSMAP, BE_A_ITF_SEL_FOR_RESET, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
 
 /*
  * 3.2.1.24 RESET ACKNOWLEDGE
- * No data
  */
+void
+bssmap_reset_ack(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len)
+{
+    guint32 curr_offset;
+    guint32 consumed;
+    guint   curr_len;
+
+    curr_offset = offset;
+    curr_len = len;
+
+    /* A-Interface Selector for RESET  3.2.2.107   Both O 2 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_A_ITF_SEL_FOR_RESET].value, GSM_A_PDU_TYPE_BSSMAP, BE_A_ITF_SEL_FOR_RESET, NULL);
+
+    EXTRANEOUS_DATA_CHECK(curr_len, 0);
+}
+
 /*
  *  [2] 3.2.1.25 HANDOVER PERFORMED
  */
@@ -5159,6 +5514,8 @@ bssmap_ciph_mode_cmd(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gu
     ELEM_MAND_TLV(gsm_bssmap_elem_strings[BE_ENC_INFO].value, GSM_A_PDU_TYPE_BSSMAP, BE_ENC_INFO, NULL);
     /* Cipher Response Mode 3.2.2.34    MSC-BSS O   2 */
     ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CIPH_RESP_MODE].value, GSM_A_PDU_TYPE_BSSMAP, BE_CIPH_RESP_MODE, NULL);
+    /* Kc128  3.2.2.109   MSC-BSS C (note 2) 17 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_KC128].value, GSM_A_PDU_TYPE_BSSMAP, BE_KC128, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -5602,7 +5959,9 @@ bssmap_vgcs_vbs_ass_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     /* Encryption Information   3.2.2.10    MSC-BSS O   3-n */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_ENC_INFO].value, GSM_A_PDU_TYPE_BSSMAP, BE_ENC_INFO, NULL);
     /* VSTK_RAND    3.2.2.83    MSC-BSS O (note 1)  7 */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_VSTK_RAND_INF].value, GSM_A_PDU_TYPE_BSSMAP, BE_VSTK_RAND_INF, NULL);
     /* VSTK 3.2.2.84    MSC-BSS O (note 1)  18 */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_VSTK_INF].value, GSM_A_PDU_TYPE_BSSMAP, BE_VSTK_INF, NULL);
     /* Cell Identifier List Segment 3.2.2.27a   MSC-BSS O (note 3)  4-? */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_CELL_ID_LIST_SEG].value, GSM_A_PDU_TYPE_BSSMAP, BE_CELL_ID_LIST_SEG, NULL);
 
@@ -5630,6 +5989,7 @@ bssmap_vgcs_vbs_ass_res(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     /* Circuit Identity Code    3.2.2.2 BSS-MSC O (note 5)  3 */
     ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CIC].value, GSM_A_PDU_TYPE_BSSMAP, BE_CIC, NULL);
     /* Circuit Pool 3.2.2.45    BSS-MSC O (note 1)  2 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CCT_POOL].value, GSM_A_PDU_TYPE_BSSMAP, BE_CCT_POOL, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -5649,7 +6009,9 @@ bssmap_vgcs_vbs_ass_fail(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_
     /* Cause    3.2.2.5 BSS-MSC M   3-4  */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_CAUSE].value, GSM_A_PDU_TYPE_BSSMAP, BE_CAUSE, NULL);
     /* Circuit Pool 3.2.2.45    BSS-MSC O (note 1)  2 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CCT_POOL].value, GSM_A_PDU_TYPE_BSSMAP, BE_CCT_POOL, NULL);
     /* Circuit Pool List    3.2.2.46    BSS-MSC O (note 2)  V */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_CCT_POOL_LIST].value, GSM_A_PDU_TYPE_BSSMAP, BE_CCT_POOL_LIST, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -5677,6 +6039,7 @@ bssmap_uplink_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
     /* Layer 3 Information  3.2.2.24    BSS-MSC O (note 1,3)    3-n */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_L3_INFO].value, GSM_A_PDU_TYPE_BSSMAP, BE_L3_INFO, NULL);
     /* Mobile Identity  3.2.2.41    BSS-MSC O (note 1,2)    3-n */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_MID].value, GSM_A_PDU_TYPE_COMMON, DE_MID, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -6121,19 +6484,50 @@ bssmap_vgcs_add_inf(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, gui
 }
 /*
  * 3.2.1.79 VGCS/VBS AREA CELL INFO
- *
-Cell Identifier List Segment    3.2.2.27a   MSC-BSS M   4-?
+ */
+static void
+bssmap_vgcs_vbs_area_cell_info(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len)
+{
+    guint32 curr_offset;
+    guint32 consumed;
+    guint   curr_len;
+
+    curr_offset = offset;
+    curr_len = len;
+
+    /* Cell Identifier List Segment    3.2.2.27a   MSC-BSS M   4-? */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_CELL_ID_LIST_SEG].value, GSM_A_PDU_TYPE_BSSMAP, BE_CELL_ID_LIST_SEG, NULL);
-Assignment Requirement  3.2.2.52    MSC-BSS O   2
- *
+    /* Assignment Requirement  3.2.2.52    MSC-BSS O   2 */
+    ELEM_MAND_TV(gsm_bssmap_elem_strings[BE_ASS_REQ].value, GSM_A_PDU_TYPE_BSSMAP, BE_ASS_REQ, NULL);
+
+    EXTRANEOUS_DATA_CHECK(curr_len, 0);
+}
+/*
  * 3.2.1.80 VGCS/VBS ASSIGNMENT STATUS
- *
-Cell Identifier List Segment for established cells  3.2.2.27b   BSS-MSC O (note 1)  3-?
-Cell Identifier List Segment for cells to be established    3.2.2.27c   BSS-MSC O (note 1)  3-?
-Cell Identifier List Segment for released cells - no user present   3.2.2.27e   BSS-MSC O (note 1)  3-?
-Cell Identifier List Segment for not established cells - no establishment possible  3.2.2.27f   BSS-MSC O (note 1)  3-?
-VGCS/VBS Cell Status    3.2.2.94    BSS-MSC O (note 2)  3
-*/
+ */
+static void
+bssmap_vgcs_vbs_assign_status(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offset, guint len)
+{
+    guint32 curr_offset;
+    guint32 consumed;
+    guint   curr_len;
+
+    curr_offset = offset;
+    curr_len = len;
+
+    /* Cell Identifier List Segment for established cells  3.2.2.27b   BSS-MSC O (note 1)  3-? */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_CELL_ID_LST_SEG_F_EST_CELLS].value, GSM_A_PDU_TYPE_BSSMAP, BE_CELL_ID_LST_SEG_F_EST_CELLS, NULL);
+    /* Cell Identifier List Segment for cells to be established    3.2.2.27c   BSS-MSC O (note 1)  3-? */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_CELL_ID_LST_SEG_F_CELL_TB_EST].value, GSM_A_PDU_TYPE_BSSMAP, BE_CELL_ID_LST_SEG_F_CELL_TB_EST, NULL);
+    /* Cell Identifier List Segment for released cells - no user present   3.2.2.27e   BSS-MSC O (note 1)  3-? */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_CELL_ID_LST_SEG_F_REL_CELL].value, GSM_A_PDU_TYPE_BSSMAP, BE_CELL_ID_LST_SEG_F_REL_CELL, NULL);
+    /* Cell Identifier List Segment for not established cells - no establishment possible  3.2.2.27f   BSS-MSC O (note 1)  3-? */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_CELL_ID_LST_SEG_F_NOT_EST_CELL].value, GSM_A_PDU_TYPE_BSSMAP, BE_CELL_ID_LST_SEG_F_NOT_EST_CELL, NULL);
+    /* VGCS/VBS Cell Status    3.2.2.94    BSS-MSC O (note 2)  3 */
+    ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_VGS_VBS_CELL_STAT].value, GSM_A_PDU_TYPE_BSSMAP, BE_VGS_VBS_CELL_STAT, NULL);
+
+    EXTRANEOUS_DATA_CHECK(curr_len, 0);
+}
 /*
  * 3.2.1.81 VGCS SMS
  */
@@ -6168,7 +6562,9 @@ bssmap_notification_data(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_
     /* Application Data 3.2.2.98    MSC-BSS M   11 */
     ELEM_MAND_TLV(gsm_bssmap_elem_strings[BE_APP_DATA_INF].value, GSM_A_PDU_TYPE_BSSMAP, BE_APP_DATA_INF, NULL);
     /* Data Identity    3.2.2.99    MSC-BSS M   3 */
+    ELEM_MAND_TLV(gsm_bssmap_elem_strings[BE_DATA_ID].value, GSM_A_PDU_TYPE_BSSMAP, BE_DATA_ID, NULL);
     /* MSISDN   3.2.2.101   MSC-BSS O   2-12 */
+    ELEM_MAND_TLV(gsm_bssmap_elem_strings[BE_MSISDN].value, GSM_A_PDU_TYPE_BSSMAP, BE_MSISDN, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -6191,7 +6587,7 @@ bssmap_int_ho_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
     ELEM_MAND_TLV(gsm_bssmap_elem_strings[BE_CELL_ID].value, GSM_A_PDU_TYPE_BSSMAP, BE_CELL_ID, NULL);
     /* AoIP Transport Layer Address (BSS)   3.2.2.nn    BSS-MSC C (Note 1)  10-22 */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_AOIP_TRANS_LAY_ADD].value, GSM_A_PDU_TYPE_BSSMAP, BE_AOIP_TRANS_LAY_ADD, NULL);
-    /* Codec List (BSS Supported)   3.2.2.nn    BSS-MSC M   3-n */
+    /* Codec List (BSS Supported)   3.2.2.103    BSS-MSC M   3-n */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SPEECH_CODEC_LST].value, GSM_A_PDU_TYPE_BSSMAP, BE_SPEECH_CODEC_LST, "(BSS Supported)");
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
@@ -6233,9 +6629,13 @@ bssmap_int_ho_cmd(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint
     /* Speech Codec (MSC Chosen)    3.2.2.nn    MSC-BSS M (note 1)  3-n */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_SPEECH_CODEC].value, GSM_A_PDU_TYPE_BSSMAP, BE_SPEECH_CODEC, "(Chosen)");
     /* Circuit Identity Code    3.2.2.2     MSC-BSS     C (note 2)  3 */
-    ELEM_MAND_TV(gsm_bssmap_elem_strings[BE_CIC].value, GSM_A_PDU_TYPE_BSSMAP, BE_CIC, NULL);
-    /* AoIP Transport Layer Address (MGW)   3.2.2.nn    MSC-BSS C (note 2)  10-22 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CIC].value, GSM_A_PDU_TYPE_BSSMAP, BE_CIC, NULL);
+    /* AoIP Transport Layer Address (MGW)   3.2.2.102    MSC-BSS C (note 2)  10-22 */
     ELEM_OPT_TLV(gsm_bssmap_elem_strings[BE_AOIP_TRANS_LAY_ADD].value, GSM_A_PDU_TYPE_BSSMAP, BE_AOIP_TRANS_LAY_ADD, NULL);
+    /* Call Identifier  3.2.2.105   MSC-BSS C (note 4) 5 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_CALL_ID].value, GSM_A_PDU_TYPE_BSSMAP, BE_CALL_ID, NULL);
+    /* Downlink DTX Flag  3.2.2.26   MSC-BSS O (note 5) 2 */
+    ELEM_OPT_TV(gsm_bssmap_elem_strings[BE_DOWN_DTX_FLAG].value, GSM_A_PDU_TYPE_BSSMAP, BE_DOWN_DTX_FLAG, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0);
 }
@@ -6350,7 +6750,7 @@ static void (*bssmap_msg_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
     bssmap_perf_loc_abort,              /* Perform Location Abort */
     bssmap_common_id,                   /* Common Id */
     bssmap_reset,                       /* Reset */
-    NULL /* no associated data */,      /* Reset Acknowledge */
+    bssmap_reset_ack,                   /* Reset Acknowledge */
     bssmap_overload,                    /* Overload */
     NULL,                               /* Reserved */
     bssmap_reset_cct,                   /* Reset Circuit */
@@ -6362,8 +6762,8 @@ static void (*bssmap_msg_fcn[])(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
     NULL,                               /* 0x39 unallocated */
 
     NULL,                               /* 0x3a Connectionless Information */
-    NULL,                               /* 0x3b VGCS/VBS ASSIGNMENT STATUS */
-    NULL,                               /* 0x3c VGCS/VBS AREA CELL INFO */
+    bssmap_vgcs_vbs_assign_status,      /* 0x3b VGCS/VBS ASSIGNMENT STATUS */
+    bssmap_vgcs_vbs_area_cell_info,     /* 0x3c VGCS/VBS AREA CELL INFO */
     bssmap_reset_ip_res,                /* 0x3d 3.2.1.87 RESET IP RESOURCE */
     bssmap_reset_ip_res_ack,            /* 0x3e 3.2.1.88 RESET IP RESOURCE ACKNOWLEDGE */
     NULL,                               /* 0x3f VGCS/VBS AREA CELL INFO */
@@ -6432,15 +6832,15 @@ dissect_bssmap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
     static gsm_a_tap_rec_t  tap_rec[4];
     static gsm_a_tap_rec_t  *tap_p;
-    static guint            tap_current=0;
-    guint8  oct;
-    guint32 offset, saved_offset;
-    guint32 len;
-    gint    idx;
-    proto_item  *bssmap_item = NULL;
-    proto_tree  *bssmap_tree = NULL;
-    const gchar *str;
-    sccp_msg_info_t* sccp_msg_p;
+    static guint      tap_current = 0;
+    guint8            oct;
+    guint32           offset, saved_offset;
+    guint32           len;
+    gint              idx;
+    proto_item       *bssmap_item = NULL;
+    proto_tree       *bssmap_tree = NULL;
+    const gchar      *str;
+    sccp_msg_info_t*  sccp_msg_p;
 
     sccp_msg_p = pinfo->sccp_info;
 
@@ -6477,13 +6877,18 @@ dissect_bssmap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
     str = match_strval_idx_ext((guint32) oct, &gsm_a_bssmap_msg_strings_ext, &idx);
 
     if (sccp_msg_p && !sccp_msg_p->data.co.label) {
-        sccp_msg_p->data.co.label = se_strdup(val_to_str_ext((guint32) oct, &gsm_a_bssmap_msg_strings_ext, "BSSMAP (0x%02x)"));
+        sccp_msg_p->data.co.label = se_strdup(val_to_str_ext((guint32)oct,
+                                                             &gsm_a_bssmap_msg_strings_ext,
+                                                             "BSSMAP (0x%02x)"));
     }
 
     /*
      * create the protocol tree
      */
-    if (str == NULL)
+    /* These two conditions are actually the same, but checking idx makes it
+     * obvious we won' t use a potentially negative idx in the else case.
+     */
+    if (str == NULL || idx < 0)
     {
         bssmap_item =
         proto_tree_add_protocol_format(tree, proto_a_bssmap, tvb, 0, len,
@@ -6522,18 +6927,18 @@ dissect_bssmap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
     /*
      * decode elements
      */
-    if (idx < 0 || bssmap_msg_fcn[idx] == NULL){
+    if (idx < 0 || bssmap_msg_fcn[idx] == NULL) {
         proto_tree_add_text(bssmap_tree,
             tvb, offset, len - offset,
             "Message Elements");
     }else{
-        if (sccp_msg_p && ((sccp_msg_p->data.co.assoc->app_info & 0xCD00) == 0xCD00)){
+        if (sccp_msg_p && ((sccp_msg_p->data.co.assoc->app_info & 0xCD00) == 0xCD00)) {
             cell_discriminator = sccp_msg_p->data.co.assoc->app_info & 0xFF;
         }else{
             cell_discriminator = 0xFF;
         }
         (*bssmap_msg_fcn[idx])(tvb, bssmap_tree, pinfo, offset, len - offset);
-        if (sccp_msg_p){
+        if (sccp_msg_p) {
             sccp_msg_p->data.co.assoc->app_info = cell_discriminator | 0xCDF0;
         }
     }
@@ -6559,7 +6964,7 @@ proto_register_gsm_a_bssmap(void)
     },
     { &hf_gsm_a_bssmap_elem_id,
         { "Element ID", "gsm_a_bssmap.elem_id",
-        FT_UINT8, BASE_DEC, NULL, 0,
+        FT_UINT8, BASE_HEX, NULL, 0,
         NULL, HFILL }
     },
     { &hf_gsm_a_bssmap_field_elem_id,
@@ -6588,17 +6993,17 @@ proto_register_gsm_a_bssmap(void)
         NULL, HFILL }
     },
     { &hf_gsm_a_bssmap_dlci_cc,
-        { "Control Channel", "bssap.dlci.cc",
+        { "Control Channel", "gsm_a_bssmap.dlci.cc",
         FT_UINT8, BASE_HEX, VALS(bssap_cc_values), 0xc0,
         NULL, HFILL}
     },
     { &hf_gsm_a_bssmap_dlci_spare,
-        { "Spare", "bssap.dlci.spare",
+        { "Spare", "gsm_a_bssmap.dlci.spare",
         FT_UINT8, BASE_HEX, NULL, 0x38,
         NULL, HFILL}
     },
     { &hf_gsm_a_bssmap_dlci_sapi,
-        { "SAPI", "bssap.dlci.sapi",
+        { "SAPI", "gsm_a_bssmap.dlci.sapi",
         FT_UINT8, BASE_HEX, VALS(bssap_sapi_values), 0x07,
         NULL, HFILL}
     },
@@ -6613,22 +7018,27 @@ proto_register_gsm_a_bssmap(void)
         NULL, HFILL }
     },
         { &hf_gsm_a_bssmap_pci,
-        { "Preemption Capability indicator(PCI)","ggsm_a_bssmap.pci",
+        { "Preemption Capability indicator(PCI)","gsm_a_bssmap.pci",
         FT_BOOLEAN,8, TFS(&bssmap_pci_value), 0x40,
         NULL, HFILL }
     },
         { &hf_gsm_a_bssmap_qa,
-        { "Queuing Allowed Indicator(QA)","ggsm_a_bssmap.qa",
+        { "Queuing Allowed Indicator(QA)","gsm_a_bssmap.qa",
         FT_BOOLEAN,8, TFS(&tfs_allowed_not_allowed), 0x02,
         NULL, HFILL }
     },
         { &hf_gsm_a_bssmap_pvi,
-        { "Preemption Vulnerability Indicator(PVI)","ggsm_a_bssmap.pvi",
+        { "Preemption Vulnerability Indicator(PVI)","gsm_a_bssmap.pvi",
         FT_BOOLEAN,8, TFS(&bssmap_pvi_value), 0x01,
         NULL, HFILL }
     },
+        { &hf_gsm_a_bssmap_interference_bands,
+        { "Acceptable interference bands","gsm_a_bssmap.interference_bands",
+        FT_UINT8, BASE_HEX, NULL, 0x01f,
+        NULL, HFILL }
+    },
     { &hf_gsm_a_bssmap_lsa_only,
-        { "LSA only","ggsm_a_bssmap.lsa_only",
+        { "LSA only","gsm_a_bssmap.lsa_only",
         FT_BOOLEAN,8, TFS(&bssmap_lsa_only_value), 0x01,
         NULL, HFILL }
     },
@@ -6665,6 +7075,26 @@ proto_register_gsm_a_bssmap(void)
     { &hf_gsm_a_bssap_res_ind_method,
         { "Resource indication method","gsm_a_bssmap.res_ind_method",
         FT_UINT8,BASE_DEC, VALS(gsm_a_bssap_resource_indication_vals), 0xf,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssap_cic_list_range,
+        { "Range","gsm_a_bssmap.cic_list_range",
+        FT_UINT8, BASE_DEC, NULL, 0,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssap_cic_list_status,
+        { "Status","gsm_a_bssmap.cic_list_status",
+        FT_BYTES, BASE_NONE, NULL, 0,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssap_diag_error_pointer,
+        { "Error pointer","gsm_a_bssmap.diag_error_pointer",
+        FT_UINT16, BASE_HEX, NULL, 0,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssap_diag_msg_rcv,
+        { "Message received","gsm_a_bssmap.cic_list_status",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }
     },
     { &hf_gsm_a_bssmap_ch_mode,
@@ -6782,19 +7212,99 @@ proto_register_gsm_a_bssmap(void)
         FT_UINT8, BASE_DEC,VALS(gsm_a_bssmap_talker_pri_vals), 0x03,
         NULL, HFILL }
     },
+    { &hf_gsm_a_bssmap_rr_mode,
+        { "RR mode", "gsm_a_bssmap.rr_mode",
+        FT_UINT8, BASE_DEC, VALS(gsm_a_bssmap_rr_mode_vals), 0xc0,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_group_cipher_key_nb,
+        { "Group cipher key number", "gsm_a_bssmap.group_cipher_key_nb",
+        FT_UINT8, BASE_DEC, VALS(gsm_a_bssmap_group_cipher_key_nb_vals), 0x3c,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_vgcs_vbs_cell_status,
+        { "Status", "gsm_a_bssmap.vgcs_vbs_cell_status",
+        FT_UINT8, BASE_DEC, VALS(gsm_a_bssmap_vgcs_vbs_cell_status_vals), 0x07,
+        NULL, HFILL }
+    },
     { &hf_gsm_a_bssmap_paging_cause,
         { "Paging Cause", "gsm_a_bssmap.paging_cause",
         FT_UINT8, BASE_DEC,VALS(gsm_a_bssmap_paging_cause_vals), 0x06,
         NULL, HFILL }
     },
     { &hf_gsm_a_bssmap_paging_inf_flg,
-        { "VGCS/VBS flag","ggsm_a_bssmap.paging_inf_flg",
+        { "VGCS/VBS flag","gsm_a_bssmap.paging_inf_flg",
         FT_BOOLEAN,8, TFS(&bssmap_paging_inf_flg_value), 0x01,
         "If 1, a member of a VGCS/VBS-group", HFILL }
     },
     { &hf_gsm_a_bssmap_serv_ho_inf,
         { "Service Handover information", "gsm_a_bssmap.serv_ho_inf",
         FT_UINT8, BASE_HEX, NULL, 0x07,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_max_nb_traffic_chan,
+        { "Maximum Number of Traffic Channels", "gsm_a_bssmap.max_nb_traffic_chan",
+        FT_UINT8, BASE_DEC, VALS(gsm_a_max_nb_traffic_chan_vals), 0x07,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_acceptable_chan_coding_bit5,
+        { "TCH/F43.2", "gsm_a_bssmap.acceptable_chan_coding_bit5",
+        FT_BOOLEAN, 8, TFS(&gsm_a_bssmap_accept_not_accept_vals), 0x10,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_acceptable_chan_coding_bit4,
+        { "TCH/F43.2", "gsm_a_bssmap.acceptable_chan_coding_bit4",
+        FT_BOOLEAN, 8, TFS(&gsm_a_bssmap_accept_not_accept_vals), 0x08,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_acceptable_chan_coding_bit3,
+        { "TCH/F43.2", "gsm_a_bssmap.acceptable_chan_coding_bit3",
+        FT_BOOLEAN, 8, TFS(&gsm_a_bssmap_accept_not_accept_vals), 0x04,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_acceptable_chan_coding_bit2,
+        { "TCH/F43.2", "gsm_a_bssmap.acceptable_chan_coding_bit2",
+        FT_BOOLEAN, 8, TFS(&gsm_a_bssmap_accept_not_accept_vals), 0x02,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_acceptable_chan_coding_bit1,
+        { "TCH/F43.2", "gsm_a_bssmap.acceptable_chan_coding_bit1",
+        FT_BOOLEAN, 8, TFS(&gsm_a_bssmap_accept_not_accept_vals), 0x01,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_allowed_data_rate_bit8,
+        { "43.5 kbit/s (TCH/F43.2)", "gsm_a_bssmap.allowed_data_rate_bit8",
+        FT_BOOLEAN, 8, TFS(&tfs_allowed_not_allowed), 0x80,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_allowed_data_rate_bit7,
+        { "32.0 kbit/s (TCH/F32.0)", "gsm_a_bssmap.allowed_data_rate_bit7",
+        FT_BOOLEAN, 8, TFS(&tfs_allowed_not_allowed), 0x40,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_allowed_data_rate_bit6,
+        { "29.0 kbit/s (TCH/F28.8)", "gsm_a_bssmap.allowed_data_rate_bit6",
+        FT_BOOLEAN, 8, TFS(&tfs_allowed_not_allowed), 0x20,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_allowed_data_rate_bit5,
+        { "14.5/14.4 kbit/s (TCH/F14.4)", "gsm_a_bssmap.allowed_data_rate_bit5",
+        FT_BOOLEAN, 8, TFS(&tfs_allowed_not_allowed), 0x10,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_allowed_data_rate_bit4,
+        { "12.0/9.6 kbit/s (TCH F/9.6)", "gsm_a_bssmap.allowed_data_rate_bit4",
+        FT_BOOLEAN, 8, TFS(&tfs_allowed_not_allowed), 0x08,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_vstk_rand,
+        { "VSTK_RAND", "gsm_a_bssmap.vstk_rand",
+        FT_UINT64, BASE_HEX, NULL, 0,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_vstk,
+        { "VSTK", "gsm_a_bssmap.vstk",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }
     },
 
@@ -6846,6 +7356,16 @@ proto_register_gsm_a_bssmap(void)
         { &hf_gsm_a_bssmap_usage,
         { "Usage","gsm_a_bssmap.usage",
         FT_UINT8, BASE_DEC,VALS(gsm_a_bssmap_usage_vals), 0x07,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_data_id,
+        { "Data Identity","gsm_a_bssmap.data_id",
+        FT_UINT8, BASE_DEC_HEX, NULL, 0,
+        NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_bt_ind,
+        { "BT Ind","gsm_a_bssmap.bt_ind",
+        FT_BOOLEAN, 8, TFS(&gsm_a_bssmap_bt_ind_val), 0x01,
         NULL, HFILL }
     },
     { &hf_gsm_a_bssmap_aoip_trans_ipv4,
@@ -6971,6 +7491,31 @@ proto_register_gsm_a_bssmap(void)
     { &hf_gsm_a_bssmap_emlpp_prio,
         { "eMLPP Priority", "gsm_a_bssmap.emlpp_priority",
             FT_UINT8, BASE_HEX, VALS(gsm_a_bssmap_call_priority_vals), 0x07,
+            NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_rip,
+        { "RIP", "gsm_a_bssmap.rip",
+            FT_BOOLEAN, 8, TFS(&gsm_a_bssmap_rip_value), 0x02,
+            NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_rtd,
+        { "RTD", "gsm_a_bssmap.rtd",
+            FT_BOOLEAN, 8, TFS(&gsm_a_bssmap_rtd_value), 0x01,
+            NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_kc128,
+        { "Kc128", "gsm_a_bssmap.kc128",
+            FT_BYTES, BASE_NONE, NULL, 0,
+            NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_csg_id,
+        { "CSG Identity", "gsm_a_bssmap.csg_id",
+            FT_UINT32, BASE_DEC, NULL, 0,
+            NULL, HFILL }
+    },
+    { &hf_gsm_a_bssmap_cell_access_mode,
+        { "Cell Access Mode", "gsm_a_bssmap.cell_access_mode",
+            FT_BOOLEAN, BASE_NONE, TFS(&gsm_a_bssmap_cell_access_mode_value), 0,
             NULL, HFILL }
     },
 
@@ -7122,9 +7667,11 @@ proto_reg_handoff_gsm_a_bssmap(void)
     bssmap_handle = find_dissector("gsm_a_bssmap");
     dissector_add_uint("bssap.pdu_type",  GSM_A_PDU_TYPE_BSSMAP, bssmap_handle);
 
-    dtap_handle = find_dissector("gsm_a_dtap");
+    dtap_handle       = find_dissector("gsm_a_dtap");
     gsm_bsslap_handle = find_dissector("gsm_bsslap");
-    bssgp_handle = find_dissector ("bssgp");
-    rrc_handle = find_dissector ("rrc");
+    bssgp_handle      = find_dissector ("bssgp");
+    rrc_handle        = find_dissector ("rrc");
+    rtp_handle        = find_dissector("rtp");
+
 }
 

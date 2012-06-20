@@ -117,6 +117,9 @@ static gint hf_dtls_handshake_extensions_len    = -1;
 static gint hf_dtls_handshake_extension_type    = -1;
 static gint hf_dtls_handshake_extension_len     = -1;
 static gint hf_dtls_handshake_extension_data    = -1;
+static gint hf_dtls_handshake_session_ticket_lifetime_hint = -1;
+static gint hf_dtls_handshake_session_ticket_len = -1;
+static gint hf_dtls_handshake_session_ticket    = -1;
 static gint hf_dtls_handshake_certificates_len  = -1;
 static gint hf_dtls_handshake_certificates      = -1;
 static gint hf_dtls_handshake_certificate       = -1;
@@ -160,6 +163,7 @@ static gint ett_dtls_heartbeat         = -1;
 static gint ett_dtls_cipher_suites     = -1;
 static gint ett_dtls_comp_methods      = -1;
 static gint ett_dtls_extension         = -1;
+static gint ett_dtls_new_ses_ticket    = -1;
 static gint ett_dtls_certs             = -1;
 static gint ett_dtls_cert_types        = -1;
 static gint ett_dtls_dnames            = -1;
@@ -177,9 +181,9 @@ static StringInfo          dtls_decrypted_data       = {NULL, 0};
 static gint                dtls_decrypted_data_avail = 0;
 
 static uat_t *dtlsdecrypt_uat      = NULL;
-static gchar *dtls_keys_list       = NULL;
+static const gchar *dtls_keys_list = NULL;
 #ifdef HAVE_LIBGNUTLS
-static gchar *dtls_debug_file_name = NULL;
+static const gchar *dtls_debug_file_name = NULL;
 #endif
 
 static heur_dissector_list_t heur_subdissector_list;
@@ -331,15 +335,19 @@ static void dissect_dtls_hnd_cli_hello(tvbuff_t *tvb,
                                        guint32 offset, guint32 length,
                                        SslDecryptSession* ssl);
 
+static int dissect_dtls_hnd_srv_hello(tvbuff_t *tvb,
+                                       proto_tree *tree,
+                                       guint32 offset, guint32 length,
+                                       SslDecryptSession* ssl);
+
 static int dissect_dtls_hnd_hello_verify_request(tvbuff_t *tvb,
                                                   proto_tree *tree,
                                                   guint32 offset,
                                                   SslDecryptSession* ssl);
 
-static int dissect_dtls_hnd_srv_hello(tvbuff_t *tvb,
+static void dissect_dtls_hnd_new_ses_ticket(tvbuff_t *tvb,
                                        proto_tree *tree,
-                                       guint32 offset, guint32 length,
-                                       SslDecryptSession* ssl);
+                                       guint32 offset, guint32 length);
 
 static void dissect_dtls_hnd_cert(tvbuff_t *tvb,
                                   proto_tree *tree, guint32 offset, packet_info *pinfo);
@@ -484,6 +492,11 @@ dissect_dtls(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
                                      offset, conv_version,
                                      ssl_session);
         break;
+      case SSL_VER_DTLS1DOT2:
+        offset = dissect_dtls_record(tvb, pinfo, dtls_tree,
+                                     offset, conv_version,
+                                     ssl_session);
+        break;
 
         /* that failed, so apply some heuristics based
          * on this individual packet
@@ -592,7 +605,7 @@ decrypt_dtls_record(tvbuff_t *tvb, packet_info *pinfo, guint32 offset,
     return ret;
   }
 
-  /* retrive decoder for this packet direction */
+  /* retrieve decoder for this packet direction */
   if (ssl_packet_from_server(ssl, dtls_associations, pinfo) != 0) {
     ssl_debug_printf("decrypt_dtls_record: using server decoder\n");
     decoder = ssl->server;
@@ -602,7 +615,7 @@ decrypt_dtls_record(tvbuff_t *tvb, packet_info *pinfo, guint32 offset,
     decoder = ssl->client;
   }
 
-  if (!decoder) {
+  if (!decoder && ssl->cipher != 0x0001 && ssl->cipher != 0x0002) {
     ssl_debug_printf("decrypt_dtls_record: no decoder available\n");
     return ret;
   }
@@ -622,6 +635,10 @@ decrypt_dtls_record(tvbuff_t *tvb, packet_info *pinfo, guint32 offset,
    * is successful*/
   dtls_decrypted_data_avail = dtls_decrypted_data.data_len;
   if (ssl->state & SSL_HAVE_SESSION_KEY) {
+    if (!decoder) {
+      ssl_debug_printf("decrypt_dtls_record: no decoder available\n");
+      return ret;
+    }
     if (ssl_decrypt_record(ssl, decoder, content_type, tvb_get_ptr(tvb, offset, record_length), record_length,
                            &dtls_compressed_data, &dtls_decrypted_data, &dtls_decrypted_data_avail) == 0)
       ret = 1;
@@ -802,6 +819,16 @@ dissect_dtls_record(tvbuff_t *tvb, packet_info *pinfo,
           }
           /*ssl_set_conv_version(pinfo, ssl->version);*/
         }
+      if (version == DTLSV1DOT2_VERSION)
+        {
+
+          *conv_version = SSL_VER_DTLS1DOT2;
+          if (ssl) {
+            ssl->version_netorder = version;
+            ssl->state |= SSL_VERSION;
+          }
+          /*ssl_set_conv_version(pinfo, ssl->version);*/
+        }
     }
   if (check_col(pinfo->cinfo, COL_PROTOCOL))
     {
@@ -809,6 +836,11 @@ dissect_dtls_record(tvbuff_t *tvb, packet_info *pinfo,
         {
           col_set_str(pinfo->cinfo, COL_PROTOCOL,
                       val_to_str_const(SSL_VER_DTLS, ssl_version_short_names, "SSL"));
+        }
+      else if (version == DTLSV1DOT2_VERSION)
+        {
+          col_set_str(pinfo->cinfo, COL_PROTOCOL,
+                      val_to_str_const(SSL_VER_DTLS1DOT2, ssl_version_short_names, "SSL"));
         }
       else
         {
@@ -1312,16 +1344,16 @@ dissect_dtls_handshake(tvbuff_t *tvb, packet_info *pinfo,
             dissect_dtls_hnd_cli_hello(sub_tvb, ssl_hand_tree, 0, length, ssl);
             break;
 
+          case SSL_HND_SERVER_HELLO:
+            dissect_dtls_hnd_srv_hello(sub_tvb, ssl_hand_tree, 0, length, ssl);
+            break;
+
           case SSL_HND_HELLO_VERIFY_REQUEST:
             dissect_dtls_hnd_hello_verify_request(sub_tvb, ssl_hand_tree, 0,  ssl);
             break;
 
           case SSL_HND_NEWSESSION_TICKET:
-            /* Content depends on implementation, so nothing to do! */
-            break;
-
-          case SSL_HND_SERVER_HELLO:
-            dissect_dtls_hnd_srv_hello(sub_tvb, ssl_hand_tree, 0, length, ssl);
+            dissect_dtls_hnd_new_ses_ticket(sub_tvb, ssl_hand_tree, 0, length);
             break;
 
           case SSL_HND_CERTIFICATE:
@@ -1505,71 +1537,71 @@ dissect_dtls_hnd_hello_common(tvbuff_t *tvb, proto_tree *tree,
   guint8   session_id_length;
 
   if (tree || ssl)
+  {
+    if (ssl)
     {
-	  if (ssl)
-		{
-		  /* get proper peer information*/
-		  StringInfo* rnd;
-		  if (from_server)
-			rnd = &ssl->server_random;
-		  else
-			rnd = &ssl->client_random;
+      /* get proper peer information*/
+      StringInfo* rnd;
+      if (from_server)
+        rnd = &ssl->server_random;
+      else
+        rnd = &ssl->client_random;
 
-		  /* get provided random for keyring generation*/
-		  tvb_memcpy(tvb, rnd->data, offset, 32);
-		  rnd->data_len = 32;
-		  if (from_server)
-			ssl->state |= SSL_SERVER_RANDOM;
-		  else
-			ssl->state |= SSL_CLIENT_RANDOM;
-		  ssl_debug_printf("dissect_dtls_hnd_hello_common found random state %X\n",
-						   ssl->state);
-        }
-
-      /* show the time */
-      if (tree)
-        {
-          gmt_unix_time.secs  = tvb_get_ntohl(tvb, offset);
-          gmt_unix_time.nsecs = 0;
-          proto_tree_add_time(tree, hf_dtls_handshake_random_time,
-                              tvb, offset, 4, &gmt_unix_time);
-        }
-      offset += 4;
-
-      /* show the random bytes */
-      if (tree)
-          proto_tree_add_item(tree, hf_dtls_handshake_random_bytes,
-                              tvb, offset, 28, ENC_NA);
-      offset += 28;
-
-      /* show the session id */
-      session_id_length = tvb_get_guint8(tvb, offset);
-      if (tree)
-          proto_tree_add_item(tree, hf_dtls_handshake_session_id_len,
-                              tvb, offset, 1, ENC_BIG_ENDIAN);
-	  offset++;
-      if (ssl)
-        {
-          /* check stored session id info */
-          if (from_server && (session_id_length == ssl->session_id.data_len) &&
-              (tvb_memeql(tvb, offset, ssl->session_id.data, session_id_length) == 0))
-            {
-              /* clinet/server id match: try to restore a previous cached session*/
-              ssl_restore_session(ssl, dtls_session_hash);
-            }
-          else {
-            tvb_memcpy(tvb,ssl->session_id.data, offset, session_id_length);
-            ssl->session_id.data_len = session_id_length;
-          }
-        }
-	  if (tree && session_id_length > 0)
-		  proto_tree_add_bytes_format(tree, hf_dtls_handshake_session_id,
-									  tvb, offset, session_id_length,
-									  NULL, "Session ID (%u byte%s)",
-									  session_id_length,
-									  plurality(session_id_length, "", "s"));
-	  offset += session_id_length;
+      /* get provided random for keyring generation*/
+      tvb_memcpy(tvb, rnd->data, offset, 32);
+      rnd->data_len = 32;
+      if (from_server)
+        ssl->state |= SSL_SERVER_RANDOM;
+      else
+        ssl->state |= SSL_CLIENT_RANDOM;
+      ssl_debug_printf("dissect_dtls_hnd_hello_common found random state %X\n",
+                       ssl->state);
     }
+
+    /* show the time */
+    if (tree)
+    {
+      gmt_unix_time.secs  = tvb_get_ntohl(tvb, offset);
+      gmt_unix_time.nsecs = 0;
+      proto_tree_add_time(tree, hf_dtls_handshake_random_time,
+                          tvb, offset, 4, &gmt_unix_time);
+    }
+    offset += 4;
+
+    /* show the random bytes */
+    if (tree)
+      proto_tree_add_item(tree, hf_dtls_handshake_random_bytes,
+                          tvb, offset, 28, ENC_NA);
+    offset += 28;
+
+    /* show the session id */
+    session_id_length = tvb_get_guint8(tvb, offset);
+    if (tree)
+      proto_tree_add_item(tree, hf_dtls_handshake_session_id_len,
+                          tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset++;
+    if (ssl)
+    {
+      /* check stored session id info */
+      if (from_server && (session_id_length == ssl->session_id.data_len) &&
+          (tvb_memeql(tvb, offset, ssl->session_id.data, session_id_length) == 0))
+      {
+        /* clinet/server id match: try to restore a previous cached session*/
+        ssl_restore_session(ssl, dtls_session_hash);
+      }
+      else {
+        tvb_memcpy(tvb,ssl->session_id.data, offset, session_id_length);
+        ssl->session_id.data_len = session_id_length;
+      }
+    }
+    if (tree && session_id_length > 0)
+      proto_tree_add_bytes_format(tree, hf_dtls_handshake_session_id,
+                                  tvb, offset, session_id_length,
+                                  NULL, "Session ID (%u byte%s)",
+                                  session_id_length,
+                                  plurality(session_id_length, "", "s"));
+    offset += session_id_length;
+  }
 
   /* XXXX */
   return offset;
@@ -1620,6 +1652,7 @@ dissect_dtls_hnd_hello_ext(tvbuff_t *tvb,
       case SSL_HND_HELLO_EXT_HEARTBEAT:
           proto_tree_add_item(ext_tree, hf_dtls_heartbeat_extension_mode,
                               tvb, offset, 1, ENC_BIG_ENDIAN);
+          offset += ext_len;
           break;
       default:
           proto_tree_add_bytes_format(ext_tree, hf_dtls_handshake_extension_data,
@@ -1776,52 +1809,6 @@ dissect_dtls_hnd_cli_hello(tvbuff_t *tvb,
     }
 }
 
-
-static int
-dissect_dtls_hnd_hello_verify_request(tvbuff_t *tvb, proto_tree *tree,
-                                      guint32 offset, SslDecryptSession* ssl)
-{
-  /*
-   * struct {
-   *    ProtocolVersion server_version;
-   *    opaque cookie<0..32>;
-   * } HelloVerifyRequest;
-   */
-
-  guint8 cookie_length;
-
-
-  if (tree || ssl)
-    {
-      /* show the client version */
-      if (tree)
-        proto_tree_add_item(tree, hf_dtls_handshake_server_version, tvb,
-                            offset, 2, ENC_BIG_ENDIAN);
-      offset += 2;
-
-
-      /* look for a cookie */
-      cookie_length = tvb_get_guint8(tvb, offset);
-      if (!tree)
-        return offset;
-
-      proto_tree_add_uint(tree, hf_dtls_handshake_cookie_len,
-                          tvb, offset, 1, cookie_length);
-      offset ++;            /* skip opaque length */
-
-      if (cookie_length > 0)
-        {
-          proto_tree_add_bytes_format(tree, hf_dtls_handshake_cookie,
-                                      tvb, offset, cookie_length,
-                                      NULL, "Cookie (%u byte%s)",
-                                      cookie_length,
-                                      plurality(cookie_length, "", "s"));
-          offset += cookie_length;
-        }
-    }
-    return offset;
-}
-
 static int
 dissect_dtls_hnd_srv_hello(tvbuff_t *tvb,
                            proto_tree *tree, guint32 offset, guint32 length, SslDecryptSession* ssl)
@@ -1909,6 +1896,79 @@ dissect_dtls_hnd_srv_hello(tvbuff_t *tvb,
         }
     }
     return offset;
+}
+
+static int
+dissect_dtls_hnd_hello_verify_request(tvbuff_t *tvb, proto_tree *tree,
+                                      guint32 offset, SslDecryptSession* ssl)
+{
+  /*
+   * struct {
+   *    ProtocolVersion server_version;
+   *    opaque cookie<0..32>;
+   * } HelloVerifyRequest;
+   */
+
+  guint8 cookie_length;
+
+
+  if (tree || ssl)
+    {
+      /* show the client version */
+      if (tree)
+        proto_tree_add_item(tree, hf_dtls_handshake_server_version, tvb,
+                            offset, 2, ENC_BIG_ENDIAN);
+      offset += 2;
+
+
+      /* look for a cookie */
+      cookie_length = tvb_get_guint8(tvb, offset);
+      if (!tree)
+        return offset;
+
+      proto_tree_add_uint(tree, hf_dtls_handshake_cookie_len,
+                          tvb, offset, 1, cookie_length);
+      offset ++;            /* skip opaque length */
+
+      if (cookie_length > 0)
+        {
+          proto_tree_add_bytes_format(tree, hf_dtls_handshake_cookie,
+                                      tvb, offset, cookie_length,
+                                      NULL, "Cookie (%u byte%s)",
+                                      cookie_length,
+                                      plurality(cookie_length, "", "s"));
+          offset += cookie_length;
+        }
+    }
+    return offset;
+}
+
+static void
+dissect_dtls_hnd_new_ses_ticket(tvbuff_t *tvb,
+                           proto_tree *tree, guint32 offset, guint32 length)
+{
+    guint nst_len;
+    proto_item *ti;
+    proto_tree *subtree;
+
+
+    nst_len = tvb_get_ntohs(tvb, offset+4);
+    if (6 + nst_len != length) {
+        return;
+    }
+
+    ti = proto_tree_add_text(tree, tvb, offset, 6+nst_len, "TLS Session Ticket");
+    subtree = proto_item_add_subtree(ti, ett_dtls_new_ses_ticket);
+
+	proto_tree_add_item(subtree, hf_dtls_handshake_session_ticket_lifetime_hint,
+						tvb, offset, 4, ENC_BIG_ENDIAN);
+	offset += 4;
+
+    proto_tree_add_uint(subtree, hf_dtls_handshake_session_ticket_len,
+        tvb, offset, 2, nst_len);
+    /* Content depends on implementation, so just show data! */
+    proto_tree_add_item(subtree, hf_dtls_handshake_session_ticket,
+            tvb, offset + 2, nst_len, ENC_NA);
 }
 
 static void
@@ -2092,6 +2152,10 @@ dissect_dtls_hnd_finished(tvbuff_t *tvb, proto_tree *tree, guint32 offset,
     proto_tree_add_item(tree, hf_dtls_handshake_finished,
                         tvb, offset, 12, ENC_NA);
     break;
+  case SSL_VER_DTLS1DOT2:
+    proto_tree_add_item(tree, hf_dtls_handshake_finished,
+                        tvb, offset, 12, ENC_NA);
+    break;
   }
 }
 
@@ -2185,7 +2249,8 @@ looks_like_dtls(tvbuff_t *tvb, guint32 offset)
 
   /* now check to see if the version byte appears valid */
   version = tvb_get_ntohs(tvb, offset + 1);
-  if (version != DTLSV1DOT0_VERSION && version != DTLSV1DOT0_VERSION_NOT)
+  if (version != DTLSV1DOT0_VERSION && version != DTLSV1DOT2_VERSION &&
+      version != DTLSV1DOT0_VERSION_NOT)
     {
       return 0;
     }
@@ -2423,6 +2488,21 @@ proto_register_dtls(void)
         FT_BYTES, BASE_NONE, NULL, 0x0,
         "Hello Extension data", HFILL }
     },
+	{ &hf_dtls_handshake_session_ticket_lifetime_hint,
+	  { "Session Ticket Lifetime Hint", "dtls.handshake.session_ticket_lifetime_hint",
+		FT_UINT32, BASE_DEC, NULL, 0x0,
+		"New DTLS Session Ticket Lifetime Hint", HFILL }
+	},
+	{ &hf_dtls_handshake_session_ticket_len,
+	  { "Session Ticket Length", "dtls.handshake.session_ticket_length",
+		FT_UINT16, BASE_DEC, NULL, 0x0,
+		"New DTLS Session Ticket Length", HFILL }
+	},
+	{ &hf_dtls_handshake_session_ticket,
+	  { "Session Ticket", "dtls.handshake.session_ticket",
+		FT_BYTES, BASE_NONE, NULL, 0x0,
+		"New DTLS Session Ticket", HFILL }
+	},
     { &hf_dtls_handshake_certificates_len,
       { "Certificates Length", "dtls.handshake.certificates_length",
         FT_UINT24, BASE_DEC, NULL, 0x0,
@@ -2579,6 +2659,7 @@ proto_register_dtls(void)
     &ett_dtls_cipher_suites,
     &ett_dtls_comp_methods,
     &ett_dtls_extension,
+	&ett_dtls_new_ses_ticket,
     &ett_dtls_certs,
     &ett_dtls_cert_types,
     &ett_dtls_dnames,
@@ -2627,15 +2708,15 @@ proto_register_dtls(void)
                                   "A table of RSA keys for DTLS decryption",
                                   dtlsdecrypt_uat);
 
-    prefs_register_string_preference(dtls_module, "debug_file", "DTLS debug file",
-                                     "redirect dtls debug to file name; leave empty to disable debug, "
-                                     "use \"" SSL_DEBUG_USE_STDERR "\" to redirect output to stderr\n",
-                                     (const gchar **)&dtls_debug_file_name);
+    prefs_register_filename_preference(dtls_module, "debug_file", "DTLS debug file",
+                                       "redirect dtls debug to file name; leave empty to disable debug, "
+                                       "use \"" SSL_DEBUG_USE_STDERR "\" to redirect output to stderr\n",
+                                       &dtls_debug_file_name);
 
     prefs_register_string_preference(dtls_module, "keys_list", "RSA keys list (deprecated)",
                                      "Semicolon-separated list of private RSA keys used for DTLS decryption. "
                                      "Used by versions of Wireshark prior to 1.6",
-                                     (const gchar **)&dtls_keys_list);
+                                     &dtls_keys_list);
 
   }
 #endif

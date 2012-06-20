@@ -78,7 +78,7 @@ LIBS =
 # a plugin.c file for a plugin.
 # All subsequent arguments are the files to scan.
 #
-plugin.c: $(DISSECTOR_SRC) $(top_srcdir)/tools/make-dissector-reg \
+plugin.c: $(DISSECTOR_SRC) Makefile.common $(top_srcdir)/tools/make-dissector-reg \
     $(top_srcdir)/tools/make-dissector-reg.py
 	@if test -n "$(PYTHON)"; then \
 		echo Making plugin.c with python ; \
@@ -124,4 +124,4 @@ EXTRA_DIST = \
 	CMakeLists.txt
 
 checkapi:
-	$(PERL) $(top_srcdir)/tools/checkAPIs.pl -g abort -g termoutput $(DISSECTOR_SRC) $(DISSECTOR_INCLUDES)
+	$(PERL) $(top_srcdir)/tools/checkAPIs.pl -g abort -g termoutput -build $(DISSECTOR_SRC) $(DISSECTOR_INCLUDES)

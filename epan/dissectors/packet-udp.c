@@ -29,10 +29,10 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
 #include <string.h>
 
 #include <glib.h>
+
 #include <epan/packet.h>
 #include <epan/emem.h>
 #include <epan/addr_resolv.h>
@@ -418,7 +418,7 @@ dissect(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 ip_proto)
   len = tvb_length(tvb);
   if (udph->uh_sum == 0) {
     /* No checksum supplied in the packet. */
-    if (ip_proto == IP_PROTO_UDP) {
+    if ((ip_proto == IP_PROTO_UDP) && (pinfo->src.type == AT_IPv4)) {
       item = proto_tree_add_uint_format(udp_tree, hf_udp_checksum, tvb, offset + 6, 2, 0,
         "Checksum: 0x%04x (none)", 0);
 
@@ -462,12 +462,18 @@ dissect(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 ip_proto)
       switch (pinfo->src.type) {
 
       case AT_IPv4:
-        phdr[0] = g_htonl((ip_proto<<16) | udph->uh_ulen);
+        if (ip_proto == IP_PROTO_UDP)
+          phdr[0] = g_htonl((ip_proto<<16) | udph->uh_ulen);
+	else
+          phdr[0] = g_htonl((ip_proto<<16) | reported_len);
         cksum_vec[2].len = 4;
         break;
 
       case AT_IPv6:
-        phdr[0] = g_htonl(udph->uh_ulen);
+        if (ip_proto == IP_PROTO_UDP)
+          phdr[0] = g_htonl(udph->uh_ulen);
+	else
+          phdr[0] = g_htonl(reported_len);
         phdr[1] = g_htonl(ip_proto);
         cksum_vec[2].len = 8;
         break;

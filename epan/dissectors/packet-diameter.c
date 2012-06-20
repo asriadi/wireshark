@@ -180,9 +180,7 @@ typedef struct _proto_avp_t {
 
 static const char* simple_avp(diam_ctx_t*, diam_avp_t*, tvbuff_t*);
 
-static const value_string no_vs[] = {{0, NULL} };
-static GArray no_garr = { (void*)no_vs, 0 };
-static diam_vnd_t unknown_vendor = { 0xffffffff, &no_garr, NULL,  &no_garr };
+static diam_vnd_t unknown_vendor = { 0xffffffff, NULL, NULL, NULL };
 static diam_vnd_t no_vnd = { 0, NULL, NULL, NULL };
 static diam_avp_t unknown_avp = {0, &unknown_vendor, simple_avp, simple_avp, -1, -1, NULL };
 static GArray* all_cmds;
@@ -258,6 +256,12 @@ static int hf_diameter_answer_in = -1;
 static int hf_diameter_answer_to = -1;
 static int hf_diameter_answer_time = -1;
 
+/* AVPs with special/extra decoding */
+static int hf_framed_ipv6_prefix_reserved = -1;
+static int hf_framed_ipv6_prefix_length = -1;
+static int hf_framed_ipv6_prefix_bytes = -1;
+static int hf_framed_ipv6_prefix_ipv6 = -1;
+
 static gint ett_diameter = -1;
 static gint ett_diameter_flags = -1;
 static gint ett_diameter_avp_flags = -1;
@@ -314,20 +318,18 @@ compare_avps (gconstpointer  a, gconstpointer  b)
 /* Special decoding of some AVP:s */
 
 static int
-dissect_diameter_vedor_id(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_)
+dissect_diameter_vendor_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 {
-
 	int offset = 0;
 
 	proto_tree_add_item(tree, hf_diameter_vendor_id, tvb, 0, 4, ENC_BIG_ENDIAN);
 
 	offset++;
 	return offset;
-
 }
 
 static int
-dissect_diameter_eap_payload(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_)
+dissect_diameter_eap_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
 	gboolean save_writable;
 
@@ -339,6 +341,29 @@ dissect_diameter_eap_payload(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tr
 
 	col_set_writable(pinfo->cinfo, save_writable);
 	return tvb_length(tvb);
+}
+
+/* From RFC 3162 section 2.3 */
+static int
+dissect_diameter_base_framed_ipv6_prefix(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
+{
+	guint8 prefix_len, prefix_len_bytes;
+
+	proto_tree_add_item(tree, hf_framed_ipv6_prefix_reserved, tvb, 0, 1, ENC_BIG_ENDIAN);
+	proto_tree_add_item(tree, hf_framed_ipv6_prefix_length, tvb, 1, 1, ENC_BIG_ENDIAN);
+
+	prefix_len = tvb_get_guint8(tvb, 1);
+	prefix_len_bytes = prefix_len / 8;
+	if (prefix_len % 8)
+		prefix_len_bytes++;
+
+	proto_tree_add_item(tree, hf_framed_ipv6_prefix_bytes, tvb, 2, prefix_len_bytes, ENC_NA);
+
+	/* If we have a fully IPv6 address, display it as such */
+	if (prefix_len_bytes == 16)
+		proto_tree_add_item(tree, hf_framed_ipv6_prefix_ipv6, tvb, 2, prefix_len_bytes, ENC_NA);
+
+	return(prefix_len_bytes+2);
 }
 
 /* Dissect an AVP at offset */
@@ -386,7 +411,7 @@ dissect_diameter_avp(diam_ctx_t* c, tvbuff_t* tvb, int offset)
 		{ /* Debug code */
 			value_string* vendor_avp_vs=VALUE_STRING_EXT_VS_P(vendor->vs_avps_ext);
 			gint i = 0;
-			while(vendor_avp_vs[i].strptr!=NULL){
+			while(vendor_avp_vs[i].strptr!=NULL) {
 				g_warning("%u %s",vendor_avp_vs[i].value,vendor_avp_vs[i].strptr);
 				i++;
 			}
@@ -477,7 +502,7 @@ dissect_diameter_avp(diam_ctx_t* c, tvbuff_t* tvb, int offset)
 	if (avp_str) proto_item_append_text(avp_item," val=%s", avp_str);
 
 	/* Call subdissectors for AVP:s */
-	switch (vendorid){
+	switch (vendorid) {
 	case 0:
 		dissector_try_uint(diameter_dissector_table, code, subtvb, c->pinfo, avp_tree);
 		break;
@@ -812,11 +837,11 @@ dissect_diameter_common(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree)
 	guint32 flags_bits = (tvb_get_ntohl(tvb,4) & 0xff000000) >> 24;
 	int packet_len = first_word & 0x00ffffff;
 	proto_item *pi, *cmd_item, *app_item, *version_item;
-	proto_tree* diam_tree;
-	diam_ctx_t* c = ep_alloc0(sizeof(diam_ctx_t));
+	proto_tree *diam_tree;
+	diam_ctx_t *c = ep_alloc0(sizeof(diam_ctx_t));
 	int offset;
-	value_string* cmd_vs;
-	const char* cmd_str;
+	value_string *cmd_vs;
+	const char *cmd_str;
 	guint32 cmd = tvb_get_ntoh24(tvb,5);
 	guint32 fourth = tvb_get_ntohl(tvb,8);
 	guint32 hop_by_hop_id = 0;
@@ -825,7 +850,7 @@ dissect_diameter_common(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree)
 	diameter_req_ans_pair_t *diameter_pair;
 	proto_item *it;
 	nstime_t ns;
-	void* pd_save;
+	void *pd_save;
 
 	pd_save = pinfo->private_data;
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "DIAMETER");
@@ -874,23 +899,20 @@ dissect_diameter_common(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree)
 			break;
 		}
 		case DIAMETER_RFC: {
-			guint32 application_id;
-			application_id = tvb_get_ntohl(tvb,8);
-			cmd_vs = (value_string*)(void*)all_cmds->data;
 			/* Store the application id to be used by subdissectors */
-			pinfo->private_data = &application_id;
-			app_item = proto_tree_add_item(diam_tree, hf_diameter_application_id,tvb,8,4,ENC_BIG_ENDIAN);
-			if (strcmp(val_to_str(tvb_get_ntohl(tvb, 8), dictionary.applications,
-				                  "Unknown"), "Unknown") == 0) {
-				proto_tree* tu = proto_item_add_subtree(app_item,ett_unknown);
-				proto_item* iu = proto_tree_add_text(tu,tvb, 8 ,4,"Unknown Application Id, "
+			pinfo->private_data = &fourth;
+
+			cmd_vs = (value_string*)(void*)all_cmds->data;
+
+			app_item = proto_tree_add_item(diam_tree, hf_diameter_application_id, tvb, 8, 4, ENC_BIG_ENDIAN);
+			if (match_strval(fourth, dictionary.applications) == NULL) {
+				proto_tree *tu = proto_item_add_subtree(app_item,ett_unknown);
+				proto_item *iu = proto_tree_add_text(tu, tvb, 8, 4, "Unknown Application Id, "
 				                                     "if you know what this is you can add it to dictionary.xml");
 				expert_add_info_format(c->pinfo, iu, PI_UNDECODED, PI_WARN,
-				                       "Unknown Application Id (%u)",
-				                       tvb_get_ntohl(tvb, 8));
+				                       "Unknown Application Id (%u)", fourth);
 				PROTO_ITEM_SET_GENERATED(iu);
 			}
-
 
 			c->version_rfc = TRUE;
 			break;
@@ -1073,11 +1095,11 @@ static void
 dissect_diameter_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
 	/* Check if we have the start of a PDU or if this is segment */
-	if (!check_diameter(tvb)){
+	if (!check_diameter(tvb)) {
 		col_set_str(pinfo->cinfo, COL_PROTOCOL, "DIAMETER");
 		col_set_str(pinfo->cinfo, COL_INFO, "Continuation");
 		call_dissector(data_handle, tvb, pinfo, tree);
-	}else{
+	} else {
 		tcp_dissect_pdus(tvb, pinfo, tree, gbl_diameter_desegment, 4,
 				 get_diameter_pdu_len, dissect_diameter_common);
 	}
@@ -1118,7 +1140,7 @@ reginfo(int* hf_ptr, const char* name, const char* abbr, const char* desc,
 				g_strdup(desc),
 				HFILL }};
 
-	if(vs_ext){
+	if(vs_ext) {
 		hf.hfinfo.strings = vs_ext;
 	}
 
@@ -1141,7 +1163,7 @@ basic_avp_reginfo(diam_avp_t* a, const char* name, enum ftenum ft,
 
 	hf->hfinfo.name = g_strdup_printf("%s",name);
 	hf->hfinfo.abbrev = alnumerize(g_strdup_printf("diameter.%s",name));
-	if(vs_ext){
+	if(vs_ext) {
 		hf->hfinfo.strings = vs_ext;
 	}
 
@@ -1206,15 +1228,15 @@ RFC3588
 		NULL, FT_UINT16, BASE_DEC|BASE_EXT_STRING, &diameter_avp_data_addrfamily_vals_ext, 0);
 
 	reginfo(&(t->hf_ipv4), ep_strdup_printf("%s Address",name),
-		alnumerize(ep_strdup_printf("diameter.%s",name)),
+		alnumerize(ep_strdup_printf("diameter.%s.IPv4",name)),
 		NULL, FT_IPv4, BASE_NONE, NULL, 0);
 
 	reginfo(&(t->hf_ipv6), ep_strdup_printf("%s Address",name),
-		alnumerize(ep_strdup_printf("diameter.%s",name)),
+		alnumerize(ep_strdup_printf("diameter.%s.IPv6",name)),
 		NULL, FT_IPv6, BASE_NONE, NULL, 0);
 
 	reginfo(&(t->hf_other), ep_strdup_printf("%s Address",name),
-		alnumerize(ep_strdup_printf("diameter.%s",name)),
+		alnumerize(ep_strdup_printf("diameter.%s.Bytes",name)),
 		NULL, FT_BYTES, BASE_NONE, NULL, 0);
 
 	g_ptr_array_add(build_dict.ett,ettp);
@@ -1273,7 +1295,7 @@ build_simple_avp(const avp_type_t* type, guint32 code, const diam_vnd_t* vendor,
 			break;
 
 		default:
-			fprintf(stderr,"Diameter Dictionary: AVP %s has a list of values but isn't of a 32-bit or shorter integral type\n",
+			fprintf(stderr,"Diameter Dictionary: AVP '%s' has a list of values but isn't of a 32-bit or shorter integral type\n",
 				name);
 			return NULL;
 		}
@@ -1300,21 +1322,21 @@ build_simple_avp(const avp_type_t* type, guint32 code, const diam_vnd_t* vendor,
 
 
 static const avp_type_t basic_types[] = {
-	{"octetstring"				, simple_avp	, simple_avp	, FT_BYTES			, BASE_NONE		, build_simple_avp  },
-	{"utf8string"				, utf8_avp		, utf8_avp		, FT_STRING			, BASE_NONE		, build_simple_avp  },
-	{"grouped"					, grouped_avp	, grouped_avp	, FT_BYTES			, BASE_NONE		, build_simple_avp  },
-	{"integer32"				, integer32_avp	, integer32_avp	, FT_INT32			, BASE_DEC		, build_simple_avp  },
-	{"unsigned32"				, unsigned32_avp, unsigned32_avp, FT_UINT32			, BASE_DEC		, build_simple_avp  },
-	{"integer64"				, integer64_avp	, integer64_avp	, FT_INT64			, BASE_DEC		, build_simple_avp  },
-	{"unsigned64"				, unsigned64_avp, unsigned64_avp, FT_UINT64			, BASE_DEC		, build_simple_avp  },
-	{"float32"					, float32_avp	, float32_avp	, FT_FLOAT			, BASE_NONE		, build_simple_avp  },
-	{"float64"					, float64_avp	, float64_avp	, FT_DOUBLE			, BASE_NONE		, build_simple_avp  },
-	{"ipaddress"				,  NULL			, NULL			, FT_NONE			, BASE_NONE		, build_address_avp },
-	{"diameteruri"				, utf8_avp		, utf8_avp		, FT_STRING			, BASE_NONE		, build_simple_avp  },
-	{"diameteridentity"			, utf8_avp		, utf8_avp		, FT_STRING			, BASE_NONE		, build_simple_avp  },
-	{"ipfilterrule"				, utf8_avp		, utf8_avp		, FT_STRING			, BASE_NONE		, build_simple_avp  },
-	{"qosfilterrule"			, utf8_avp		, utf8_avp		, FT_STRING			, BASE_NONE		, build_simple_avp  },
-	{"time"						, time_avp		, time_avp		, FT_ABSOLUTE_TIME	, ABSOLUTE_TIME_UTC	, build_simple_avp  },
+	{"octetstring"		, simple_avp		, simple_avp	, FT_BYTES		, BASE_NONE		, build_simple_avp  },
+	{"utf8string"		, utf8_avp		, utf8_avp	, FT_STRING		, BASE_NONE		, build_simple_avp  },
+	{"grouped"		, grouped_avp		, grouped_avp	, FT_BYTES		, BASE_NONE		, build_simple_avp  },
+	{"integer32"		, integer32_avp		, integer32_avp	, FT_INT32		, BASE_DEC		, build_simple_avp  },
+	{"unsigned32"		, unsigned32_avp	, unsigned32_avp, FT_UINT32		, BASE_DEC		, build_simple_avp  },
+	{"integer64"		, integer64_avp		, integer64_avp	, FT_INT64		, BASE_DEC		, build_simple_avp  },
+	{"unsigned64"		, unsigned64_avp	, unsigned64_avp, FT_UINT64		, BASE_DEC		, build_simple_avp  },
+	{"float32"		, float32_avp		, float32_avp	, FT_FLOAT		, BASE_NONE		, build_simple_avp  },
+	{"float64"		, float64_avp		, float64_avp	, FT_DOUBLE		, BASE_NONE		, build_simple_avp  },
+	{"ipaddress"		, NULL			, NULL		, FT_NONE		, BASE_NONE		, build_address_avp },
+	{"diameteruri"		, utf8_avp		, utf8_avp	, FT_STRING		, BASE_NONE		, build_simple_avp  },
+	{"diameteridentity"	, utf8_avp		, utf8_avp	, FT_STRING		, BASE_NONE		, build_simple_avp  },
+	{"ipfilterrule"		, utf8_avp		, utf8_avp	, FT_STRING		, BASE_NONE		, build_simple_avp  },
+	{"qosfilterrule"	, utf8_avp		, utf8_avp	, FT_STRING		, BASE_NONE		, build_simple_avp  },
+	{"time"			, time_avp		, time_avp	, FT_ABSOLUTE_TIME	, ABSOLUTE_TIME_UTC	, build_simple_avp  },
 	{NULL, NULL, NULL, FT_NONE, BASE_NONE, NULL }
 };
 
@@ -1364,6 +1386,11 @@ strcase_equal(gconstpointer ka, gconstpointer kb)
 }
 
 
+/* Note: Dynamic "value string arrays" (e.g., vs_cmds, vs_avps, ...) are constructed using */
+/*       "zero-terminated" GArrays so that they will have the same form as standard        */
+/*       value_string arrays created at compile time. Since the last entry in a            */
+/*       value_string array must be {0, NULL}, we are assuming that NULL == 0 (hackish).   */
+
 static int
 dictionary_load(void)
 {
@@ -1391,6 +1418,8 @@ dictionary_load(void)
 	dictionary.vnds = pe_tree_create(EMEM_TREE_TYPE_RED_BLACK,"diameter_vnds");
 	dictionary.avps = pe_tree_create(EMEM_TREE_TYPE_RED_BLACK,"diameter_avps");
 
+	unknown_vendor.vs_cmds = g_array_new(TRUE,TRUE,sizeof(value_string));
+	unknown_vendor.vs_avps = g_array_new(TRUE,TRUE,sizeof(value_string));
 	no_vnd.vs_cmds = g_array_new(TRUE,TRUE,sizeof(value_string));
 	no_vnd.vs_avps = g_array_new(TRUE,TRUE,sizeof(value_string));
 
@@ -1416,6 +1445,13 @@ dictionary_load(void)
 	for (t = d->typedefns; t; t = t->next) {
 		const avp_type_t* parent = NULL;
 		/* try to get the parent type */
+
+		if (t->name == NULL) {
+			fprintf(stderr,"Diameter Dictionary: Invalid Type (empty name): parent==%s\n",
+				t->parent ? t->parent : "(null)");
+			continue;
+		}
+
 
 		if (g_hash_table_lookup(build_dict.types,t->name))
 			continue;
@@ -1447,6 +1483,11 @@ dictionary_load(void)
 		for ( ; v; v = v->next) {
 			value_string item = {v->code,v->name};
 
+			if (v->name == NULL) {
+				fprintf(stderr,"Diameter Dictionary: Invalid Vendor (empty name): code==%d\n",v->code);
+				continue;
+			}
+
 			if (g_hash_table_lookup(vendors,v->name))
 				continue;
 
@@ -1467,13 +1508,19 @@ dictionary_load(void)
 
 	if ((c = d->cmds)) {
 		for (; c; c = c->next) {
+			if (c->vendor == NULL) {
+				fprintf(stderr,"Diameter Dictionary: Invalid Vendor (empty name) for command %s\n",
+					c->name ? c->name : "(null)");
+				continue;
+			}
+
 			if ((vnd = g_hash_table_lookup(vendors,c->vendor))) {
 				value_string item = {c->code,c->name};
 				g_array_append_val(vnd->vs_cmds,item);
 				/* Also add to all_cmds as used by RFC version */
 				g_array_append_val(all_cmds,item);
 			} else {
-				fprintf(stderr,"Diameter Dictionary: No Vendor: %s",c->vendor);
+				fprintf(stderr,"Diameter Dictionary: No Vendor: %s\n",c->vendor);
 			}
 		}
 	}
@@ -1486,11 +1533,16 @@ dictionary_load(void)
 		ddict_xmlpi_t* x;
 		void* avp_data = NULL;
 
+		if (a->name == NULL) {
+			fprintf(stderr,"Diameter Dictionary: Invalid AVP (empty name)\n");
+			continue;
+		}
+
 		if ((vnd = g_hash_table_lookup(vendors,vend))) {
 			value_string vndvs = {a->code,a->name};
 			g_array_append_val(vnd->vs_avps,vndvs);
 		} else {
-			fprintf(stderr,"Diameter Dictionary: No Vendor: %s",vend);
+			fprintf(stderr,"Diameter Dictionary: No Vendor: %s\n",vend);
 			vnd = &unknown_vendor;
 		}
 
@@ -1511,7 +1563,7 @@ dictionary_load(void)
 			if ( (strcase_equal(x->name,"avp-proto") && strcase_equal(x->key,a->name))
 				 || (a->type && strcase_equal(x->name,"type-proto") && strcase_equal(x->key,a->type))
 				 ) {
-				static avp_type_t proto_type = {"proto", proto_avp, proto_avp, FT_UINT32, BASE_NONE, build_proto_avp};
+				static avp_type_t proto_type = {"proto", proto_avp, proto_avp, FT_UINT32, BASE_HEX, build_proto_avp};
 				type =  &proto_type;
 
 				avp_data = x->value;
@@ -1679,7 +1731,22 @@ proto_register_diameter(void)
 	{ &hf_diameter_answer_time,
 		{ "Response Time", "diameter.resp_time", FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
 		"The time between the request and the answer", HFILL }},
-
+	{ &hf_framed_ipv6_prefix_reserved,
+	    { "Framed IPv6 Prefix Reserved byte", "diameter.framed_ipv6_prefix_reserved",
+	    FT_UINT8, BASE_HEX, NULL, 0,
+	    NULL, HFILL }},
+	{ &hf_framed_ipv6_prefix_length,
+	    { "Framed IPv6 Prefix length (in bits)", "diameter.framed_ipv6_prefix_length",
+	    FT_UINT8, BASE_DEC, NULL, 0,
+	    NULL, HFILL }},
+	{ &hf_framed_ipv6_prefix_bytes,
+	    { "Framed IPv6 Prefix as a bytestring", "diameter.framed_ipv6_prefix_bytes",
+	    FT_BYTES, BASE_NONE, NULL, 0,
+	    NULL, HFILL }},
+	{ &hf_framed_ipv6_prefix_ipv6,
+	    { "Framed IPv6 Prefix as an IPv6 address", "diameter.framed_ipv6_prefix_ipv6",
+	    FT_IPv6, BASE_NONE, NULL, 0,
+	    "This field is present only if the prefix length is 128", HFILL }}
 	};
 
 	gint *ett_base[] = {
@@ -1774,10 +1841,14 @@ proto_reg_handoff_diameter(void)
 							      proto_diameter);
 		data_handle = find_dissector("data");
 		eap_handle = find_dissector("eap");
+
 		/* Register special decoding for some AVP:s */
+		/* AVP Code: 97 Framed-IPv6-Address */
+		dissector_add_uint("diameter.base", 97,
+			new_create_dissector_handle(dissect_diameter_base_framed_ipv6_prefix, proto_diameter));
 		/* AVP Code: 266 Vendor-Id */
 		dissector_add_uint("diameter.base", 266,
-				new_create_dissector_handle(dissect_diameter_vedor_id, proto_diameter));
+			new_create_dissector_handle(dissect_diameter_vendor_id, proto_diameter));
 		/* AVP Code: 462 EAP-Payload */
 		dissector_add_uint("diameter.base", 462,
 			new_create_dissector_handle(dissect_diameter_eap_payload, proto_diameter));

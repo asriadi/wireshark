@@ -62,7 +62,7 @@ ensure_contiguous(tvbuff_t *tvb, const gint offset, const gint length);
 
 
 static guint64
-_tvb_get_bits64(tvbuff_t *tvb, gint bit_offset, const gint total_no_of_bits);
+_tvb_get_bits64(tvbuff_t *tvb, guint bit_offset, const gint total_no_of_bits);
 
 static void
 tvb_init(tvbuff_t *tvb, const tvbuff_type type)
@@ -189,10 +189,10 @@ tvb_free_chain(tvbuff_t* tvb)
 {
 	tvbuff_t *next_tvb;
 	DISSECTOR_ASSERT(tvb);
-	DISSECTOR_ASSERT((tvb->previous==NULL) && "tvb_free_chain(): tvb must be initial tvb in chain");
+	DISSECTOR_ASSERT_HINT(tvb->previous==NULL, "tvb_free_chain(): tvb must be initial tvb in chain");
 	while (tvb) {
 		next_tvb=tvb->next;
-		DISSECTOR_ASSERT(((next_tvb==NULL) || (tvb==next_tvb->previous)) && "tvb_free_chain(): corrupt tvb chain ?");
+		DISSECTOR_ASSERT_HINT((next_tvb==NULL) || (tvb==next_tvb->previous), "tvb_free_chain(): corrupt tvb chain ?");
 		tvb_free_internal(tvb);
 		tvb  = next_tvb;
 	}
@@ -319,6 +319,7 @@ tvb_new_octet_aligned(tvbuff_t *tvb, guint32 bit_offset, gint32 no_of_bits)
 		return tvb_new_subset(tvb, byte_offset, datalen, -1);
 	}
 
+	DISSECTOR_ASSERT(datalen>0);
 	buf = ep_alloc0(datalen);
 
 	/* if at least one trailing byte is available, we must use the content
@@ -938,7 +939,7 @@ ensure_contiguous_no_exception(tvbuff_t *tvb, const gint offset, const gint leng
 static const guint8*
 ensure_contiguous(tvbuff_t *tvb, const gint offset, const gint length)
 {
-	int           exception;
+	int           exception = 0;
 	const guint8 *p;
 
 	p = ensure_contiguous_no_exception(tvb, offset, length, &exception);
@@ -1648,14 +1649,14 @@ static const guint8 bit_mask8[] = {
 
 /* Get 1 - 8 bits */
 guint8
-tvb_get_bits8(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits)
+tvb_get_bits8(tvbuff_t *tvb, guint bit_offset, const gint no_of_bits)
 {
 	return (guint8)_tvb_get_bits64(tvb, bit_offset, no_of_bits);
 }
 
 /* Get 1 - 16 bits */
 void
-tvb_get_bits_buf(tvbuff_t *tvb, gint bit_offset, gint no_of_bits, guint8 *buf, gboolean lsb0)
+tvb_get_bits_buf(tvbuff_t *tvb, guint bit_offset, gint no_of_bits, guint8 *buf, gboolean lsb0)
 {
 	guint8 bit_mask, bit_shift;
 	/* Byte align offset */
@@ -1726,14 +1727,14 @@ tvb_get_bits_buf(tvbuff_t *tvb, gint bit_offset, gint no_of_bits, guint8 *buf, g
 }
 
 guint8 *
-ep_tvb_get_bits(tvbuff_t *tvb, gint bit_offset, gint no_of_bits, gboolean lsb0)
+ep_tvb_get_bits(tvbuff_t *tvb, guint bit_offset, gint no_of_bits, gboolean lsb0)
 {
 	gint    no_of_bytes;
 	guint8 *buf;
 
 	/* XXX, no_of_bits == -1 -> to end of tvb? */
 
-	if (no_of_bits < 0 || bit_offset < 0) {
+	if (no_of_bits < 0) {
 		DISSECTOR_ASSERT_NOT_REACHED();
 	}
 
@@ -1745,7 +1746,7 @@ ep_tvb_get_bits(tvbuff_t *tvb, gint bit_offset, gint no_of_bits, gboolean lsb0)
 
 /* Get 9 - 16 bits */
 guint16
-tvb_get_bits16(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits,const guint encoding _U_)
+tvb_get_bits16(tvbuff_t *tvb, guint bit_offset, const gint no_of_bits,const guint encoding _U_)
 {
 	/* note that encoding has no meaning here, as the tvb is considered to contain an octet array */
 	return (guint16)_tvb_get_bits64(tvb, bit_offset, no_of_bits);
@@ -1753,7 +1754,7 @@ tvb_get_bits16(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits,const guint
 
 /* Get 1 - 32 bits */
 guint32
-tvb_get_bits32(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits, const guint encoding _U_)
+tvb_get_bits32(tvbuff_t *tvb, guint bit_offset, const gint no_of_bits, const guint encoding _U_)
 {
 	/* note that encoding has no meaning here, as the tvb is considered to contain an octet array */
 	return (guint32)_tvb_get_bits64(tvb, bit_offset, no_of_bits);
@@ -1761,7 +1762,7 @@ tvb_get_bits32(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits, const guin
 
 /* Get 1 - 64 bits */
 guint64
-tvb_get_bits64(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits, const guint encoding _U_)
+tvb_get_bits64(tvbuff_t *tvb, guint bit_offset, const gint no_of_bits, const guint encoding _U_)
 {
 	/* note that encoding has no meaning here, as the tvb is considered to contain an octet array */
 	return _tvb_get_bits64(tvb, bit_offset, no_of_bits);
@@ -1773,7 +1774,7 @@ tvb_get_bits64(tvbuff_t *tvb, gint bit_offset, const gint no_of_bits, const guin
  * The function tolerates requests for more than 64 bits, but will only return the least significant 64 bits.
  */
 static guint64
-_tvb_get_bits64(tvbuff_t *tvb, gint bit_offset, const gint total_no_of_bits)
+_tvb_get_bits64(tvbuff_t *tvb, guint bit_offset, const gint total_no_of_bits)
 {
 	guint64 value;
 	guint octet_offset = bit_offset >> 3;
@@ -1783,7 +1784,7 @@ _tvb_get_bits64(tvbuff_t *tvb, gint bit_offset, const gint total_no_of_bits)
 	{
 		/* the required bits don't extend to the end of the first octet */
 		guint8 right_shift = required_bits_in_first_octet - total_no_of_bits;
-		value = (tvb_get_guint8(tvb, octet_offset) >> right_shift) & bit_mask8[total_no_of_bits];
+		value = (tvb_get_guint8(tvb, octet_offset) >> right_shift) & bit_mask8[total_no_of_bits % 8];
 	}
 	else
 	{
@@ -1847,7 +1848,7 @@ _tvb_get_bits64(tvbuff_t *tvb, gint bit_offset, const gint total_no_of_bits)
 }
 /* Get 1 - 32 bits (should be deprecated as same as tvb_get_bits32??) */
 guint32
-tvb_get_bits(tvbuff_t *tvb, const gint bit_offset, const gint no_of_bits, const guint encoding _U_)
+tvb_get_bits(tvbuff_t *tvb, const guint bit_offset, const gint no_of_bits, const guint encoding _U_)
 {
 	/* note that encoding has no meaning here, as the tvb is considered to contain an octet array */
 	return (guint32)_tvb_get_bits64(tvb, bit_offset, no_of_bits);
@@ -2018,8 +2019,8 @@ tvb_strsize(tvbuff_t *tvb, const gint offset)
 	return (nul_offset - abs_offset) + 1;
 }
 
-/* Unicode (UTF-16) version of tvb_strsize */
-/* Returns number of *UTF-16 characters* (not bytes) excluding the null terminator */
+/* UTF-16/UCS-2 version of tvb_strsize */
+/* Returns number of bytes including the (two-bytes) null terminator */
 guint
 tvb_unicode_strsize(tvbuff_t *tvb, const gint offset)
 {
@@ -2034,7 +2035,7 @@ tvb_unicode_strsize(tvbuff_t *tvb, const gint offset)
 		i += 2;
 	} while(uchar != 0);
 
-	return i; /* Number of *UTF-16* characters */
+	return i;
 }
 
 /* Find length of string by looking for end of string ('\0'), up to
@@ -2328,6 +2329,7 @@ tvb_get_string(tvbuff_t *tvb, const gint offset, const gint length)
 
 /*
  * Unicode (UTF-16) version of tvb_get_string()
+ * XXX - this is UCS-2, not UTF-16, as it doesn't handle surrogate pairs
  *
  * Encoding paramter should be ENC_BIG_ENDIAN or ENC_LITTLE_ENDIAN
  *
@@ -2338,10 +2340,8 @@ tvb_get_string(tvbuff_t *tvb, const gint offset, const gint length)
 gchar *
 tvb_get_unicode_string(tvbuff_t *tvb, const gint offset, gint length, const guint encoding)
 {
-	gchar     *tmpbuf = NULL;
 	gunichar2  uchar;
 	gint       i;           /* Byte counter for tvbuff */
-	gint       tmpbuf_len;
 	GString   *strbuf = NULL;
 
 	strbuf = g_string_new(NULL);
@@ -2353,22 +2353,7 @@ tvb_get_unicode_string(tvbuff_t *tvb, const gint offset, gint length, const guin
 		else
 			uchar = tvb_get_letohs(tvb, offset + i);
 
-		/* Calculate how much space is needed to store UTF-16 character
-		 * in UTF-8 */
-		tmpbuf_len = g_unichar_to_utf8(uchar, NULL);
-
-		tmpbuf     = g_malloc(tmpbuf_len + 1); /* + 1 to make room for null
-						    * terminator */
-
-		g_unichar_to_utf8(uchar, tmpbuf);
-
-		/* NULL terminate the tmpbuf so g_string_append knows where
-		 * to stop */
-		tmpbuf[tmpbuf_len] = '\0';
-
-		g_string_append(strbuf, tmpbuf);
-
-		g_free(tmpbuf);
+		g_string_append_unichar(strbuf, uchar);
 	}
 
 	return g_string_free(strbuf, FALSE);
@@ -2377,9 +2362,9 @@ tvb_get_unicode_string(tvbuff_t *tvb, const gint offset, gint length, const guin
 /*
  * Given a tvbuff, an offset, a length, and an encoding, allocate a
  * buffer big enough to hold a non-null-terminated string of that length
- * at that offset, plus a trailing '\0', copy the string into it, and
- * return a pointer to the string; if the encoding is EBCDIC, map
- * the string from EBCDIC to ASCII.
+ * at that offset, plus a trailing '\0', copy into the buffer the
+ * string as converted from the appropriate encoding to UTF-8, and
+ * return a pointer to the string.
  *
  * Throws an exception if the tvbuff ends before the string does.
  *
@@ -2391,34 +2376,95 @@ tvb_get_unicode_string(tvbuff_t *tvb, const gint offset, gint length, const guin
  */
 guint8 *
 tvb_get_ephemeral_string_enc(tvbuff_t *tvb, const gint offset,
-			     const gint length, const gint encoding)
+			     const gint length, const guint encoding)
 {
 	const guint8 *ptr;
-	guint8       *strbuf = NULL;
+	guint8       *strbuf;
 
-	tvb_ensure_bytes_exist(tvb, offset, length);
+	switch (encoding & ENC_CHARENCODING_MASK) {
 
-	ptr    = ensure_contiguous(tvb, offset, length);
-	strbuf = ep_alloc(length + 1);
-	if (length != 0) {
-		memcpy(strbuf, ptr, length);
+	case ENC_ASCII:
+	default:
+		/*
+		 * For now, we treat bogus values as meaning
+		 * "ASCII" rather than reporting an error,
+		 * for the benefit of old dissectors written
+		 * when the last argument to proto_tree_add_item()
+		 * was a gboolean for the byte order, not an
+		 * encoding value, and passed non-zero values
+		 * other than TRUE to mean "little-endian".
+		 *
+		 * XXX - should map all octets with the 8th bit
+		 * not set to a "substitute" UTF-8 character.
+		 */
+		strbuf = tvb_get_ephemeral_string(tvb, offset, length);
+		break;
+
+	case ENC_UTF_8:
+		/*
+		 * XXX - should map all invalid UTF-8 sequences
+		 * to a "substitute" UTF-8 character.
+		 */
+		strbuf = tvb_get_ephemeral_string(tvb, offset, length);
+		break;
+
+	case ENC_UTF_16:
+		/*
+		 * XXX - needs to handle surrogate pairs and to map
+		 * invalid characters and sequences to a "substitute"
+		 * UTF-8 character.
+		 */
+		strbuf = tvb_get_ephemeral_unicode_string(tvb, offset, length,
+		    encoding & ENC_LITTLE_ENDIAN);
+		break;
+
+	case ENC_UCS_2:
+		/*
+		 * XXX - needs to map values that are not valid UCS-2
+		 * characters (such as, I think, values used as the
+		 * components of a UTF-16 surrogate pair) to a
+		 * "substitute" UTF-8 character.
+		 */
+		strbuf = tvb_get_ephemeral_unicode_string(tvb, offset, length,
+		    encoding & ENC_LITTLE_ENDIAN);
+		break;
+
+	case ENC_EBCDIC:
+		/*
+		 * XXX - do the copy and conversion in one pass.
+		 *
+		 * XXX - multiple "dialects" of EBCDIC?
+		 */
+		tvb_ensure_bytes_exist(tvb, offset, length); /* make sure length = -1 fails */
+		strbuf = ep_alloc(length + 1);
+		if (length != 0) {
+			ptr = ensure_contiguous(tvb, offset, length);
+			memcpy(strbuf, ptr, length);
+			EBCDIC_to_ASCII(strbuf, length);
+		}
+		strbuf[length] = '\0';
+		break;
 	}
-	if ((encoding & ENC_CHARENCODING_MASK) == ENC_EBCDIC)
-		EBCDIC_to_ASCII(strbuf, length);
-	strbuf[length] = '\0';
 	return strbuf;
 }
 
 guint8 *
 tvb_get_ephemeral_string(tvbuff_t *tvb, const gint offset, const gint length)
 {
-	return tvb_get_ephemeral_string_enc(tvb, offset, length, ENC_UTF_8|ENC_NA);
+	guint8       *strbuf;
+
+	tvb_ensure_bytes_exist(tvb, offset, length); /* make sure length = -1 fails */
+	strbuf = ep_alloc(length + 1);
+	tvb_memcpy(tvb, strbuf, offset, length);
+	strbuf[length] = '\0';
+	return strbuf;
 }
 
 /*
  * Unicode (UTF-16) version of tvb_get_ephemeral_string()
+ * XXX - this is UCS-2, not UTF-16, as it doesn't handle surrogate pairs
  *
- * Encoding paramter should be ENC_BIG_ENDIAN or ENC_LITTLE_ENDIAN
+ * Encoding parameter should be ENC_BIG_ENDIAN or ENC_LITTLE_ENDIAN
  *
  * Specify length in bytes
  *
@@ -2427,7 +2473,8 @@ tvb_get_ephemeral_string(tvbuff_t *tvb, const gint offset, const gint length)
 gchar *
 tvb_get_ephemeral_unicode_string(tvbuff_t *tvb, const gint offset, gint length, const guint encoding)
 {
-	gchar         *tmpbuf = NULL;
+	/* Longest UTF-8 character takes 6 bytes + 1 byte for NUL, round it to 8B */
+	gchar          tmpbuf[8];
 	gunichar2      uchar;
 	gint           i;       /* Byte counter for tvbuff */
 	gint           tmpbuf_len;
@@ -2442,22 +2489,13 @@ tvb_get_ephemeral_unicode_string(tvbuff_t *tvb, const gint offset, gint length, 
 		else
 			uchar = tvb_get_letohs(tvb, offset + i);
 
-		/* Calculate how much space is needed to store UTF-16 character
-		 * in UTF-8 */
-		tmpbuf_len = g_unichar_to_utf8(uchar, NULL);
-
-		tmpbuf     = g_malloc(tmpbuf_len + 1); /* + 1 to make room for null
-						    * terminator */
-
-		g_unichar_to_utf8(uchar, tmpbuf);
+		tmpbuf_len = g_unichar_to_utf8(uchar, tmpbuf);
 
 		/* NULL terminate the tmpbuf so ep_strbuf_append knows where
 		 * to stop */
 		tmpbuf[tmpbuf_len] = '\0';
 
 		ep_strbuf_append(strbuf, tmpbuf);
-
-		g_free(tmpbuf);
 	}
 
 	return strbuf->str;
@@ -2502,7 +2540,7 @@ tvb_get_seasonal_string(tvbuff_t *tvb, const gint offset, const gint length)
  * string (including the terminating null) through a pointer.
  */
 guint8 *
-tvb_get_stringz_enc(tvbuff_t *tvb, const gint offset, gint *lengthp, gint encoding)
+tvb_get_stringz_enc(tvbuff_t *tvb, const gint offset, gint *lengthp, const guint encoding)
 {
 	guint   size;
 	guint8 *strptr;
@@ -2564,7 +2602,79 @@ tvb_get_const_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp)
  * after the current packet has been dissected.
  */
 guint8 *
-tvb_get_ephemeral_stringz_enc(tvbuff_t *tvb, const gint offset, gint *lengthp, gint encoding)
+tvb_get_ephemeral_stringz_enc(tvbuff_t *tvb, const gint offset, gint *lengthp, const guint encoding)
+{
+	guint   size;
+	guint8 *strptr;
+
+	switch (encoding & ENC_CHARENCODING_MASK) {
+
+	case ENC_ASCII:
+	default:
+		/*
+		 * For now, we treat bogus values as meaning
+		 * "ASCII" rather than reporting an error,
+		 * for the benefit of old dissectors written
+		 * when the last argument to proto_tree_add_item()
+		 * was a gboolean for the byte order, not an
+		 * encoding value, and passed non-zero values
+		 * other than TRUE to mean "little-endian".
+		 *
+		 * XXX - should map all octets with the 8th bit
+		 * not set to a "substitute" UTF-8 character.
+		 */
+		strptr = tvb_get_ephemeral_stringz(tvb, offset, lengthp);
+		break;
+
+	case ENC_UTF_8:
+		/*
+		 * XXX - should map all invalid UTF-8 sequences
+		 * to a "substitute" UTF-8 character.
+		 */
+		strptr = tvb_get_ephemeral_stringz(tvb, offset, lengthp);
+		break;
+
+	case ENC_UTF_16:
+		/*
+		 * XXX - needs to handle surrogate pairs and to map
+		 * invalid characters and sequences to a "substitute"
+		 * UTF-8 character.
+		 */
+		strptr = tvb_get_ephemeral_unicode_stringz(tvb, offset, lengthp,
+		    encoding & ENC_LITTLE_ENDIAN);
+		break;
+
+	case ENC_UCS_2:
+		/*
+		 * XXX - needs to map values that are not valid UCS-2
+		 * characters (such as, I think, values used as the
+		 * components of a UTF-16 surrogate pair) to a
+		 * "substitute" UTF-8 character.
+		 */
+		strptr = tvb_get_ephemeral_unicode_stringz(tvb, offset, lengthp,
+		    encoding & ENC_LITTLE_ENDIAN);
+		break;
+
+	case ENC_EBCDIC:
+		/*
+		 * XXX - do the copy and conversion in one pass.
+		 *
+		 * XXX - multiple "dialects" of EBCDIC?
+		 */
+		size = tvb_strsize(tvb, offset);
+		strptr = ep_alloc(size);
+		tvb_memcpy(tvb, strptr, offset, size);
+		EBCDIC_to_ASCII(strptr, size);
+		if (lengthp)
+			*lengthp = size;
+		break;
+	}
+
+	return strptr;
+}
+
+guint8 *
+tvb_get_ephemeral_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp)
 {
 	guint   size;
 	guint8 *strptr;
@@ -2572,17 +2682,9 @@ tvb_get_ephemeral_stringz_enc(tvbuff_t *tvb, const gint offset, gint *lengthp, g
 	size   = tvb_strsize(tvb, offset);
 	strptr = ep_alloc(size);
 	tvb_memcpy(tvb, strptr, offset, size);
-	if ((encoding & ENC_CHARENCODING_MASK) == ENC_EBCDIC)
-		EBCDIC_to_ASCII(strptr, size);
 	if (lengthp)
 		*lengthp = size;
 	return strptr;
-}
-
-guint8 *
-tvb_get_ephemeral_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp)
-{
-	return tvb_get_ephemeral_stringz_enc(tvb, offset, lengthp, ENC_UTF_8|ENC_NA);
 }
 
 /*
@@ -2595,7 +2697,8 @@ tvb_get_ephemeral_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp)
 gchar *
 tvb_get_ephemeral_unicode_stringz(tvbuff_t *tvb, const gint offset, gint *lengthp, const guint encoding)
 {
-	gchar         *tmpbuf = NULL;
+	/* Longest UTF-8 character takes 6 bytes + 1 byte for NUL, round it to 8B */
+	gchar          tmpbuf[8];
 	gunichar2      uchar;
 	gint           size;    /* Number of UTF-16 characters */
 	gint           i;       /* Byte counter for tvbuff */
@@ -2613,22 +2716,13 @@ tvb_get_ephemeral_unicode_stringz(tvbuff_t *tvb, const gint offset, gint *length
 		else
 			uchar = tvb_get_letohs(tvb, offset + i);
 
-		/* Calculate how much space is needed to store UTF-16 character
-		 * in UTF-8 */
-		tmpbuf_len = g_unichar_to_utf8(uchar, NULL);
-
-		tmpbuf = g_malloc(tmpbuf_len + 1); /* + 1 to make room for null
-						    * terminator */
-
-		g_unichar_to_utf8(uchar, tmpbuf);
+		tmpbuf_len = g_unichar_to_utf8(uchar, tmpbuf);
 
 		/* NULL terminate the tmpbuf so ep_strbuf_append knows where
 		 * to stop */
 		tmpbuf[tmpbuf_len] = '\0';
 
 		ep_strbuf_append(strbuf, tmpbuf);
-
-		g_free(tmpbuf);
 	}
 
 	if (lengthp)
@@ -2834,7 +2928,7 @@ tvb_find_line_end(tvbuff_t *tvb, const gint offset, int len, gint *next_offset, 
 	/*
 	 * Look either for a CR or an LF.
 	 */
-	eol_offset = tvb_pbrk_guint8(tvb, offset, len, (const guint8 *)"\r\n", &found_needle);
+	eol_offset = tvb_pbrk_guint8(tvb, offset, len, "\r\n", &found_needle);
 	if (eol_offset == -1) {
 		/*
 		 * No CR or LF - line is presumably continued in next packet.
@@ -2963,8 +3057,7 @@ tvb_find_line_end_unquoted(tvbuff_t *tvb, const gint offset, int len, gint *next
 			/*
 			 * Look either for a CR, an LF, or a '"'.
 			 */
-			char_offset = tvb_pbrk_guint8(tvb, cur_offset, len,
-				(const guint8 *)"\r\n\"", &c);
+			char_offset = tvb_pbrk_guint8(tvb, cur_offset, len, "\r\n\"", &c);
 		}
 		if (char_offset == -1) {
 			/*
@@ -3315,13 +3408,22 @@ tvb_uncompress(tvbuff_t *tvb, const int offset, int comprlen)
 #endif
 
 			if (uncompr == NULL) {
-				uncompr = g_memdup(strmbuf, bytes_pass);
+				/*
+				 * This is ugly workaround for bug #6480
+				 * (https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=6480)
+				 *
+				 * g_memdup(..., 0) returns NULL (g_malloc(0) also)
+				 * when uncompr is NULL logic below doesn't create tvb
+				 * which is later interpreted as decompression failed.
+				 */
+				uncompr = (bytes_pass || err != Z_STREAM_END) ?
+						g_memdup(strmbuf, bytes_pass) :
+						g_strdup("");
 			} else {
 				guint8 *new_data = g_malloc0(bytes_out + bytes_pass);
 
-				g_memmove(new_data, uncompr, bytes_out);
-				g_memmove((new_data + bytes_out), strmbuf,
-					bytes_pass);
+				memcpy(new_data, uncompr, bytes_out);
+				memcpy(new_data + bytes_out, strmbuf, bytes_pass);
 
 				g_free(uncompr);
 				uncompr = new_data;

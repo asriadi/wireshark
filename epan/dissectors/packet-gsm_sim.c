@@ -760,6 +760,7 @@ static const gchar *get_sw_string(guint16 sw)
 	case 0x92:
 		if ((sw & 0xf0) == 0x00)
 			return "Command successful but after internal retry routine";
+		break;
 	case 0x67:
 		return "Incorrect parameter P3";
 	case 0x6d:
@@ -1599,7 +1600,19 @@ proto_register_gsm_sim(void)
 			  NULL, HFILL }
 		},
 
+		/* Terminal Profile Byte 18 */
+		{ &hf_tprof_b18,
+			{ "Terminal Profile Byte 18 (Bearer independent protocol)", "iso7816.tp.b18",
+			  FT_UINT8, BASE_HEX, NULL, 0,
+			  NULL, HFILL },
+		},
+
 		/* Terminal Profile Byte 19 */
+		{ &hf_tprof_b19,
+			{ "Terminal Profile Byte 19", "iso7816.tp.b19",
+			  FT_UINT8, BASE_HEX, NULL, 0,
+			  NULL, HFILL },
+		},
 		{ &hf_tp_tia_eia_version,
 			{ "TIA/EIA Version", "iso7816.tp.tia_eia_version",
 			  FT_UINT8, BASE_DEC, NULL, 0x0f,

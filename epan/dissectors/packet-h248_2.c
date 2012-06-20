@@ -58,7 +58,7 @@ static const value_string hf_h248_2_dtone_dtt_obs_evt_val_values[] = {
 	{ 0x0006, "BellHi"},   /* A Bell 103 carrier on the high channel */
 	{ 0x0007, "BellLo"},	/* A Bell 103 low channel */
 	{ 0x0008, "Baudot45"},  /* Baudot45 initial carrier and characters */
-	{ 0x0008, "Baudot50"},  /* A Baudot50 initial carrier and characters */
+	{ 0x0009, "Baudot50"},  /* A Baudot50 initial carrier and characters */
 	{ 0x000a, "Edt"},		/* An EDT initial tone and characters */
 	{ 0x000b, "DTMF"},		/* DTMF signals */
 	{ 0x001c, "CTM"},		/* CTM signals */
@@ -151,7 +151,7 @@ void proto_register_h248_dot2(void) {
 
 	proto_register_subtree_array(ett, array_length(ett));
 	
-	h248_register_package(&h248_pkg_ctype);
+	h248_register_package(&h248_pkg_ctype,MERGE_PKG_HIGH);
 }
 
 

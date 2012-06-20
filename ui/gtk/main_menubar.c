@@ -46,6 +46,8 @@
 
 #include <epan/filesystem.h>
 
+#include "../cfile.h"
+#include "../globals.h"
 #include "../print.h"
 #include "../color_filters.h"
 #include "../stat_menu.h"
@@ -82,7 +84,7 @@
 #include "ui/gtk/keys.h"
 #include "ui/gtk/stock_icons.h"
 #include "ui/gtk/gtkglobals.h"
-#include "ui/gtk/main_proto_draw.h"
+#include "ui/gtk/packet_panes.h"
 #include "ui/gtk/conversations_table.h"
 #include "ui/gtk/hostlist_table.h"
 #include "ui/gtk/packet_history.h"
@@ -95,6 +97,7 @@
 #include "ui/gtk/gui_stat_menu.h"
 #include "ui/gtk/main.h"
 #include "ui/gtk/menus.h"
+#include "ui/gtk/main_menubar_private.h"
 #include "ui/gtk/main_toolbar.h"
 #include "ui/gtk/main_welcome.h"
 #include "ui/gtk/uat_gui.h"
@@ -145,7 +148,9 @@ static void menus_init(void);
 static void merge_lua_menu_items(GList *node);
 static void ws_menubar_build_external_menus(void);
 static void set_menu_sensitivity (GtkUIManager *ui_manager, const gchar *, gint);
+#if !defined(WANT_PACKET_EDITOR) || !defined(HAVE_LIBPCAP)
 static void set_menu_visible(GtkUIManager *ui_manager, const gchar *path, gint val);
+#endif
 static void name_resolution_cb(GtkWidget *w, gpointer d, gint action);
 static void colorize_cb(GtkWidget *w, gpointer d);
 
@@ -164,18 +169,6 @@ File/Close:         the Gnome HIG suggests putting this item just above the Quit
                     By putting the Close item near the open item(s), it better suggests that it will close the
                     currently opened/captured file only.
 */
-
-#ifdef NEW_MENU_CODE
-static gchar *
-get_ui_file_path(const char *filename)
-{
-    gchar *gui_desc_file_name;
-
-    gui_desc_file_name = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s" G_DIR_SEPARATOR_S "%s", get_datafile_dir(),
-        running_in_build_directory() ? "ui/gtk/ui" : "ui", filename);
-    return gui_desc_file_name;
-}
-#endif
 
 typedef enum {
     CONV_ETHER = 1,
@@ -630,18 +623,20 @@ filter_toolbar_show_hide_cb(GtkAction * action _U_, gpointer user_data _U_)
 static void
 wireless_toolbar_show_hide_cb(GtkAction *action _U_, gpointer user_data _U_)
 {
-#ifdef HAVE_AIRPCAP
     GtkWidget *widget = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/ViewMenu/WirelessToolbar");
 
-    recent.airpcap_toolbar_show = gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(widget));
-    main_widgets_show_or_hide();
-#endif /* HAVE_AIRPCAP */
+	if(widget){
+		recent.wireless_toolbar_show = gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(widget));
+	}else{
+		recent.wireless_toolbar_show = FALSE;
+	}
+	main_widgets_show_or_hide();
 }
 
 static void
 status_bar_show_hide_cb(GtkAction *action _U_, gpointer user_data _U_)
 {
-    GtkWidget *widget = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/ViewMenu/Statusbar");
+    GtkWidget *widget = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/ViewMenu/StatusBar");
 
     recent.statusbar_show = gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(widget));
     main_widgets_show_or_hide();
@@ -778,7 +773,7 @@ view_menu_auto_scroll_live_cb(GtkAction *action _U_, gpointer user_data _U_)
     if (!widget){
         g_warning("view_menu_auto_scroll_live_cb: No widget found");
     }else{
-        menu_auto_scroll_live_changed(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(widget)));
+        main_auto_scroll_live_changed(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(widget)));
     }
 #endif
 }
@@ -862,14 +857,14 @@ capture_cb(GtkAction *action _U_, gpointer user_data _U_)
 {
 #ifdef HAVE_LIBPCAP
     const gchar *action_name;
-    gchar *name;
+    const gchar *name;
 
     action_name = gtk_action_get_name (action);
     name = strrchr(action_name,'/');
-    if(name){
+    if(name) {
         name = name+1;
-    }else{
-        name = g_strdup_printf("%s",action_name);
+    } else {
+        name = action_name;
     }
     if(strcmp(name, "Interfaces") == 0){
         capture_if_cb(NULL /* GtkWidget *w _U_ */, user_data);
@@ -979,7 +974,6 @@ help_menu_SampleCaptures_cb(GtkAction *action _U_, gpointer user_data _U_)
     topic_menu_cb( NULL/* widget_U_ */, NULL /*GdkEventButton *event _U_*/, GINT_TO_POINTER(ONLINEPAGE_SAMPLE_FILES));
 }
 
-#ifndef NEW_MENU_CODE
 static const char *ui_desc_menubar =
 "<ui>\n"
 "  <menubar name ='Menubar'>\n"
@@ -1001,24 +995,23 @@ static const char *ui_desc_menubar =
 "        <menuitem name='PreviousFile' action='/File/Set/PreviousFile'/>\n"
 "      </menu>\n"
 "      <separator/>\n"
-"      <menu name= 'Export' action='/File/Export'>\n"
-"        <menu name= 'File' action='/File/Export/File'>\n"
-"          <menuitem name='AsTxt' action='/File/Export/File/Text'/>\n"
-"          <menuitem name='AsPostScript' action='/File/Export/File/PostScript'/>\n"
-"          <menuitem name='AsCSV' action='/File/Export/File/CSV'/>\n"
-"          <menuitem name='AsCArrays' action='/File/Export/File/CArrays'/>\n"
-"          <separator/>\n"
-"          <menuitem name='AsPSML' action='/File/Export/File/PSML'/>\n"
-"          <menuitem name='AsPDML' action='/File/Export/File/PDML'/>\n"
-"          <separator/>\n"
-"        </menu>\n"
-"      <menuitem name='SelectedPacketBytes' action='/File/Export/SelectedPacketBytes'/>\n"
-"      <menuitem name='SSLSessionKeys' action='/File/Export/SslSessionKeys'/>\n"
-"        <menu name= 'Objects' action='/File/Export/Objects'>\n"
-"          <menuitem name='HTTP' action='/File/Export/Objects/HTTP'/>\n"
-"          <menuitem name='DICOM' action='/File/Export/Objects/DICOM'/>\n"
-"          <menuitem name='SMB' action='/File/Export/Objects/SMB'/>\n"
-"        </menu>\n"
+"      <menuitem name='ExportSpecifiedPackets' action='/File/ExportSpecifiedPackets'/>\n"
+"      <menu name= 'ExportPacketDissections' action='/File/ExportPacketDissections'>\n"
+"        <menuitem name='AsTxt' action='/File/ExportPacketDissections/Text'/>\n"
+"        <menuitem name='AsPostScript' action='/File/ExportPacketDissections/PostScript'/>\n"
+"        <menuitem name='AsCSV' action='/File/ExportPacketDissections/CSV'/>\n"
+"        <menuitem name='AsCArrays' action='/File/ExportPacketDissections/CArrays'/>\n"
+"        <separator/>\n"
+"        <menuitem name='AsPSML' action='/File/ExportPacketDissections/PSML'/>\n"
+"        <menuitem name='AsPDML' action='/File/ExportPacketDissections/PDML'/>\n"
+"        <separator/>\n"
+"      </menu>\n"
+"      <menuitem name='ExportSelectedPacketBytes' action='/File/ExportSelectedPacketBytes'/>\n"
+"      <menuitem name='ExportSSLSessionKeys' action='/File/ExportSSLSessionKeys'/>\n"
+"      <menu name= 'ExportObjects' action='/File/ExportObjects'>\n"
+"        <menuitem name='HTTP' action='/File/ExportObjects/HTTP'/>\n"
+"        <menuitem name='DICOM' action='/File/ExportObjects/DICOM'/>\n"
+"        <menuitem name='SMB' action='/File/ExportObjects/SMB'/>\n"
 "      </menu>\n"
 "      <separator/>\n"
 "      <menuitem name='Print' action='/File/Print'/>\n"
@@ -1063,7 +1056,7 @@ static const char *ui_desc_menubar =
 "      <menuitem name='MainToolbar' action='/View/MainToolbar'/>\n"
 "      <menuitem name='FilterToolbar' action='/View/FilterToolbar'/>\n"
 "      <menuitem name='WirelessToolbar' action='/View/WirelessToolbar'/>\n"
-"      <menuitem name='Statusbar' action='/View/Statusbar'/>\n"
+"      <menuitem name='StatusBar' action='/View/StatusBar'/>\n"
 "      <separator/>\n"
 "      <menuitem name='PacketList' action='/View/PacketList'/>\n"
 "      <menuitem name='PacketDetails' action='/View/PacketDetails'/>\n"
@@ -1091,6 +1084,7 @@ static const char *ui_desc_menubar =
 "      </menu>\n"
 "      <menu name= 'NameResolution' action='/View/NameResolution'>\n"
 "         <menuitem name='ResolveName' action='/View/NameResolution/ResolveName'/>\n"
+"         <menuitem name='ManuallyResolveName' action='/View/NameResolution/ManuallyResolveName'/>\n"
 "         <separator/>\n"
 "         <menuitem name='EnableforMACLayer' action='/View/NameResolution/EnableforMACLayer'/>\n"
 "         <menuitem name='EnableforNetworkLayer' action='/View/NameResolution/EnableforNetworkLayer'/>\n"
@@ -1193,21 +1187,21 @@ static const char *ui_desc_menubar =
 "      <menuitem name='PacketLengths' action='/Statistics/plen'/>\n"
 "      <menuitem name='IOGraphs' action='/Statistics/IOGraphs'/>\n"
 "      <separator/>\n"
-"      <menu name= 'ConversationListMenu' action='/Stataistics/ConversationList'>\n"
-"        <menuitem name='Ethernet' action='/Stataistics/ConversationList/Ethernet'/>\n"
-"        <menuitem name='FibreChannel' action='/Stataistics/ConversationList/FibreChannel'/>\n"
-"        <menuitem name='FDDI' action='/Stataistics/ConversationList/FDDI'/>\n"
-"        <menuitem name='IP' action='/Stataistics/ConversationList/IP'/>\n"
-"        <menuitem name='IPv6' action='/Stataistics/ConversationList/IPv6'/>\n"
-"        <menuitem name='JXTA' action='/Stataistics/ConversationList/JXTA'/>\n"
-"        <menuitem name='NCP' action='/Stataistics/ConversationList/NCP'/>\n"
-"        <menuitem name='RSVP' action='/Stataistics/ConversationList/RSVP'/>\n"
-"        <menuitem name='SCTP' action='/Stataistics/ConversationList/SCTP'/>\n"
-"        <menuitem name='TCPIP' action='/Stataistics/ConversationList/TCPIP'/>\n"
-"        <menuitem name='TR' action='/Stataistics/ConversationList/TR'/>\n"
-"        <menuitem name='UDPIP' action='/Stataistics/ConversationList/UDPIP'/>\n"
-"        <menuitem name='USB' action='/Stataistics/ConversationList/USB'/>\n"
-"        <menuitem name='WLAN' action='/Stataistics/ConversationList/WLAN'/>\n"
+"      <menu name= 'ConversationListMenu' action='/Statistics/ConversationList'>\n"
+"        <menuitem name='Ethernet' action='/Statistics/ConversationList/Ethernet'/>\n"
+"        <menuitem name='FibreChannel' action='/Statistics/ConversationList/FibreChannel'/>\n"
+"        <menuitem name='FDDI' action='/Statistics/ConversationList/FDDI'/>\n"
+"        <menuitem name='IP' action='/Statistics/ConversationList/IP'/>\n"
+"        <menuitem name='IPv6' action='/Statistics/ConversationList/IPv6'/>\n"
+"        <menuitem name='JXTA' action='/Statistics/ConversationList/JXTA'/>\n"
+"        <menuitem name='NCP' action='/Statistics/ConversationList/NCP'/>\n"
+"        <menuitem name='RSVP' action='/Statistics/ConversationList/RSVP'/>\n"
+"        <menuitem name='SCTP' action='/Statistics/ConversationList/SCTP'/>\n"
+"        <menuitem name='TCPIP' action='/Statistics/ConversationList/TCPIP'/>\n"
+"        <menuitem name='TR' action='/Statistics/ConversationList/TR'/>\n"
+"        <menuitem name='UDPIP' action='/Statistics/ConversationList/UDPIP'/>\n"
+"        <menuitem name='USB' action='/Statistics/ConversationList/USB'/>\n"
+"        <menuitem name='WLAN' action='/Statistics/ConversationList/WLAN'/>\n"
 "      </menu>\n"
 "      <menu name= 'EndpointListMenu' action='/Statistics/EndpointList'>\n"
 "        <menuitem name='Ethernet' action='/Statistics/EndpointList/Ethernet'/>\n"
@@ -1254,6 +1248,7 @@ static const char *ui_desc_menubar =
 "      <menuitem name='Collectd' action='/StatisticsMenu/collectd'/>\n"
 "      <menuitem name='Compare' action='/StatisticsMenu/compare'/>\n"
 "      <menuitem name='FlowGraph' action='/StatisticsMenu/FlowGraph'/>\n"
+"      <menuitem name='HART-IP' action='/StatisticsMenu/hart_ip'/>\n"
 "      <menu name= 'HTTPMenu' action='/StatisticsMenu/HTTP'>\n"
 "        <menuitem name='http' action='/StatisticsMenu/HTTP/http'/>\n"
 "        <menuitem name='http_req' action='/StatisticsMenu/HTTP/http_req'/>\n"
@@ -1361,7 +1356,7 @@ static const char *ui_desc_menubar =
 "    </menu>\n"
 "  </menubar>\n"
 "</ui>\n";
-#endif
+
 
 
 /*
@@ -1421,61 +1416,61 @@ static const char *ui_desc_menubar =
  */
 static const GtkActionEntry main_menu_bar_entries[] = {
   /* Top level */
-  { "/File",                    NULL,                           "_File",            NULL,                   NULL,           NULL },
-  { "/Edit",                    NULL,                           "_Edit",            NULL,                   NULL,           NULL },
-  { "/View",                    NULL,                           "_View",            NULL,                   NULL,           NULL },
-  { "/Go",                      NULL,                           "_Go",              NULL,                   NULL,           NULL },
-  { "/Capture",                 NULL,                           "_Capture",         NULL,                   NULL,           NULL },
-  { "/Analyze",                 NULL,                           "_Analyze",         NULL,                   NULL,           NULL },
-  { "/Statistics",              NULL,                           "_Statistics",      NULL,                   NULL,           NULL },
-  { "/Telephony",               NULL,                           "Telephon_y",       NULL,                   NULL,           NULL },
-  { "/Tools",                   NULL,                           "_Tools",           NULL,                   NULL,           NULL },
-  { "/Internals",               NULL,                           "_Internals",       NULL,                   NULL,           NULL },
-  { "/Help",                    NULL,                           "_Help",            NULL,                   NULL,           NULL },
+  { "/File",                    NULL,                              "_File",              NULL,                   NULL,           NULL },
+  { "/Edit",                    NULL,                              "_Edit",              NULL,                   NULL,           NULL },
+  { "/View",                    NULL,                              "_View",              NULL,                   NULL,           NULL },
+  { "/Go",                      NULL,                              "_Go",                NULL,                   NULL,           NULL },
+  { "/Capture",                 NULL,                              "_Capture",           NULL,                   NULL,           NULL },
+  { "/Analyze",                 NULL,                              "_Analyze",           NULL,                   NULL,           NULL },
+  { "/Statistics",              NULL,                              "_Statistics",        NULL,                   NULL,           NULL },
+  { "/Telephony",               NULL,                              "Telephon_y",         NULL,                   NULL,           NULL },
+  { "/Tools",                   NULL,                              "_Tools",             NULL,                   NULL,           NULL },
+  { "/Internals",               NULL,                              "_Internals",         NULL,                   NULL,           NULL },
+  { "/Help",                    NULL,                              "_Help",              NULL,                   NULL,           NULL },
 
-  { "/File/Open",               GTK_STOCK_OPEN,                 "_Open...",         "<control>O",           "Open a file",  G_CALLBACK(file_open_cmd_cb) },
-  { "/File/OpenRecent",         NULL,                           "Open _Recent",     NULL,                   NULL,           NULL },
-  { "/File/Merge",              NULL,                           "_Merge...",        NULL,                   NULL,           G_CALLBACK(file_merge_cmd_cb) },
-  { "/File/Import",             NULL,                           "_Import...",       NULL,                   NULL,           G_CALLBACK(file_import_cmd_cb) },
-  { "/File/Close",              GTK_STOCK_CLOSE,                "_Close",           "<control>W",           NULL,           G_CALLBACK(file_close_cmd_cb) },
+  { "/File/Open",               GTK_STOCK_OPEN,                    "_Open...",           "<control>O",           "Open a file",  G_CALLBACK(file_open_cmd_cb) },
+  { "/File/OpenRecent",         NULL,                              "Open _Recent",       NULL,                   NULL,           NULL },
+  { "/File/Merge",              NULL,                              "_Merge...",          NULL,                   NULL,           G_CALLBACK(file_merge_cmd_cb) },
+  { "/File/Import",             NULL,                              "_Import...",         NULL,                   NULL,           G_CALLBACK(file_import_cmd_cb) },
+  { "/File/Close",              GTK_STOCK_CLOSE,                   "_Close",             "<control>W",           NULL,           G_CALLBACK(file_close_cmd_cb) },
 
-  { "/File/Save",               GTK_STOCK_SAVE,                 "_Save",            "<control>S",           NULL,           G_CALLBACK(file_save_cmd_cb) },
-  { "/File/SaveAs",             GTK_STOCK_SAVE_AS,              "Save _As...",      "<shift><control>S",    NULL,           G_CALLBACK(file_save_as_cmd_cb) },
+  { "/File/Save",               GTK_STOCK_SAVE,                    "_Save",              "<control>S",           NULL,           G_CALLBACK(file_save_cmd_cb) },
+  { "/File/SaveAs",             GTK_STOCK_SAVE_AS,                 "Save _As...",        "<shift><control>S",    NULL,           G_CALLBACK(file_save_as_cmd_cb) },
 
-  { "/File/Set",                NULL,                           "File Set",         NULL,                   NULL,           NULL },
-  { "/File/Export",             NULL,                           "Export",           NULL,                   NULL,           NULL },
-  { "/File/Print",              GTK_STOCK_PRINT,                "_Print...",        "<control>P",           NULL,           G_CALLBACK(file_print_cmd_cb) },
-  { "/File/Quit",               GTK_STOCK_QUIT,                 "_Quit",            "<control>Q",           NULL,           G_CALLBACK(file_quit_cmd_cb) },
+  { "/File/Set",                NULL,                              "File Set",           NULL,                   NULL,           NULL },
+  { "/File/ExportSpecifiedPackets", NULL,         "Export Specified Packets...", NULL,           NULL,           G_CALLBACK(file_export_specified_packets_cmd_cb) },
+  { "/File/ExportPacketDissections",  NULL,                        "Export Packet Dissections", NULL,                   NULL,           NULL },
+  { "/File/ExportSelectedPacketBytes", NULL,         "Export Selected Packet _Bytes...", "<control>H",           NULL,           G_CALLBACK(savehex_cb) },
+  { "/File/ExportSSLSessionKeys",  NULL,                   "Export SSL Session Keys...", NULL,                   NULL,           G_CALLBACK(savesslkeys_cb) },
+  { "/File/ExportObjects",      NULL,                              "Export Objects",     NULL,                   NULL,           NULL },
+  { "/File/Print",              GTK_STOCK_PRINT,                   "_Print...",          "<control>P",           NULL,           G_CALLBACK(file_print_cmd_cb) },
+  { "/File/Quit",               GTK_STOCK_QUIT,                    "_Quit",              "<control>Q",           NULL,           G_CALLBACK(file_quit_cmd_cb) },
 
-  { "/File/Set/ListFiles",  WIRESHARK_STOCK_FILE_SET_LIST,  "List Files",       NULL,                   NULL,           G_CALLBACK(fileset_cb) },
-  { "/File/Set/NextFile",   WIRESHARK_STOCK_FILE_SET_NEXT,  "Next File",        NULL,                   NULL,           G_CALLBACK(fileset_next_cb) },
-  { "/File/Set/PreviousFile",WIRESHARK_STOCK_FILE_SET_PREVIOUS, "Previous File",    NULL,               NULL,           G_CALLBACK(fileset_previous_cb) },
+  { "/File/Set/ListFiles",      WIRESHARK_STOCK_FILE_SET_LIST,     "List Files",         NULL,                   NULL,           G_CALLBACK(fileset_cb) },
+  { "/File/Set/NextFile",       WIRESHARK_STOCK_FILE_SET_NEXT,     "Next File",          NULL,                   NULL,           G_CALLBACK(fileset_next_cb) },
+  { "/File/Set/PreviousFile",   WIRESHARK_STOCK_FILE_SET_PREVIOUS, "Previous File",      NULL,                   NULL,           G_CALLBACK(fileset_previous_cb) },
 
-  { "/File/Export/File",                NULL,       "File",                         NULL,                   NULL,           NULL },
-  { "/File/Export/File/Text",           NULL,       "as \"Plain _Text\" file...",   NULL,                   NULL,           G_CALLBACK(export_text_cmd_cb) },
-  { "/File/Export/File/PostScript",     NULL,       "as \"_PostScript\" file...",   NULL,                   NULL,           G_CALLBACK(export_ps_cmd_cb) },
-  { "/File/Export/File/CSV",            NULL,       "as \"_CSV\" (Comma Separated Values packet summary) file...",
-                                                                                    NULL,                   NULL,           G_CALLBACK(export_csv_cmd_cb) },
-  { "/File/Export/File/CArrays",        NULL,       "as \"C _Arrays\" (packet bytes) file...",
-                                                                                    NULL,                   NULL,           G_CALLBACK(export_carrays_cmd_cb) },
-  { "/File/Export/File/PSML",           NULL,       "as XML - \"P_SML\" (packet summary) file...",
-                                                                                    NULL,                   NULL,           G_CALLBACK(export_psml_cmd_cb) },
-  { "/File/Export/File/PDML",           NULL,       "as XML - \"P_DML\" (packet details) file...",
-                                                                                    NULL,                   NULL,           G_CALLBACK(export_pdml_cmd_cb) },
-  { "/File/Export/SelectedPacketBytes", NULL,       "Selected Packet _Bytes...",    "<control>H",           NULL,           G_CALLBACK(savehex_cb) },
-  { "/File/Export/SslSessionKeys",  NULL,       "SSL Session Keys...",  NULL,           NULL,           G_CALLBACK(savesslkeys_cb) },
-  { "/File/Export/Objects",             NULL,       "Objects",                      NULL,                   NULL,           NULL },
-  { "/File/Export/Objects/HTTP",        NULL,       "_HTTP",                        NULL,                   NULL,           G_CALLBACK(eo_http_cb) },
-  { "/File/Export/Objects/DICOM",       NULL,       "_DICOM",                       NULL,                   NULL,           G_CALLBACK(eo_dicom_cb) },
-  { "/File/Export/Objects/SMB",         NULL,       "_SMB",                         NULL,                   NULL,           G_CALLBACK(eo_smb_cb) },
+  { "/File/ExportPacketDissections/Text",       NULL,       "as \"Plain _Text\" file...",      NULL,                   NULL,           G_CALLBACK(export_text_cmd_cb) },
+  { "/File/ExportPacketDissections/PostScript", NULL,       "as \"_PostScript\" file...",      NULL,                   NULL,           G_CALLBACK(export_ps_cmd_cb) },
+  { "/File/ExportPacketDissections/CSV",        NULL,       "as \"_CSV\" (Comma Separated Values packet summary) file...",
+                                                                                         NULL,                   NULL,           G_CALLBACK(export_csv_cmd_cb) },
+  { "/File/ExportPacketDissections/CArrays",    NULL,       "as \"C _Arrays\" (packet bytes) file...",
+                                                                                         NULL,                   NULL,           G_CALLBACK(export_carrays_cmd_cb) },
+  { "/File/ExportPacketDissections/PSML",       NULL,       "as XML - \"P_SML\" (packet summary) file...",
+                                                                                         NULL,                   NULL,           G_CALLBACK(export_psml_cmd_cb) },
+  { "/File/ExportPacketDissections/PDML",       NULL,       "as XML - \"P_DML\" (packet details) file...",
+                                                                                         NULL,                   NULL,           G_CALLBACK(export_pdml_cmd_cb) },
+  { "/File/ExportObjects/HTTP",           NULL,       "_HTTP",                           NULL,                   NULL,           G_CALLBACK(eo_http_cb) },
+  { "/File/ExportObjects/DICOM",          NULL,       "_DICOM",                          NULL,                   NULL,           G_CALLBACK(eo_dicom_cb) },
+  { "/File/ExportObjects/SMB",            NULL,       "_SMB",                            NULL,                   NULL,           G_CALLBACK(eo_smb_cb) },
 
 
-  { "/Edit/Copy",                       NULL,       "Copy",                         NULL,                   NULL,           NULL },
+  { "/Edit/Copy",                         NULL,       "Copy",                            NULL,                   NULL,           NULL },
 
-  { "/Edit/Copy/Description",           NULL,       "Description",                  "<shift><control>D",    NULL,           G_CALLBACK(copy_description_cb) },
-  { "/Edit/Copy/Fieldname",             NULL,       "Fieldname",                    "<shift><control>F",    NULL,           G_CALLBACK(copy_fieldname_cb) },
-  { "/Edit/Copy/Value",                 NULL,       "Value",                        "<shift><control>V",    NULL,           G_CALLBACK(copy_value_cb) },
-  { "/Edit/Copy/AsFilter",              NULL,       "As Filter",                    "<shift><control>C",    NULL,           G_CALLBACK(copy_as_filter_cb) },
+  { "/Edit/Copy/Description",             NULL,       "Description",                     "<shift><control>D",    NULL,           G_CALLBACK(copy_description_cb) },
+  { "/Edit/Copy/Fieldname",               NULL,       "Fieldname",                       "<shift><control>F",    NULL,           G_CALLBACK(copy_fieldname_cb) },
+  { "/Edit/Copy/Value",                   NULL,       "Value",                           "<shift><control>V",    NULL,           G_CALLBACK(copy_value_cb) },
+  { "/Edit/Copy/AsFilter",                NULL,       "As Filter",                       "<shift><control>C",    NULL,           G_CALLBACK(copy_as_filter_cb) },
 
 #if 0
     /*
@@ -1562,15 +1557,18 @@ static const GtkActionEntry main_menu_bar_entries[] = {
 
    { "/View/TimeDisplayFormat",     NULL,                   "_Time Display Format",                 NULL,                       NULL,           NULL },
 
-   { "/View/NameResolution",            NULL,                   "Name Resol_ution",                     NULL,                       NULL,           NULL },
+   { "/View/NameResolution",                    NULL,        "Name Resol_ution",                     NULL,                       NULL,           NULL },
+   { "/View/NameResolution/ResolveName",        NULL,        "_Resolve Name",                        NULL,                       NULL,           G_CALLBACK(resolve_name_cb) },
+   { "/View/NameResolution/ManuallyResolveName",NULL,        "Manually Resolve Name",                NULL,                       NULL,           G_CALLBACK(manual_addr_resolv_dlg) },
+
    { "/View/ZoomIn",                GTK_STOCK_ZOOM_IN,      "_Zoom In",                             "<control>plus",            NULL,           G_CALLBACK(view_zoom_in_cb) },
    { "/View/ZoomOut",               GTK_STOCK_ZOOM_OUT,     "Zoom _Out",                            "<control>minus",           NULL,           G_CALLBACK(view_zoom_out_cb) },
    { "/View/NormalSize",            GTK_STOCK_ZOOM_100,     "_Normal Size",                         "<control>equal",           NULL,           G_CALLBACK(view_zoom_100_cb) },
    { "/View/ResizeAllColumns",      WIRESHARK_STOCK_RESIZE_COLUMNS, "Resize All Columns",           "<shift><control>R",        NULL,           G_CALLBACK(new_packet_list_resize_columns_cb) },
-   { "/View/DisplayedColumns",      NULL,                   "Displayed Columns",            NULL,       NULL,           NULL },
-   { "/View/ExpandSubtrees",        NULL,                   "Expand Subtrees",      NULL,                   NULL,           G_CALLBACK(expand_tree_cb) },
-   { "/View/ExpandAll",             NULL,                   "Expand All",           NULL,                   NULL,           G_CALLBACK(expand_all_cb) },
-   { "/View/CollapseAll",           NULL,                   "Collapse All",         NULL,                   NULL,           G_CALLBACK(collapse_all_cb) },
+   { "/View/DisplayedColumns",      NULL,                   "Displayed Columns",                    NULL,                       NULL,           NULL },
+   { "/View/ExpandSubtrees",        NULL,                   "E_xpand Subtrees",                      "<shift>Right",             NULL,           G_CALLBACK(expand_tree_cb) },
+   { "/View/ExpandAll",             NULL,                   "_Expand All",                           "<control>Right",           NULL,           G_CALLBACK(expand_all_cb) },
+   { "/View/CollapseAll",           NULL,                   "Collapse _All",                         "<control>Left",            NULL,           G_CALLBACK(collapse_all_cb) },
    { "/View/ColorizeConversation",  NULL,                   "Colorize Conversation",NULL,                   NULL,           NULL },
 
    { "/View/ColorizeConversation/Color 1",  WIRESHARK_STOCK_COLOR1, "Color 1",                  NULL, NULL, G_CALLBACK(view_menu_color_conv_color1_cb) },
@@ -1649,22 +1647,22 @@ static const GtkActionEntry main_menu_bar_entries[] = {
    { "/Analyze/ConversationFilter",                         NULL,       "Conversation Filter",                  NULL, NULL, NULL },
 
 
-   { "/Stataistics/ConversationList",                           NULL,       "_Conversation List",                   NULL, NULL, NULL },
-   { "/Stataistics/ConversationList/Ethernet",      WIRESHARK_STOCK_CONVERSATIONS,  "Ethernet",                     NULL, NULL, G_CALLBACK(eth_endpoints_cb) },
-   { "/Stataistics/ConversationList/FibreChannel",  WIRESHARK_STOCK_CONVERSATIONS,  "Fibre Channel",                NULL, NULL, G_CALLBACK(fc_endpoints_cb) },
-   { "/Stataistics/ConversationList/FDDI",          WIRESHARK_STOCK_CONVERSATIONS,  "FDDI",                         NULL, NULL, G_CALLBACK(fddi_endpoints_cb) },
-   { "/Stataistics/ConversationList/IP",            WIRESHARK_STOCK_CONVERSATIONS,  "IPv4",                         NULL, NULL, G_CALLBACK(ip_endpoints_cb) },
-   { "/Stataistics/ConversationList/IPv6",          WIRESHARK_STOCK_CONVERSATIONS,  "IPv6",                         NULL, NULL, G_CALLBACK(ipv6_endpoints_cb) },
-   { "/Stataistics/ConversationList/IPX",           WIRESHARK_STOCK_CONVERSATIONS,  "IPX",                          NULL, NULL, G_CALLBACK(ipx_endpoints_cb) },
-   { "/Stataistics/ConversationList/JXTA",          WIRESHARK_STOCK_CONVERSATIONS,  "JXTA",                         NULL, NULL, G_CALLBACK(jxta_conversation_cb) },
-   { "/Stataistics/ConversationList/NCP",           WIRESHARK_STOCK_CONVERSATIONS,  "NCP",                          NULL, NULL, G_CALLBACK(ncp_endpoints_cb) },
-   { "/Stataistics/ConversationList/RSVP",          WIRESHARK_STOCK_CONVERSATIONS,  "RSVP",                         NULL, NULL, G_CALLBACK(rsvp_endpoints_cb) },
-   { "/Stataistics/ConversationList/SCTP",          WIRESHARK_STOCK_CONVERSATIONS,  "SCTP",                         NULL, NULL, G_CALLBACK(sctp_conversation_cb) },
-   { "/Stataistics/ConversationList/TCPIP",         WIRESHARK_STOCK_CONVERSATIONS,  "TCP (IPv4 & IPv6)",            NULL, NULL, G_CALLBACK(tcpip_conversation_cb) },
-   { "/Stataistics/ConversationList/TR",            WIRESHARK_STOCK_CONVERSATIONS,  "Token Ring",                   NULL, NULL, G_CALLBACK(tr_conversation_cb) },
-   { "/Stataistics/ConversationList/UDPIP",         WIRESHARK_STOCK_CONVERSATIONS,  "UDP (IPv4 & IPv6)",            NULL, NULL, G_CALLBACK(udpip_conversation_cb) },
-   { "/Stataistics/ConversationList/USB",           WIRESHARK_STOCK_CONVERSATIONS,  "USB",                          NULL, NULL, G_CALLBACK(usb_endpoints_cb) },
-   { "/Stataistics/ConversationList/WLAN",          WIRESHARK_STOCK_CONVERSATIONS,  "WLAN",                         NULL, NULL, G_CALLBACK(wlan_endpoints_cb) },
+   { "/Statistics/ConversationList",                           NULL,       "_Conversation List",                   NULL, NULL, NULL },
+   { "/Statistics/ConversationList/Ethernet",      WIRESHARK_STOCK_CONVERSATIONS,  "Ethernet",                     NULL, NULL, G_CALLBACK(eth_endpoints_cb) },
+   { "/Statistics/ConversationList/FibreChannel",  WIRESHARK_STOCK_CONVERSATIONS,  "Fibre Channel",                NULL, NULL, G_CALLBACK(fc_endpoints_cb) },
+   { "/Statistics/ConversationList/FDDI",          WIRESHARK_STOCK_CONVERSATIONS,  "FDDI",                         NULL, NULL, G_CALLBACK(fddi_endpoints_cb) },
+   { "/Statistics/ConversationList/IP",            WIRESHARK_STOCK_CONVERSATIONS,  "IPv4",                         NULL, NULL, G_CALLBACK(ip_endpoints_cb) },
+   { "/Statistics/ConversationList/IPv6",          WIRESHARK_STOCK_CONVERSATIONS,  "IPv6",                         NULL, NULL, G_CALLBACK(ipv6_endpoints_cb) },
+   { "/Statistics/ConversationList/IPX",           WIRESHARK_STOCK_CONVERSATIONS,  "IPX",                          NULL, NULL, G_CALLBACK(ipx_endpoints_cb) },
+   { "/Statistics/ConversationList/JXTA",          WIRESHARK_STOCK_CONVERSATIONS,  "JXTA",                         NULL, NULL, G_CALLBACK(jxta_conversation_cb) },
+   { "/Statistics/ConversationList/NCP",           WIRESHARK_STOCK_CONVERSATIONS,  "NCP",                          NULL, NULL, G_CALLBACK(ncp_endpoints_cb) },
+   { "/Statistics/ConversationList/RSVP",          WIRESHARK_STOCK_CONVERSATIONS,  "RSVP",                         NULL, NULL, G_CALLBACK(rsvp_endpoints_cb) },
+   { "/Statistics/ConversationList/SCTP",          WIRESHARK_STOCK_CONVERSATIONS,  "SCTP",                         NULL, NULL, G_CALLBACK(sctp_conversation_cb) },
+   { "/Statistics/ConversationList/TCPIP",         WIRESHARK_STOCK_CONVERSATIONS,  "TCP (IPv4 & IPv6)",            NULL, NULL, G_CALLBACK(tcpip_conversation_cb) },
+   { "/Statistics/ConversationList/TR",            WIRESHARK_STOCK_CONVERSATIONS,  "Token Ring",                   NULL, NULL, G_CALLBACK(tr_conversation_cb) },
+   { "/Statistics/ConversationList/UDPIP",         WIRESHARK_STOCK_CONVERSATIONS,  "UDP (IPv4 & IPv6)",            NULL, NULL, G_CALLBACK(udpip_conversation_cb) },
+   { "/Statistics/ConversationList/USB",           WIRESHARK_STOCK_CONVERSATIONS,  "USB",                          NULL, NULL, G_CALLBACK(usb_endpoints_cb) },
+   { "/Statistics/ConversationList/WLAN",          WIRESHARK_STOCK_CONVERSATIONS,  "WLAN",                         NULL, NULL, G_CALLBACK(wlan_endpoints_cb) },
 
    { "/Statistics/EndpointList",                                NULL,               "_Endpoint List",               NULL, NULL, NULL },
    { "/Statistics/EndpointList/Ethernet",           WIRESHARK_STOCK_ENDPOINTS,      "Ethernet",                     NULL, NULL, G_CALLBACK(gtk_eth_hostlist_cb) },
@@ -1712,6 +1710,7 @@ static const GtkActionEntry main_menu_bar_entries[] = {
    { "/StatisticsMenu/collectd",                        NULL,       "Collectd...",                      NULL, NULL, G_CALLBACK(gtk_stats_tree_cb) },
    { "/StatisticsMenu/compare",                         NULL,       "Compare...",                       NULL, NULL, G_CALLBACK(gtk_comparestat_cb) },
    { "/StatisticsMenu/FlowGraph",       WIRESHARK_STOCK_FLOW_GRAPH, "Flo_w Graph...",                   NULL, NULL, G_CALLBACK(flow_graph_launch) },
+   { "/StatisticsMenu/hart_ip",                         NULL,       "HART-IP",                          NULL, NULL, G_CALLBACK(gtk_stats_tree_cb) },
    { "/StatisticsMenu/HTTP",                            NULL,       "HTTP",                             NULL, NULL, NULL },
    { "/StatisticsMenu/HTTP/http",                       NULL,       "Packet Counter",                   NULL, NULL, G_CALLBACK(gtk_stats_tree_cb) },
    { "/StatisticsMenu/HTTP/http_req",                   NULL,       "Requests",                         NULL, NULL, G_CALLBACK(gtk_stats_tree_cb) },
@@ -1818,15 +1817,14 @@ static const GtkActionEntry main_menu_bar_entries[] = {
 static const GtkToggleActionEntry main_menu_bar_toggle_action_entries[] =
 {
     /* name, stock id, label, accel, tooltip, callback, is_active */
-    {"/View/MainToolbar",   NULL, "_Main Toolbar",  NULL, NULL, G_CALLBACK(main_toolbar_show_hide_cb), TRUE},
-    {"/View/FilterToolbar", NULL, "_FilterToolbar", NULL, NULL, G_CALLBACK(filter_toolbar_show_hide_cb), TRUE},
-    {"/View/WirelessToolbar", NULL, "_WirelessToolbar", NULL, NULL, G_CALLBACK(wireless_toolbar_show_hide_cb), FALSE},
-    {"/View/Statusbar",     NULL, "_Statusbar", NULL, NULL, G_CALLBACK(status_bar_show_hide_cb), TRUE},
-    {"/View/PacketList",    NULL, "Packet _List", NULL, NULL,   G_CALLBACK(packet_list_show_hide_cb), TRUE},
-    {"/View/PacketDetails", NULL, "Packet _Details", NULL, NULL,    G_CALLBACK(packet_details_show_hide_cb), TRUE},
-    {"/View/PacketBytes",   NULL, "Packet _Bytes", NULL, NULL,  G_CALLBACK(packet_bytes_show_hide_cb), TRUE},
+    {"/View/MainToolbar",                                           NULL, "_Main Toolbar",                          NULL, NULL, G_CALLBACK(main_toolbar_show_hide_cb), TRUE},
+    {"/View/FilterToolbar",                                         NULL, "_Filter Toolbar",                         NULL, NULL, G_CALLBACK(filter_toolbar_show_hide_cb), TRUE},
+    {"/View/WirelessToolbar",                                       NULL, "Wire_less Toolbar",                       NULL, NULL, G_CALLBACK(wireless_toolbar_show_hide_cb), FALSE},
+    {"/View/StatusBar",                                             NULL, "_Status Bar",                             NULL, NULL, G_CALLBACK(status_bar_show_hide_cb), TRUE},
+    {"/View/PacketList",                                            NULL, "Packet _List",                           NULL, NULL, G_CALLBACK(packet_list_show_hide_cb), TRUE},
+    {"/View/PacketDetails",                                         NULL, "Packet _Details",                        NULL, NULL, G_CALLBACK(packet_details_show_hide_cb), TRUE},
+    {"/View/PacketBytes",                                           NULL, "Packet _Bytes",                          NULL, NULL, G_CALLBACK(packet_bytes_show_hide_cb), TRUE},
     {"/View/TimeDisplayFormat/DisplaySecondsWithHoursAndMinutes",   NULL, "Display Seconds with hours and minutes", NULL, NULL, G_CALLBACK(timestamp_seconds_time_cb), FALSE},
-    {"/View/NameResolution/ResolveName",                            NULL, "_Resolve Name",                          NULL, NULL, G_CALLBACK(resolve_name_cb), FALSE},
     {"/View/NameResolution/EnableforMACLayer",                      NULL, "Enable for _MAC Layer",                  NULL, NULL, G_CALLBACK(view_menu_en_for_MAC_cb), TRUE},
     {"/View/NameResolution/EnableforNetworkLayer",                  NULL, "Enable for _Network Layer",              NULL, NULL, G_CALLBACK(view_menu_en_for_network_cb), TRUE },
     {"/View/NameResolution/EnableforTransportLayer",                NULL, "Enable for _Transport Layer",            NULL, NULL, G_CALLBACK(view_menu_en_for_transport_cb), TRUE },
@@ -3134,7 +3132,7 @@ main_menu_new(GtkAccelGroup ** table) {
 }
 
 static void
-menu_dissector_filter_cb(  GtkAction *action _U_,  gpointer callback_data)
+menu_dissector_filter_cb(GtkAction *action _U_,  gpointer callback_data)
 {
     dissector_filter_t      *filter_entry = callback_data;
     GtkWidget               *filter_te;
@@ -3156,7 +3154,9 @@ menu_dissector_filter_cb(  GtkAction *action _U_,  gpointer callback_data)
     g_free( (void *) buf);
 }
 
-static gboolean menu_dissector_filter_spe_cb(frame_data *fd _U_, epan_dissect_t *edt, gpointer callback_data) {
+static gboolean
+menu_dissector_filter_spe_cb(frame_data *fd _U_, epan_dissect_t *edt, gpointer callback_data)
+{
     dissector_filter_t *filter_entry = callback_data;
 
     /* XXX - this gets the packet_info of the last dissected packet, */
@@ -3165,7 +3165,9 @@ static gboolean menu_dissector_filter_spe_cb(frame_data *fd _U_, epan_dissect_t 
     return (edt != NULL) ? filter_entry->is_filter_valid(&edt->pi) : FALSE;
 }
 
-static void menu_dissector_filter(capture_file *cf) {
+static void
+menu_dissector_filter(capture_file *cf)
+{
     GList *list_entry = dissector_filter_list;
     dissector_filter_t *filter_entry;
 
@@ -3195,7 +3197,7 @@ static void menu_dissector_filter(capture_file *cf) {
 
       action = g_object_new (GTK_TYPE_ACTION,
                  "name", "filter-list-empty",
-                 "label", "No fileters",
+                 "label", "No filters",
                  "sensitive", FALSE,
                  NULL);
       gtk_action_group_add_action (action_group, action);
@@ -3232,6 +3234,7 @@ static void menu_dissector_filter(capture_file *cf) {
                  action_name,
                  GTK_UI_MANAGER_MENUITEM,
                  FALSE);
+        g_free(action_name);
         i++;
         list_entry = g_list_next(list_entry);
     }
@@ -3245,9 +3248,6 @@ menus_init(void) {
     GError *error = NULL;
     guint merge_id;
 
-#ifdef NEW_MENU_CODE
-    gchar* gui_desc_file_name_and_path;
-#endif
     if (initialize) {
         initialize = FALSE;
 
@@ -3336,7 +3336,7 @@ menus_init(void) {
 #endif
         if (error != NULL)
         {
-            fprintf (stderr, "Warning: building TreeWiew Pop-Up menu failed: %s\n",
+            fprintf (stderr, "Warning: building TreeView Pop-Up menu failed: %s\n",
                     error->message);
             g_error_free (error);
             error = NULL;
@@ -3418,14 +3418,8 @@ menus_init(void) {
 
         ui_manager_main_menubar = gtk_ui_manager_new ();
         gtk_ui_manager_insert_action_group (ui_manager_main_menubar, main_menu_bar_action_group, 0);
-#ifndef NEW_MENU_CODE
 
         gtk_ui_manager_add_ui_from_string (ui_manager_main_menubar,ui_desc_menubar, -1, &error);
-#else
-        gui_desc_file_name_and_path = get_ui_file_path("main-menubar-ui.xml");
-        gtk_ui_manager_add_ui_from_file ( ui_manager_main_menubar, gui_desc_file_name_and_path, &error);
-        g_free (gui_desc_file_name_and_path);
-#endif
         if (error != NULL)
         {
             fprintf (stderr, "Warning: building main menubar failed: %s\n",
@@ -3460,7 +3454,7 @@ menus_init(void) {
         gtk_ui_manager_add_ui_from_string (ui_manager_statusbar_profiles_menu,ui_statusbar_profiles_menu_popup, -1, &error);
         if (error != NULL)
         {
-            fprintf (stderr, "Warning: building Statusbar Profiles Pop-Up failed: %s\n",
+            fprintf (stderr, "Warning: building StatusBar Profiles Pop-Up failed: %s\n",
                     error->message);
             g_error_free (error);
             error = NULL;
@@ -3493,9 +3487,6 @@ menus_init(void) {
 #ifndef WANT_PACKET_EDITOR
         set_menu_visible(ui_manager_main_menubar, "/Menubar/EditMenu/EditPacket", FALSE);
 #endif /* WANT_PACKET_EDITOR */
-#ifndef HAVE_AIRPCAP
-        set_menu_visible(ui_manager_main_menubar, "/Menubar/ViewMenu/WirelessToolbar", FALSE);
-#endif /* HAVE_AIRPCAP */
 
 #ifndef HAVE_LIBPCAP
         set_menu_visible(ui_manager_main_menubar, "/Menubar/CaptureMenu", FALSE);
@@ -3590,24 +3581,29 @@ void register_lua_menu_bar_menu_items(
  * elements are the names of parent menus. Path elements are stripped of
  * leading/trailing spaces.
  *
+ * |'s separate an existing menu's name from its action.
+ * If the action has a / in it, it must have been "escaped" into a # before
+ * entering this function; this function will translate it back to a /.
+ * There must be an easier way!
+ *
  * Examples:
- *      make_menu_xml("/Foo/Bar/I_tem");
+ *      make_menu_xml("/Foo/Bar|/BarAction/I_tem");
  *   -->
  *              "<ui><menubar name='Menubar'>
  *              <menu action='Foo'>
- *              <menu action='Bar'>
+ *              <menu name='Bar' action='/BarAction'>
  *              <menuitem action='I_tem'/>    <!-- puts shortcut on 't' -->
  *              </menu>
  *              </menu>
  *              <menubar></ui>"
  *
- *  make_menu_xml("/Foo/Bar/-/Baz/Item");
+ *  make_menu_xml("/Foo/Bar|BarAction/-/Baz|BarAction#BazAction/Item");
  *    -->
  *      "<ui><menubar name='Menubar'>
  *      <menu action='Foo'>
- *      <menu action='Bar'>
+ *      <menu name='Bar' action='/BarAction'>
  *      <separator/>
- *      <menu action='Baz'>
+ *      <menu name='Baz' action='BarAction/BazAction'>
  *      <menuitem action='Item'/>
  *      </menu>
  *      </menu>
@@ -3621,11 +3617,12 @@ const gchar*
 make_menu_xml(const char *path) {
     GString     *xml;
     char        **p;
-    char        **tokens;
+    char        **tokens, **name_action_tokens;
     const char  *tok = path;
     gchar       *markup;
     guint       num_menus;
     size_t      len;
+    int i;
 
     if (path == NULL) return NULL;
 
@@ -3651,9 +3648,27 @@ make_menu_xml(const char *path) {
         if (g_strcmp0(tok, "-") == 0) {
             xml = g_string_append(xml, "<separator/>\n");
         } else {
-            markup = g_markup_printf_escaped("<menu action='%s'>\n", tok);
+            /* Split the name of the menu from its action (if any) */
+            name_action_tokens = g_strsplit(tok, "|", 2);
+
+            if (name_action_tokens[1]) {
+                i = -1;
+                /* Replace #'s with /'s.
+                 * Necessary for menus whose action includes a "/".
+                 * There MUST be an easier way...
+                 */
+                while (name_action_tokens[1][++i])
+                    if (name_action_tokens[1][i] == '#')
+                        name_action_tokens[1][i] = '/';
+            }
+
+            if (name_action_tokens[1])
+                markup = g_markup_printf_escaped("<menu name='%s' action='/%s'>\n", name_action_tokens[0], name_action_tokens[1]);
+            else
+                markup = g_markup_printf_escaped("<menu action='%s'>\n", tok);
             xml = g_string_append(xml, markup);
             g_free(markup);
+            g_strfreev(name_action_tokens);
             num_menus++;
         }
     }
@@ -3841,6 +3856,7 @@ set_menu_sensitivity(GtkUIManager *ui_manager, const gchar *path, gint val)
     gtk_action_set_sensitive (action, val); /* TRUE to make the action sensitive */
 }
 
+#if !defined(WANT_PACKET_EDITOR) || !defined(HAVE_LIBPCAP)
 static void
 set_menu_visible(GtkUIManager *ui_manager, const gchar *path, gint val)
 {
@@ -3854,7 +3870,7 @@ set_menu_visible(GtkUIManager *ui_manager, const gchar *path, gint val)
     }
     gtk_action_set_visible (action, val); /* TRUE to make the action visible */
 }
-
+#endif
 
 static void
 set_menu_object_data_meat(GtkUIManager *ui_manager, const gchar *path, const gchar *key, gpointer data)
@@ -4112,8 +4128,8 @@ menu_open_filename(gchar *cf_name)
 }
 
 /* callback, if the user pushed a recent file submenu item */
-void
-menu_open_recent_file_cmd(gpointer action)
+static void
+menu_open_recent_file_cmd(GtkAction *action)
 {
     GtkWidget *submenu_recent_files;
     GList *recent_files_list;
@@ -4142,39 +4158,13 @@ menu_open_recent_file_cmd(gpointer action)
     }
 }
 
-static void menu_open_recent_file_answered_cb(gpointer dialog _U_, gint btn, gpointer data)
-{
-    switch(btn) {
-    case(ESD_BTN_YES):
-        /* save file first */
-        file_save_as_cmd(after_save_open_recent_file, data, FALSE);
-        break;
-    case(ESD_BTN_NO):
-        cf_close(&cfile);
-        menu_open_recent_file_cmd(data);
-        break;
-    case(ESD_BTN_CANCEL):
-        break;
-    default:
-        g_assert_not_reached();
-    }
-}
 static void
-menu_open_recent_file_cmd_cb(GtkAction *action, gpointer data _U_) {
-    gpointer  dialog;
-
-
-    if((cfile.state != FILE_CLOSED) && !cfile.user_saved && prefs.gui_ask_unsaved) {
-        /* user didn't saved his current file, ask him */
-        dialog = simple_dialog(ESD_TYPE_CONFIRMATION, ESD_BTNS_YES_NO_CANCEL,
-                               "%sSave capture file before opening a new one?%s\n\n"
-                               "If you open a new capture file without saving, your current capture data will be discarded.",
-                               simple_dialog_primary_start(), simple_dialog_primary_end());
-        simple_dialog_set_cb(dialog, menu_open_recent_file_answered_cb, action);
-    } else {
-        /* unchanged file */
+menu_open_recent_file_cmd_cb(GtkAction *action, gpointer data _U_)
+{
+    /* If there's unsaved data, let the user save it first.
+       If they cancel out of it, don't open the file. */
+    if (do_file_close(&cfile, FALSE, " before opening a new capture file"))
         menu_open_recent_file_cmd(action);
-    }
 }
 
 static void
@@ -4331,6 +4321,7 @@ name_resolution_cb(GtkWidget *w, gpointer d _U_, gint action)
     }
 }
 
+#ifdef HAVE_LIBPCAP
 void
 menu_auto_scroll_live_changed(gboolean auto_scroll_live_in) {
     GtkWidget *menu;
@@ -4344,17 +4335,8 @@ menu_auto_scroll_live_changed(gboolean auto_scroll_live_in) {
     if( ((gboolean) gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menu)) != auto_scroll_live_in) ) {
         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu), auto_scroll_live_in);
     }
-
-#ifdef HAVE_LIBPCAP
-    /* tell toolbar about it */
-    toolbar_auto_scroll_live_changed(auto_scroll_live_in);
-
-    /* change auto scroll */
-    if(auto_scroll_live_in != auto_scroll_live) {
-        auto_scroll_live  = auto_scroll_live_in;
-    }
-#endif /*HAVE_LIBPCAP */
 }
+#endif /*HAVE_LIBPCAP */
 
 
 
@@ -4372,22 +4354,12 @@ menu_colorize_changed(gboolean packet_list_colorize) {
     if( (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menu)) != packet_list_colorize) ) {
         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu), packet_list_colorize);
     }
-
-    /* tell toolbar about it */
-    toolbar_colorize_changed(packet_list_colorize);
-
-    /* change colorization */
-    if(packet_list_colorize != recent.packet_list_colorize) {
-        recent.packet_list_colorize = packet_list_colorize;
-        color_filters_enable(packet_list_colorize);
-        new_packet_list_colorize_packets();
-    }
 }
 
 static void
 colorize_cb(GtkWidget *w, gpointer d _U_)
 {
-    menu_colorize_changed(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(w)));
+    main_colorize_changed(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(w)));
 }
 
 
@@ -4408,19 +4380,17 @@ menu_recent_read_finished(void) {
     }else{
         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu), recent.filter_toolbar_show);
     };
-#ifdef HAVE_AIRPCAP
     menu = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/ViewMenu/WirelessToolbar");
     if(!menu){
         g_warning("menu_recent_read_finished: No menu found, path= /Menubar/ViewMenu/WirelessToolbar");
     }else{
-        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu), recent.airpcap_toolbar_show);
+        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu), recent.wireless_toolbar_show);
     }
-#endif /* HAVE_AIRPCAP */
 
     /* Fix me? */
-    menu = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/ViewMenu/Statusbar");
+    menu = gtk_ui_manager_get_widget(ui_manager_main_menubar, "/Menubar/ViewMenu/StatusBar");
     if(!menu){
-        g_warning("menu_recent_read_finished: No menu found, path= /Menubar/ViewMenu/Statusbar");
+        g_warning("menu_recent_read_finished: No menu found, path= /Menubar/ViewMenu/StatusBar");
     }else{
         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu), recent.statusbar_show);
     }
@@ -4511,7 +4481,7 @@ menu_recent_read_finished(void) {
         g_assert_not_reached();
     }
 
-    menu_colorize_changed(recent.packet_list_colorize);
+    main_colorize_changed(recent.packet_list_colorize);
 }
 
 
@@ -4604,26 +4574,39 @@ set_menus_for_capture_file(capture_file *cf)
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Close", FALSE);
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Save", FALSE);
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/SaveAs", FALSE);
-        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Export", FALSE);
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportSpecifiedPackets", FALSE);
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportPacketDissections", FALSE);
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportSelectedPacketBytes", FALSE);
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportSSLSessionKeys", FALSE);
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportObjects", FALSE);
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/ViewMenu/Reload", FALSE);
-        set_toolbar_for_capture_file(FALSE, FALSE);
-        set_toolbar_for_unsaved_capture_file(FALSE);
     } else {
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Merge", cf_can_save_as(cf));
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Close", TRUE);
-        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Save", !cf->user_saved);
         /*
-         * "Save As..." works only if we can write the file out in at least
-         * one format (so we can save the whole file or just a subset) or
-         * if we have an unsaved capture (so writing the whole file out
-         * with a raw data copy makes sense).
+         * "Save" should be available only if the file is a temporary file
+         * or has unsaved changes.
+         */
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Save",
+                             (cf->is_tempfile || cf->unsaved_changes));
+        /*
+         * "Save As..." should be available only if we have no unsaved
+         * changes (so saving just involves copying the raw file) or if
+         * we can write the file out in at least one format.
          */
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/SaveAs",
-                             cf_can_save_as(cf) || !cf->user_saved);
-        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Export", TRUE);
+                             (!cf->unsaved_changes || cf_can_save_as(cf)));
+        /*
+         * "Export Specified Packets..." should be available only if
+         * we can write the file out in at least one format.
+         */
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportSpecifiedPackets",
+                             cf_can_save_as(cf));
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportPacketDissections", TRUE);
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportSelectedPacketBytes", TRUE);
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportSSLSessionKeys", TRUE);
+        set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportObjects", TRUE);
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/ViewMenu/Reload", TRUE);
-        set_toolbar_for_unsaved_capture_file(!cf->user_saved);
-        set_toolbar_for_capture_file(TRUE, cf_can_save_as(cf) || !cf->user_saved);
     }
 }
 
@@ -4632,11 +4615,22 @@ set_menus_for_capture_file(capture_file *cf)
 void
 set_menus_for_capture_in_progress(gboolean capture_in_progress)
 {
+    /* Either a capture was started or stopped; in either case, it's not
+       in the process of stopping, so allow quitting. */
+    set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Quit",
+                         TRUE);
+
     set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Open",
                          !capture_in_progress);
     set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/OpenRecent",
                          !capture_in_progress);
-    set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Export",
+    set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportPacketDissections",
+                         capture_in_progress);
+    set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportSelectedPacketBytes",
+                         capture_in_progress);
+    set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportSSLSessionKeys",
+                         capture_in_progress);
+    set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/ExportObjects",
                          capture_in_progress);
     set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Set",
                          !capture_in_progress);
@@ -4656,9 +4650,23 @@ set_menus_for_capture_in_progress(gboolean capture_in_progress)
                          capture_in_progress);
     set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/CaptureMenu/Restart",
                          capture_in_progress);
-    set_toolbar_for_capture_in_progress(capture_in_progress);
+#endif /* HAVE_LIBPCAP */
+}
 
-    set_capture_if_dialog_for_capture_in_progress(capture_in_progress);
+
+/* Disable menu items while we're waiting for the capture child to
+   finish.  We disallow quitting until it finishes, and also disallow
+   stopping or restarting the capture. */
+void
+set_menus_for_capture_stopping(void)
+{
+    set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/FileMenu/Quit",
+                         FALSE);
+#ifdef HAVE_LIBPCAP
+    set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/CaptureMenu/Stop",
+                         FALSE);
+    set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/CaptureMenu/Restart",
+                         FALSE);
 #endif /* HAVE_LIBPCAP */
 }
 
@@ -4701,7 +4709,6 @@ set_menus_for_captured_packets(gboolean have_captured_packets)
                          have_captured_packets);
     set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/StatisticsMenu/ProtocolHierarchy",
                          have_captured_packets);
-    set_toolbar_for_captured_packets(have_captured_packets);
 }
 
 
@@ -4887,6 +4894,7 @@ set_menus_for_selected_packet(capture_file *cf)
 
         set_menu_sensitivity(ui_manager_main_menubar, path,
             menu_dissector_filter_spe_cb(/* frame_data *fd _U_*/ NULL, cf->edt, filter_entry));
+        g_free(path);
         i++;
         list_entry = g_list_next(list_entry);
     }
@@ -5052,7 +5060,7 @@ menu_prefs_edit_dlg (GtkWidget *w, gpointer data)
     gtk_window_set_resizable(GTK_WINDOW(win),FALSE);
     gtk_window_resize(GTK_WINDOW(win), 400, 100);
 
-    main_vb = gtk_vbox_new(FALSE, 5);
+    main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 5, FALSE);
     gtk_container_add(GTK_CONTAINER(win), main_vb);
     gtk_container_set_border_width(GTK_CONTAINER(main_vb), 6);
 
@@ -5386,7 +5394,7 @@ set_menus_for_selected_tree_row(capture_file *cf)
         set_menu_sensitivity(ui_manager_tree_view_menu, "/TreeViewPopup/FilterFieldReference",
                              (id == -1) ? FALSE : TRUE);
         set_menu_sensitivity(ui_manager_main_menubar,
-                             "/Menubar/FileMenu/Export/SelectedPacketBytes", TRUE);
+                             "/Menubar/FileMenu/ExportSelectedPacketBytes", TRUE);
         set_menu_sensitivity(ui_manager_main_menubar,
                              "/Menubar/GoMenu/GotoCorrespondingPacket", hfinfo->type == FT_FRAMENUM);
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/EditMenu/Copy/Description",
@@ -5431,7 +5439,7 @@ set_menus_for_selected_tree_row(capture_file *cf)
         set_menu_sensitivity(ui_manager_tree_view_menu, "/TreeViewPopup/FilterFieldReference",
                              FALSE);
         set_menu_sensitivity(ui_manager_main_menubar,
-                             "/Menubar/FileMenu/Export/SelectedPacketBytes", FALSE);
+                             "/Menubar/FileMenu/ExportSelectedPacketBytes", FALSE);
         set_menu_sensitivity(ui_manager_main_menubar,
                              "/Menubar/GoMenu/GotoCorrespondingPacket", FALSE);
         set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/EditMenu/Copy/Description", FALSE);
@@ -5448,7 +5456,6 @@ set_menus_for_selected_tree_row(capture_file *cf)
 void set_menus_for_packet_history(gboolean back_history, gboolean forward_history) {
     set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/GoMenu/Back", back_history);
     set_menu_sensitivity(ui_manager_main_menubar, "/Menubar/GoMenu/Forward", forward_history);
-    set_toolbar_for_packet_history(back_history, forward_history);
 }
 
 

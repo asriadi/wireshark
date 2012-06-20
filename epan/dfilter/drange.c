@@ -35,11 +35,27 @@ drange_node_new(void)
 {
   drange_node* new_range_node;
 
-  new_range_node = g_malloc(sizeof(drange_node));
+  new_range_node = g_new(drange_node,1);
   new_range_node->start_offset = 0;
   new_range_node->length = 0;
   new_range_node->end_offset = 0;
   new_range_node->ending = DRANGE_NODE_END_T_UNINITIALIZED;
+  return new_range_node;
+}
+
+static drange_node*
+drange_node_dup(drange_node *org)
+{
+  drange_node *new_range_node;
+
+  if (!org)
+    return NULL;
+	
+  new_range_node = g_new(drange_node,1);
+  new_range_node->start_offset = org->start_offset;
+  new_range_node->length = org->length;
+  new_range_node->end_offset = org->end_offset;
+  new_range_node->ending = org->ending;
   return new_range_node;
 }
 
@@ -112,7 +128,7 @@ drange*
 drange_new(void)
 {
   drange* new_drange;
-  new_drange = g_malloc(sizeof(drange));
+  new_drange = g_new(drange,1);
   new_drange->range_list = NULL;
   new_drange->has_total_length = TRUE;
   new_drange->total_length = 0;
@@ -124,8 +140,8 @@ drange_new(void)
 static void
 drange_append_wrapper(gpointer data, gpointer user_data)
 {
-	drange_node *drnode = data;
-	drange		*dr = user_data;
+	drange_node *drnode = (drange_node *)data;
+	drange		*dr		= (drange *)user_data;
 
 	drange_append_drange_node(dr, drnode);
 }
@@ -137,6 +153,23 @@ drange_new_from_list(GSList *list)
 
 	new_drange = drange_new();
 	g_slist_foreach(list, drange_append_wrapper, new_drange);
+	return new_drange;
+}
+
+drange*
+drange_dup(drange *org)
+{
+	drange *new_drange;
+	GSList *p;
+
+	if (!org)
+		return NULL;
+
+	new_drange = drange_new();
+	for (p = org->range_list; p; p = p->next) {
+		drange_node *drnode = p->data;
+		drange_append_drange_node(new_drange, drange_node_dup(drnode));
+	}
 	return new_drange;
 }
 

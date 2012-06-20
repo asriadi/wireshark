@@ -1439,7 +1439,7 @@ static const sid_strings well_known_sids[] = {
 	{NULL, NULL}
 };
 
-const char*
+static const char*
 match_wkwn_sids(const char* sid) {
 	int i = 0;
 	while (well_known_sids[i].name) {
@@ -2356,12 +2356,13 @@ dissect_nt_acl(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	       proto_tree *parent_tree, guint8 *drep, const char *name,
 	       struct access_mask_info *ami)
 {
-	proto_item *item = NULL;
-	proto_tree *tree = NULL;
+	proto_item *volatile item = NULL;
+	proto_tree *volatile tree = NULL;
 	int old_offset = offset;
 	int pre_ace_offset;
 	guint16 revision;
-	guint32 num_aces;
+	guint32 volatile num_aces;
+	gboolean missing_data = FALSE;
 
 	if(parent_tree){
 		item = proto_tree_add_text(parent_tree, tvb, offset, -1,
@@ -2407,15 +2408,25 @@ dissect_nt_acl(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			      tvb, offset, 4, num_aces);
 	  offset += 4;
 
-	  while(num_aces--){
+	  while(num_aces-- && !missing_data){
 		pre_ace_offset = offset;
-		offset = dissect_nt_v2_ace(tvb, offset, pinfo, tree, drep, ami);
-		if (pre_ace_offset == offset) {
+
+		TRY {
+		  offset = dissect_nt_v2_ace(tvb, offset, pinfo, tree, drep, ami);
+		  if (pre_ace_offset == offset) {
 			/*
 			 * Bogus ACE, with a length < 4.
 			 */
 			break;
+		  }
 		}
+
+		CATCH2(BoundsError, ReportedBoundsError) {
+			proto_tree_add_text(tree, tvb, offset, 0, "ACE Extends beyond end of captured or reassembled buffer");
+			missing_data = TRUE;
+		}
+
+		ENDTRY;
 	  }
 	}
 
@@ -2591,11 +2602,12 @@ dissect_nt_sec_desc(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	proto_tree *tree = NULL;
 	guint16 revision;
 	int start_offset = offset;
-	int item_offset, end_offset;
+	int volatile end_offset;
+	int item_offset;
 	guint32 owner_sid_offset;
-	guint32 group_sid_offset;
-	guint32 sacl_offset;
-	guint32 dacl_offset;
+	guint32 volatile group_sid_offset;
+	guint32 volatile sacl_offset;
+	guint32 volatile dacl_offset;
 
 	item = proto_tree_add_text(parent_tree, tvb, offset, -1,
 				   "NT Security Descriptor");
@@ -2663,9 +2675,17 @@ dissect_nt_sec_desc(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	       */
 	      THROW(ReportedBoundsError);
 	    }
-	    offset = dissect_nt_sid(tvb, item_offset, tree, "Owner", NULL, -1);
-	    if (offset > end_offset)
-	      end_offset = offset;
+	    TRY{
+	      offset = dissect_nt_sid(tvb, item_offset, tree, "Owner", NULL, -1);
+	      if (offset > end_offset)
+	        end_offset = offset;
+	    }
+
+	    CATCH2(BoundsError, ReportedBoundsError) {
+	      proto_tree_add_text(tree, tvb, item_offset, 0, "Owner SID beyond end of captured or reassembled buffer");
+	    }
+
+	    ENDTRY;
 	  }
 
 	  /*group SID*/
@@ -2677,9 +2697,17 @@ dissect_nt_sec_desc(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	       */
 	      THROW(ReportedBoundsError);
 	    }
-	    offset = dissect_nt_sid(tvb, item_offset, tree, "Group", NULL, -1);
-	    if (offset > end_offset)
-	      end_offset = offset;
+	    TRY {
+	      offset = dissect_nt_sid(tvb, item_offset, tree, "Group", NULL, -1);
+	      if (offset > end_offset)
+	        end_offset = offset;
+	    }
+
+	    CATCH2(BoundsError, ReportedBoundsError) {
+	      proto_tree_add_text(tree, tvb, item_offset, 0, "Group SID beyond end of captured or reassembled buffer");
+	    }
+
+	    ENDTRY;
 	  }
 
 	  /* sacl */
@@ -2711,6 +2739,7 @@ dissect_nt_sec_desc(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	    if (offset > end_offset)
 	      end_offset = offset;
 	  }
+
 	  break;
 
 	default:
@@ -2720,16 +2749,17 @@ dissect_nt_sec_desc(tvbuff_t *tvb, int offset, packet_info *pinfo,
 	if (len_supplied) {
 	  /* Make sure the length isn't too large (so that we get an
 	     overflow) */
-	  tvb_ensure_bytes_exist(tvb, start_offset, len);
+	  /* tvb_ensure_bytes_exist(tvb, start_offset, len);*/
 	} else {
 	  /* The length of the security descriptor is the difference
 	     between the starting offset and the offset past the last
 	     item in the descriptor. */
 	  len = end_offset - start_offset;
 	}
+	len = end_offset - start_offset;
 	proto_item_set_len(item, len);
 
-	return offset+len;
+	return offset;
 }
 
 /*

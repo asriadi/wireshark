@@ -919,6 +919,7 @@ static const value_string cip_cm_ext_st_vals[] = {
    { CM_ES_REDUNDANT_CONNECTION_MISMATCH,          "Redundant connection mismatch" },
    { CM_ES_NO_CONSUMER_RES_AVAIL_IN_PROD_MODULE,   "No more user configurable link consumer resources available in the producing module" },
    { CM_ES_NO_CONSUMER_RES_CONF_IN_PROD_MODULE,    "No more user configurable link consumer resources configured in the producing module" },
+   { CM_ES_NETWORK_LINK_OFFLINE,                   "Network link offline" },
    { CM_ES_INCOMPATIBLE_MULTICAST_RPI,             "Incompatible Multicast RPI" },
    { CM_ES_INVALID_SAFETY_CONN_SIZE,               "Invalid Safety Connection Size" },
    { CM_ES_INVALID_SAFETY_CONN_FORMAT,             "Invalid Safety Connection Format" },
@@ -934,7 +935,6 @@ static const value_string cip_cm_ext_st_vals[] = {
    { CM_ES_TUNID_NOT_SET,                          "TUNID not set" },
    { CM_ES_TUNID_MISMATCH,                         "TUNID Mismatch" },
    { CM_ES_CONFIGURATION_OPERATION_NOT_ALLOWED,    "Configuration operation not allowed" },
-   { CM_ES_NETWORK_LINK_OFFLINE,                   "Network link offline" },
    { CM_ES_NO_TARGET_APP_DATA_AVAILABLE,           "No target application data available" },
    { CM_ES_NO_ORIG_APP_DATA_AVAILABLE,             "No originator application data available" },
    { CM_ES_NODE_ADDRESS_CHANGED_AFTER_SCHEDULED,   "Node address has changed since the network was scheduled" },
@@ -1282,7 +1282,7 @@ static const value_string cip_vendor_vals[] = {
    {  331,   "Interface Corporation" },
    {  332,   "Grape Systems Inc." },
    {  333,   "Reserved" },
-   {  344,   "Reserved" },
+   {  334,   "Reserved" },
    {  335,   "Toshiba IT & Control Systems Corporation" },
    {  336,   "Sanyo Machine Works, Ltd." },
    {  337,   "Vansco Electronics Ltd." },
@@ -2299,7 +2299,7 @@ static const value_string cip_class_names_vals[] = {
 value_string_ext cip_class_names_vals_ext = VALUE_STRING_EXT_INIT(cip_class_names_vals);
 
 
-int dissect_id_revision(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb,
+static int dissect_id_revision(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb,
                              int offset, int total_len)
 {
    if (total_len < 2)
@@ -2313,7 +2313,7 @@ int dissect_id_revision(packet_info *pinfo, proto_tree *tree, proto_item *item, 
    return 2;
 }
 
-int dissect_msg_rout_num_classes(packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb,
+static int dissect_msg_rout_num_classes(packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb,
                              int offset, int total_len _U_)
 {
    guint16 i, num_classes;
@@ -2671,7 +2671,7 @@ void dissect_epath( tvbuff_t *tvb, packet_info *pinfo, proto_item *epath_item, i
    if ( !generate )
    {
       hidden_item = proto_tree_add_item(path_tree, hf_cip_epath,
-                                        tvb, offset, path_length, ENC_LITTLE_ENDIAN );
+                                        tvb, offset, path_length, ENC_NA );
       PROTO_ITEM_SET_HIDDEN(hidden_item);
    }
 
@@ -3159,7 +3159,7 @@ void dissect_epath( tvbuff_t *tvb, packet_info *pinfo, proto_item *epath_item, i
                   }
                   else
                   {
-                     proto_tree_add_item(net_tree, hf_cip_seg_safety_data, tvb, offset+pathpos+3, seg_size-1, ENC_LITTLE_ENDIAN );
+                     proto_tree_add_item(net_tree, hf_cip_seg_safety_data, tvb, offset+pathpos+3, seg_size-1, ENC_NA );
                   }
 
                   if (safety != NULL)
@@ -3401,14 +3401,11 @@ dissect_cip_class_generic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
    proto_item *ti;
    proto_tree *class_tree;
 
-   if( tree )
-   {
-      /* Create display subtree for the protocol */
-      ti = proto_tree_add_item(tree, proto_cip_class_generic, tvb, 0, -1, ENC_NA);
-      class_tree = proto_item_add_subtree( ti, ett_cip_class_generic );
+   /* Create display subtree for the protocol */
+   ti = proto_tree_add_item(tree, proto_cip_class_generic, tvb, 0, -1, ENC_NA);
+   class_tree = proto_item_add_subtree( ti, ett_cip_class_generic );
 
-      dissect_cip_generic_data( class_tree, tvb, 0, tvb_length(tvb), pinfo, ti );
-   }
+   dissect_cip_generic_data( class_tree, tvb, 0, tvb_length(tvb), pinfo, ti );
 
    return tvb_length(tvb);
 }
@@ -4527,7 +4524,7 @@ dissect_cip_cm_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, int item_
             break;
             default:
                /* Add data */
-               proto_tree_add_item(cmd_data_tree, hf_cip_data, tvb, offset+4+add_stat_size, item_length-4-add_stat_size, ENC_LITTLE_ENDIAN);
+               proto_tree_add_item(cmd_data_tree, hf_cip_data, tvb, offset+4+add_stat_size, item_length-4-add_stat_size, ENC_NA);
                break;
             }
          }
@@ -4918,14 +4915,11 @@ dissect_cip_class_mb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
    proto_item *ti;
    proto_tree *class_tree;
 
-   if( tree )
-   {
-      /* Create display subtree for the protocol */
-      ti = proto_tree_add_item(tree, proto_cip_class_mb, tvb, 0, -1, FALSE);
-      class_tree = proto_item_add_subtree( ti, ett_cip_class_mb );
+   /* Create display subtree for the protocol */
+   ti = proto_tree_add_item(tree, proto_cip_class_mb, tvb, 0, -1, ENC_NA);
+   class_tree = proto_item_add_subtree( ti, ett_cip_class_mb );
 
-      dissect_cip_mb_data( class_tree, tvb, 0, tvb_length(tvb), pinfo );
-   }
+   dissect_cip_mb_data( class_tree, tvb, 0, tvb_length(tvb), pinfo );
 
    return tvb_length(tvb);
 }
@@ -5274,14 +5268,11 @@ dissect_cip_class_cco(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
    proto_item *ti;
    proto_tree *class_tree;
 
-   if( tree )
-   {
-      /* Create display subtree for the protocol */
-      ti = proto_tree_add_item(tree, proto_cip_class_cco, tvb, 0, -1, ENC_NA);
-      class_tree = proto_item_add_subtree( ti, ett_cip_class_cco );
+   /* Create display subtree for the protocol */
+   ti = proto_tree_add_item(tree, proto_cip_class_cco, tvb, 0, -1, ENC_NA);
+   class_tree = proto_item_add_subtree( ti, ett_cip_class_cco );
 
-      dissect_cip_cco_data( class_tree, tvb, 0, tvb_length(tvb), pinfo );
-   }
+   dissect_cip_cco_data( class_tree, tvb, 0, tvb_length(tvb), pinfo );
 
    return tvb_length(tvb);
 }

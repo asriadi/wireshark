@@ -31,7 +31,6 @@
 #ifdef HAVE_AIRPCAP
 
 #include <gtk/gtk.h>
-/*#include <glib/gprintf.h> */
 
 #include <string.h>
 
@@ -533,7 +532,6 @@ on_key_management_apply_bt_clicked(GtkWidget *button _U_, gpointer data)
     GtkWidget   *key_management_w;
 
     /* widgets in the toolbar */
-    GtkWidget   *toolbar;
     GtkWidget   *toolbar_cb;
     GtkWidget   *decryption_mode_cb;
 
@@ -546,7 +544,6 @@ on_key_management_apply_bt_clicked(GtkWidget *button _U_, gpointer data)
     key_management_w      = GTK_WIDGET(data);
     decryption_mode_cb    = GTK_WIDGET(g_object_get_data(G_OBJECT(key_management_w),AIRPCAP_ADVANCED_DECRYPTION_MODE_KEY));
     key_list_store        = GTK_LIST_STORE(g_object_get_data(G_OBJECT(key_management_w),AIRPCAP_ADVANCED_KEYLIST_KEY));
-    toolbar               = GTK_WIDGET(g_object_get_data(G_OBJECT(key_management_w),AIRPCAP_TOOLBAR_KEY));
     toolbar_cb            = GTK_WIDGET(g_object_get_data(G_OBJECT(key_management_w),AIRPCAP_TOOLBAR_DECRYPTION_KEY));
 
 #define CANT_SAVE_ERR_STR "Cannot save configuration! Another application " \
@@ -1001,7 +998,7 @@ on_add_new_key_bt_clicked(GtkWidget *button _U_, gpointer data)
     gtk_container_set_border_width (GTK_CONTAINER (add_key_window), 5);
     gtk_window_set_resizable (GTK_WINDOW (add_key_window), FALSE);
 
-    main_v_box = gtk_vbox_new (FALSE, 0);
+    main_v_box = ws_gtk_box_new (GTK_ORIENTATION_VERTICAL, 0, FALSE);
     gtk_widget_set_name (main_v_box, "main_v_box");
     gtk_widget_show (main_v_box);
     gtk_container_add (GTK_CONTAINER (add_key_window), main_v_box);
@@ -1077,7 +1074,7 @@ on_add_new_key_bt_clicked(GtkWidget *button _U_, gpointer data)
                       (GtkAttachOptions) (0), 0, 0);
     gtk_label_set_justify (GTK_LABEL (add_ssid_lb), GTK_JUSTIFY_CENTER);
 
-    low_h_button_box = gtk_hbutton_box_new ();
+    low_h_button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
     gtk_widget_set_name (low_h_button_box, "low_h_button_box");
     gtk_container_set_border_width (GTK_CONTAINER (low_h_button_box), 5);
     gtk_widget_show (low_h_button_box);
@@ -1229,7 +1226,7 @@ on_edit_key_bt_clicked(GtkWidget *button _U_, gpointer data)
     gtk_container_set_border_width (GTK_CONTAINER (edit_key_window), 5);
     gtk_window_set_resizable (GTK_WINDOW (edit_key_window), FALSE);
 
-    main_v_box = gtk_vbox_new (FALSE, 0);
+    main_v_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
     gtk_widget_set_name (main_v_box, "main_v_box");
     gtk_widget_show (main_v_box);
     gtk_container_add (GTK_CONTAINER (edit_key_window), main_v_box);
@@ -1323,7 +1320,7 @@ on_edit_key_bt_clicked(GtkWidget *button _U_, gpointer data)
                       (GtkAttachOptions) (0), 0, 0);
     gtk_label_set_justify (GTK_LABEL (edit_ssid_lb), GTK_JUSTIFY_CENTER);
 
-    low_h_button_box = gtk_hbutton_box_new ();
+    low_h_button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
     gtk_widget_set_name (low_h_button_box, "low_h_button_box");
     gtk_container_set_border_width (GTK_CONTAINER (low_h_button_box), 5);
     gtk_widget_show (low_h_button_box);
@@ -1610,40 +1607,9 @@ on_advanced_cancel_bt_clicked(GtkWidget *button _U_, gpointer data)
 
     /* Retrieve object data */
     GtkWidget *airpcap_advanced_w;
-    GtkWidget *channel_combo;
-    GtkWidget *capture_combo;
-    GtkWidget *crc_check;
-    GtkWidget *wrong_crc_combo;
-    GtkWidget *blink_bt;
-    GtkWidget *interface_combo;
-    GtkWidget *cancel_bt;
-    GtkWidget *ok_bt;
-
-    /* widgets in the toolbar */
-    GtkWidget *toolbar,
-              *toolbar_if_lb,
-              *toolbar_channel_cb,
-              *toolbar_wrong_crc_cb,
-              *advanced_bt;
 
     /* Retrieve the GUI object pointers */
     airpcap_advanced_w  = GTK_WIDGET(data);
-    interface_combo     = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_ADVANCED_INTERFACE_KEY));
-    channel_combo       = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_ADVANCED_CHANNEL_KEY));
-    capture_combo       = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_ADVANCED_LINK_TYPE_KEY));
-    crc_check           = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_ADVANCED_FCS_CHECK_KEY));
-    wrong_crc_combo     = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_ADVANCED_FCS_FILTER_KEY));
-    blink_bt            = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_ADVANCED_BLINK_KEY));
-    cancel_bt           = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_ADVANCED_CANCEL_KEY));
-    ok_bt               = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_ADVANCED_OK_KEY));
-    advanced_bt         = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_ADVANCED_KEY));
-
-    toolbar = GTK_WIDGET(g_object_get_data(G_OBJECT(airpcap_advanced_w),AIRPCAP_TOOLBAR_KEY));
-
-    /* retrieve toolbar info */
-    toolbar_if_lb           = GTK_WIDGET(g_object_get_data(G_OBJECT(toolbar),AIRPCAP_TOOLBAR_INTERFACE_KEY));
-    toolbar_channel_cb      = GTK_WIDGET(g_object_get_data(G_OBJECT(toolbar),AIRPCAP_TOOLBAR_CHANNEL_KEY));
-    toolbar_wrong_crc_cb    = GTK_WIDGET(g_object_get_data(G_OBJECT(toolbar),AIRPCAP_TOOLBAR_FCS_FILTER_KEY));
 
     /* Stop blinking ALL leds (go through the airpcap_if_list) */
     if (airpcap_if_selected != NULL)
@@ -1705,16 +1671,10 @@ display_airpcap_advanced_cb(GtkWidget *w _U_, gpointer data)
     GtkWidget *cancel_bt;
 
     /* widgets in the toolbar */
-    GtkWidget *toolbar,
-              *toolbar_if_lb,
-              *toolbar_channel_cb,
-              *toolbar_wrong_crc_cb;
+    GtkWidget *toolbar;
 
     /* user data - RETRIEVE pointers of toolbar widgets */
     toolbar              = GTK_WIDGET(data);
-    toolbar_if_lb        = GTK_WIDGET(g_object_get_data(G_OBJECT(toolbar),AIRPCAP_TOOLBAR_INTERFACE_KEY));
-    toolbar_channel_cb   = GTK_WIDGET(g_object_get_data(G_OBJECT(toolbar),AIRPCAP_TOOLBAR_CHANNEL_KEY));
-    toolbar_wrong_crc_cb = GTK_WIDGET(g_object_get_data(G_OBJECT(toolbar),AIRPCAP_TOOLBAR_FCS_FILTER_KEY));
 
     /* gray out the toolbar */
     gtk_widget_set_sensitive(toolbar,FALSE);
@@ -1736,12 +1696,12 @@ display_airpcap_advanced_cb(GtkWidget *w _U_, gpointer data)
     gtk_window_set_resizable (GTK_WINDOW (airpcap_advanced_w), FALSE);
     gtk_window_set_type_hint (GTK_WINDOW (airpcap_advanced_w), GDK_WINDOW_TYPE_HINT_DIALOG);
 
-    main_box = gtk_vbox_new (FALSE, 0);
+    main_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
     gtk_widget_set_name (main_box, "main_box");
     gtk_widget_show (main_box);
     gtk_container_add (GTK_CONTAINER (airpcap_advanced_w), main_box);
 
-    settings_sub_box = gtk_vbox_new (FALSE, 0);
+    settings_sub_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
     gtk_widget_set_name (settings_sub_box, "settings_sub_box");
     gtk_widget_show (settings_sub_box);
     gtk_box_pack_start (GTK_BOX (main_box), settings_sub_box, FALSE, TRUE, 0);
@@ -1759,7 +1719,7 @@ display_airpcap_advanced_cb(GtkWidget *w _U_, gpointer data)
     gtk_container_add (GTK_CONTAINER (interface_fr), interface_al);
     gtk_alignment_set_padding (GTK_ALIGNMENT (interface_al), 5, 5, 0, 0);
 
-    interface_sub_h_box = gtk_hbox_new (FALSE, 0);
+    interface_sub_h_box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
     gtk_widget_set_name (interface_sub_h_box, "interface_sub_h_box");
     gtk_widget_show (interface_sub_h_box);
     gtk_container_add (GTK_CONTAINER (interface_al), interface_sub_h_box);
@@ -1912,7 +1872,7 @@ display_airpcap_advanced_cb(GtkWidget *w _U_, gpointer data)
                       (GtkAttachOptions) (GTK_FILL),
                       (GtkAttachOptions) (0), 0, 0);
 
-    basic_parameters_fcs_h_box = gtk_hbox_new (FALSE, 1);
+    basic_parameters_fcs_h_box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1, FALSE);
     gtk_widget_set_name (basic_parameters_fcs_h_box,
                          "basic_parameters_fcs_h_box");
     gtk_widget_show (basic_parameters_fcs_h_box);
@@ -1952,12 +1912,12 @@ display_airpcap_advanced_cb(GtkWidget *w _U_, gpointer data)
     gtk_frame_set_label_widget (GTK_FRAME (basic_parameters_fr),basic_parameters_frame_lb);
     gtk_label_set_use_markup (GTK_LABEL (basic_parameters_frame_lb), TRUE);
 
-    low_buttons_h_box = gtk_hbox_new (FALSE, 0);
+    low_buttons_h_box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
     gtk_widget_set_name (low_buttons_h_box, "low_buttons_h_box");
     gtk_widget_show (low_buttons_h_box);
     gtk_box_pack_end (GTK_BOX (main_box), low_buttons_h_box, FALSE, FALSE, 0);
 
-    left_h_button_box = gtk_hbutton_box_new ();
+    left_h_button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
     gtk_widget_set_name (left_h_button_box, "left_h_button_box");
     gtk_widget_show (left_h_button_box);
     gtk_box_pack_start (GTK_BOX (low_buttons_h_box), left_h_button_box, FALSE,
@@ -2050,26 +2010,9 @@ on_key_management_cancel_bt_clicked(GtkWidget *button _U_, gpointer data)
 {
     /* Retrieve object data */
     GtkWidget *key_management_w;
-    GtkWidget *cancel_bt;
-    GtkWidget *ok_bt;
-    GtkListStore *key_list_store;
-
-    /* widgets in the toolbar */
-    GtkWidget *toolbar,
-              *toolbar_decryption_ck,
-              *key_management_bt;
 
     /* Retrieve the GUI object pointers */
     key_management_w    = GTK_WIDGET(data);
-    cancel_bt           = GTK_WIDGET(g_object_get_data(G_OBJECT(key_management_w),AIRPCAP_ADVANCED_CANCEL_KEY));
-    ok_bt               = GTK_WIDGET(g_object_get_data(G_OBJECT(key_management_w),AIRPCAP_ADVANCED_OK_KEY));
-    key_list_store      = GTK_LIST_STORE(g_object_get_data(G_OBJECT(key_management_w),AIRPCAP_ADVANCED_KEYLIST_KEY));
-    key_management_bt   = GTK_WIDGET(g_object_get_data(G_OBJECT(key_management_w),AIRPCAP_ADVANCED_KEY));
-
-    toolbar = GTK_WIDGET(g_object_get_data(G_OBJECT(key_management_w),AIRPCAP_TOOLBAR_KEY));
-
-    /* retrieve toolbar info */
-    toolbar_decryption_ck    = GTK_WIDGET(g_object_get_data(G_OBJECT(toolbar),AIRPCAP_TOOLBAR_DECRYPTION_KEY));
 
     gtk_widget_destroy(key_management_w);
 }
@@ -2111,7 +2054,6 @@ display_airpcap_key_management_cb(GtkWidget *w _U_, gpointer data)
     /* key list */
     GtkTreeViewColumn *column;
     GtkCellRenderer   *renderer;
-    GtkTreeSortable   *sortable;
     GtkTreeSelection  *selection;
     GtkTreeIter        iter;
 
@@ -2144,7 +2086,7 @@ display_airpcap_key_management_cb(GtkWidget *w _U_, gpointer data)
     gtk_window_set_resizable (GTK_WINDOW (key_management_w), FALSE);
     gtk_window_set_type_hint (GTK_WINDOW (key_management_w), GDK_WINDOW_TYPE_HINT_DIALOG);
 
-    main_box = gtk_vbox_new (FALSE, 0);
+    main_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
     gtk_widget_set_name (main_box, "main_box");
     gtk_widget_show (main_box);
     gtk_container_add (GTK_CONTAINER (key_management_w), main_box);
@@ -2163,7 +2105,7 @@ display_airpcap_key_management_cb(GtkWidget *w _U_, gpointer data)
 
     gtk_alignment_set_padding (GTK_ALIGNMENT (keys_al), 0, 0, 12, 0);
 
-    keys_h_sub_box = gtk_vbox_new (FALSE, 0);
+    keys_h_sub_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
     gtk_widget_set_name (keys_h_sub_box, "keys_h_sub_box");
     gtk_widget_show (keys_h_sub_box);
     gtk_container_add (GTK_CONTAINER (keys_al), keys_h_sub_box);
@@ -2195,7 +2137,7 @@ display_airpcap_key_management_cb(GtkWidget *w _U_, gpointer data)
     /* Set correct decryption mode!!!! */
     update_decryption_mode(decryption_mode_cb);
 
-    keys_v_sub_box = gtk_hbox_new (FALSE, 0);
+    keys_v_sub_box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
     gtk_widget_set_name (keys_v_sub_box, "keys_v_sub_box");
     gtk_widget_show (keys_v_sub_box);
     gtk_box_pack_start (GTK_BOX (keys_h_sub_box), keys_v_sub_box, TRUE, TRUE, 0);
@@ -2218,8 +2160,6 @@ display_airpcap_key_management_cb(GtkWidget *w _U_, gpointer data)
 
     /* Create a view */
     key_list = gtk_tree_view_new_with_model(GTK_TREE_MODEL(key_list_store));
-
-    sortable = GTK_TREE_SORTABLE(key_list_store);
 
     /* Speed up the list display */
     gtk_tree_view_set_fixed_height_mode(GTK_TREE_VIEW(key_list), TRUE);
@@ -2280,7 +2220,7 @@ display_airpcap_key_management_cb(GtkWidget *w _U_, gpointer data)
 
     gtk_container_add (GTK_CONTAINER (keys_scrolled_w), key_list);
 
-    key_v_button_box = gtk_vbutton_box_new ();
+    key_v_button_box = gtk_button_box_new (GTK_ORIENTATION_VERTICAL);
     gtk_widget_set_name (key_v_button_box, "key_v_button_box");
     gtk_widget_show (key_v_button_box);
     gtk_box_pack_start (GTK_BOX (keys_v_sub_box), key_v_button_box, FALSE, TRUE,
@@ -2331,7 +2271,7 @@ display_airpcap_key_management_cb(GtkWidget *w _U_, gpointer data)
     gtk_widget_show (move_key_down_bt);
     gtk_container_add (GTK_CONTAINER (key_v_button_box), move_key_down_bt);
 #if GTK_CHECK_VERSION(2,18,0)
-    gtk_widget_set_can_default (move_key_down_bt, GTK_CAN_DEFAULT);
+    gtk_widget_set_can_default (move_key_down_bt, TRUE);
 #else
     GTK_WIDGET_SET_FLAGS (move_key_down_bt, GTK_CAN_DEFAULT);
 #endif
@@ -2343,12 +2283,12 @@ display_airpcap_key_management_cb(GtkWidget *w _U_, gpointer data)
     gtk_frame_set_label_widget (GTK_FRAME (keys_fr), keys_frame_lb);
     gtk_label_set_use_markup (GTK_LABEL (keys_frame_lb), TRUE);
 
-    low_buttons_h_box = gtk_hbox_new (FALSE, 0);
+    low_buttons_h_box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
     gtk_widget_set_name (low_buttons_h_box, "low_buttons_h_box");
     gtk_widget_show (low_buttons_h_box);
     gtk_box_pack_end (GTK_BOX (main_box), low_buttons_h_box, FALSE, FALSE, 0);
 
-    left_h_button_box = gtk_hbutton_box_new ();
+    left_h_button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
     gtk_widget_set_name (left_h_button_box, "left_h_button_box");
     gtk_widget_show (left_h_button_box);
     gtk_box_pack_start (GTK_BOX (low_buttons_h_box), left_h_button_box, FALSE,
@@ -2465,7 +2405,6 @@ on_merge_bt_clicked (GtkWidget* button _U_, gpointer user_data)
     guint n_driver_keys = 0;
     guint n_curr_adapter_keys = 0;
     guint n_total_keys = 0;
-    guint n_merged_keys = 0;
     guint i = 0;
 
     GList* wireshark_keys=NULL;
@@ -2510,8 +2449,6 @@ on_merge_bt_clicked (GtkWidget* button _U_, gpointer user_data)
         n_total_keys += n_curr_adapter_keys;
     }
 
-    n_merged_keys = g_list_length(merged_list);
-
     /* Set up this new list as default for Wireshark and Adapters... */
     airpcap_save_decryption_keys(merged_list,airpcap_if_list);
 
@@ -2542,27 +2479,17 @@ on_keep_bt_clicked (GtkWidget *button _U_, gpointer user_data)
     GtkListStore *key_list_store=NULL;
 
     GList* wireshark_keys=NULL;
-    guint n_wireshark_keys = 0;
 
     GList* merged_keys=NULL;
-    guint n_merged_keys = 0;
-
-    guint n_adapters=0;
-    guint n_total_keys=0;
 
     keys_check_w = GTK_WIDGET(user_data);
 
     key_management_w = g_object_get_data(G_OBJECT(keys_check_w),AIRPCAP_CHECK_WINDOW_KEY);
 
-    n_adapters = g_list_length(airpcap_if_list);
-
     /* Retrieve Wireshark keys */
     wireshark_keys = get_wireshark_keys();
-    n_wireshark_keys = g_list_length(wireshark_keys);
-    n_total_keys += n_wireshark_keys;
 
     merged_keys = merge_key_list(wireshark_keys,NULL);
-    n_merged_keys = g_list_length(merged_keys);
 
     /* Set up this new list as default for Wireshark and Adapters... */
     airpcap_save_decryption_keys(merged_keys,airpcap_if_list);
@@ -2599,7 +2526,6 @@ on_import_bt_clicked (GtkWidget* button _U_, gpointer user_data)
     guint n_driver_keys = 0;
     guint n_curr_adapter_keys = 0;
     guint n_total_keys = 0;
-    guint n_merged_keys = 0;
     guint i = 0;
 
     GList* wireshark_keys=NULL;
@@ -2640,8 +2566,6 @@ on_import_bt_clicked (GtkWidget* button _U_, gpointer user_data)
 
         n_total_keys += n_curr_adapter_keys;
     }
-
-    n_merged_keys = g_list_length(merged_list);
 
     /* Set up this new list as default for Wireshark and Adapters... */
     airpcap_save_decryption_keys(merged_list,airpcap_if_list);
@@ -2692,7 +2616,6 @@ on_ignore_bt_clicked (GtkWidget* button _U_, gpointer user_data)
 static void
 on_keys_check_ok_bt_clicked (GtkWidget *button _U_, gpointer user_data)
 {
-    GtkWidget *key_management_w;
     GtkWidget *keys_check_w;
 
     GtkWidget *merge_rb,
@@ -2702,7 +2625,6 @@ on_keys_check_ok_bt_clicked (GtkWidget *button _U_, gpointer user_data)
 
     keys_check_w = GTK_WIDGET(user_data);
 
-    key_management_w = g_object_get_data(G_OBJECT(keys_check_w),AIRPCAP_CHECK_WINDOW_KEY);
     merge_rb  = g_object_get_data(G_OBJECT(keys_check_w),AIRPCAP_CHECK_WINDOW_RADIO_MERGE_KEY);
     keep_rb   = g_object_get_data(G_OBJECT(keys_check_w),AIRPCAP_CHECK_WINDOW_RADIO_KEEP_KEY);
     import_rb = g_object_get_data(G_OBJECT(keys_check_w),AIRPCAP_CHECK_WINDOW_RADIO_IMPORT_KEY);
@@ -2711,9 +2633,9 @@ on_keys_check_ok_bt_clicked (GtkWidget *button _U_, gpointer user_data)
     /* Find out which radio button is selected and call the correct function */
     if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON(merge_rb)))
         on_merge_bt_clicked (merge_rb,keys_check_w);
-    else if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON(keep_rb))) 
+    else if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON(keep_rb)))
         on_keep_bt_clicked (keep_rb,keys_check_w);
-    else if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(import_rb))) 
+    else if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(import_rb)))
         on_import_bt_clicked (import_rb,keys_check_w);
     else if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ignore_rb)))
         on_ignore_bt_clicked (ignore_rb,keys_check_w);
@@ -2754,7 +2676,7 @@ airpcap_keys_check_w(GtkWidget *w, gpointer data _U_)
     gtk_widget_set_name (keys_check_w, "keys_check_w");
     gtk_window_set_resizable (GTK_WINDOW (keys_check_w), FALSE);
 
-    main_v_box = gtk_vbox_new (FALSE, 0);
+    main_v_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
     gtk_widget_set_name (main_v_box, "main_v_box");
     gtk_widget_show (main_v_box);
     gtk_container_add (GTK_CONTAINER (keys_check_w), main_v_box);
@@ -2849,7 +2771,7 @@ airpcap_keys_check_w(GtkWidget *w, gpointer data _U_)
     gtk_label_set_line_wrap (GTK_LABEL (ignore_lb), TRUE);
     gtk_misc_set_alignment (GTK_MISC (ignore_lb), 0, 0.5);
 
-    low_h_button_box = gtk_hbutton_box_new ();
+    low_h_button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
     gtk_widget_set_name (low_h_button_box, "low_h_button_box");
     gtk_widget_show (low_h_button_box);
     gtk_box_pack_start (GTK_BOX (main_v_box), low_h_button_box, FALSE, FALSE,

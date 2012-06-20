@@ -66,7 +66,6 @@
 
 #include "ui/gtk/keys.h"
 #include "ui/gtk/color_utils.h"
-#include "ui/gtk/capture_file_dlg.h"
 #include "ui/gtk/packet_win.h"
 #include "ui/gtk/file_dlg.h"
 #include "ui/gtk/gui_utils.h"
@@ -74,7 +73,6 @@
 #include "ui/gtk/font_utils.h"
 #include "ui/gtk/webbrowser.h"
 #include "ui/gtk/main.h"
-#include "ui/gtk/menus.h"
 #include "ui/gtk/export_sslkeys.h"
 
 #ifdef _WIN32

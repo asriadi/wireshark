@@ -605,8 +605,6 @@ decode_rtp_stream(rtp_stream_info_t *rsi, gpointer ptr _U_)
 #endif
 	gint32 silence_frames;
 	int seq;
-	double delay;
-	double prev_diff;
 #ifdef DEBUG /* ?? */
 	double mean_delay;
 	double variation;
@@ -692,12 +690,9 @@ decode_rtp_stream(rtp_stream_info_t *rsi, gpointer ptr _U_)
 
 	/* decode the RTP stream */
 	first = TRUE;
-	rtp_time = 0;
 	rtp_time_prev = 0;
-	decoded_bytes = 0;
 	decoded_bytes_prev = 0;
-	silence_frames = 0;
-	arrive_time = start_time = 0;
+	start_time = 0;
 	arrive_time_prev = 0;
 	pack_period = 0;
 #ifdef DEBUG /* ?? */
@@ -705,8 +700,6 @@ decode_rtp_stream(rtp_stream_info_t *rsi, gpointer ptr _U_)
 	total_time_prev = 0;
 #endif
 	seq = 0;
-	delay = 0;
-	prev_diff = 0;
 #ifdef DEBUG /* ?? */
 	mean_delay = 0;
 	variation = 0;
@@ -768,10 +761,6 @@ decode_rtp_stream(rtp_stream_info_t *rsi, gpointer ptr _U_)
 		seq = rp->info->info_seq_num;
 
 		diff = arrive_time - rtp_time;
-
-		delay = diff - prev_diff;
-		prev_diff = diff;
-		if (delay<0) delay = -delay;
 
 		if (diff<0) diff = -diff;
 
@@ -1840,7 +1829,7 @@ add_channel_to_window(gchar *key _U_ , rtp_channel_info_t *rci, guint *counter _
 	/* Create the Separator if it is not the last one */
 	(*counter)++;
 	if (*counter < g_hash_table_size(rtp_channels_hash)) {
-	    rci->separator = gtk_hseparator_new();
+	    rci->separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 		gtk_box_pack_start(GTK_BOX (channels_vb), rci->separator, FALSE, FALSE, 5);
 	}
 
@@ -2336,11 +2325,12 @@ rtp_player_dlg_create(void)
 	GtkWidget *bt_close;
 	GtkAdjustment *jitter_spinner_adj;
 	GtkWidget *label;
-	const gchar *title_name_ptr;
+	gchar *title_name_ptr;
 	gchar   *win_name;
 
 	title_name_ptr = cf_get_display_name(&cfile);
 	win_name = g_strdup_printf("%s - VoIP - RTP Player", title_name_ptr);
+	g_free(title_name_ptr);
 
 	rtp_player_dlg_w = dlg_window_new(win_name);  /* transient_for top_level */
 	gtk_window_set_destroy_with_parent (GTK_WINDOW(rtp_player_dlg_w), TRUE);
@@ -2348,7 +2338,7 @@ rtp_player_dlg_create(void)
 
 	gtk_window_set_default_size(GTK_WINDOW(rtp_player_dlg_w), 400, 50);
 
-	main_vb = gtk_vbox_new (FALSE, 0);
+	main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_add(GTK_CONTAINER(rtp_player_dlg_w), main_vb);
 	gtk_container_set_border_width (GTK_CONTAINER (main_vb), 2);
 
@@ -2359,11 +2349,11 @@ rtp_player_dlg_create(void)
 	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (main_scrolled_window), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
 	gtk_container_add(GTK_CONTAINER(main_vb), main_scrolled_window);
 
-	channels_vb = gtk_vbox_new (FALSE, 0);
+	channels_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_set_border_width (GTK_CONTAINER (channels_vb), 2);
 	gtk_scrolled_window_add_with_viewport((GtkScrolledWindow *) main_scrolled_window, channels_vb);
 
-	timestamp_hb = gtk_hbox_new(FALSE, 0);
+	timestamp_hb = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
 	gtk_box_pack_start(GTK_BOX(main_vb), timestamp_hb, FALSE, FALSE, 0);
 	cb_view_as_time_of_day = gtk_check_button_new_with_label("View as time of day");
 	gtk_box_pack_start(GTK_BOX(timestamp_hb), cb_view_as_time_of_day, TRUE, FALSE, 0); /* Centered */
@@ -2371,7 +2361,7 @@ rtp_player_dlg_create(void)
 	gtk_widget_set_tooltip_text(cb_view_as_time_of_day, "View the timestamps as time of day instead of seconds since beginning of capture");
 	g_signal_connect(cb_view_as_time_of_day, "toggled", G_CALLBACK(on_cb_view_as_time_of_day_clicked), NULL);
 
-	h_jitter_buttons_box = gtk_hbox_new (FALSE, 0);
+	h_jitter_buttons_box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
 	gtk_container_set_border_width (GTK_CONTAINER (h_jitter_buttons_box), 10);
 	gtk_box_pack_start (GTK_BOX(main_vb), h_jitter_buttons_box, FALSE, FALSE, 0);
 	label = gtk_label_new("Jitter buffer [ms] ");
@@ -2390,7 +2380,7 @@ rtp_player_dlg_create(void)
 	gtk_widget_set_tooltip_text (cb_use_rtp_timestamp, "Use RTP Timestamp instead of the arriving packet time. This will not reproduce the RTP stream as the user heard it, but is useful when the RTP is being tunneled and the original packet timing is missing");
 
 	/* button row */
-	hbuttonbox = gtk_hbutton_box_new ();
+	hbuttonbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_box_pack_start (GTK_BOX (h_jitter_buttons_box), hbuttonbox, TRUE, TRUE, 0);
 	gtk_button_box_set_layout (GTK_BUTTON_BOX (hbuttonbox), GTK_BUTTONBOX_SPREAD);
 	gtk_box_set_spacing (GTK_BOX (hbuttonbox), 10);
@@ -2429,10 +2419,10 @@ rtp_player_dlg_create(void)
 	g_signal_connect(rtp_player_dlg_w, "destroy", G_CALLBACK(rtp_player_on_destroy), NULL);
 
 	/* button row */
-	hbuttonbox = gtk_hbutton_box_new ();
+	/* ?? hbuttonbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);*/
 
 	/* Filter/status hbox */
-	stat_hbox = gtk_hbox_new(FALSE, 1);
+	stat_hbox = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(stat_hbox), 0);
 
 	/* statusbar */

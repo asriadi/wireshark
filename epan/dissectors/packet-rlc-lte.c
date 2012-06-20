@@ -30,6 +30,7 @@
 #include <string.h>
 
 #include <epan/packet.h>
+#include <epan/conversation.h>
 #include <epan/expert.h>
 #include <epan/prefs.h>
 #include <epan/tap.h>
@@ -1382,7 +1383,6 @@ static sequence_analysis_state checkChannelSequenceInfo(packet_info *pinfo, tvbu
                 if (p_report_in_frame->previousFrameNum != 0) {
                     /* Get report for previous frame */
                     sequence_analysis_report *p_previous_report;
-                    guint16 snLimit;
                     if (p_rlc_lte_info->UMSequenceNumberLength == 5) {
                         snLimit = 32;
                     }
@@ -2143,6 +2143,12 @@ static void dissect_rlc_lte_am_status_pdu(tvbuff_t *tvb,
                                        ack_sn);
             }
 
+            /* NACK should always be 'behind' the ACK */
+            if ((1024 + ack_sn - nack_sn) % 1024 > 512) {
+                expert_add_info_format(pinfo, nack_ti, PI_MALFORMED, PI_ERROR,
+                                       "NACK must not be ahead of ACK in status PDU");
+            }
+
             /* Copy into struct, but don't exceed buffer */
             if (nack_count < MAX_NACKs) {
                 tap_info->NACKs[nack_count++] = (guint16)nack_sn;
@@ -2191,12 +2197,12 @@ static void dissect_rlc_lte_am_status_pdu(tvbuff_t *tvb,
 
             if ((guint16)so_end == 0x7fff) {
                 write_pdu_label_and_info(top_ti, NULL, pinfo,
-                                         "  (SOstart=%u SOend=<END-OF_PDU>)",
+                                         " (SOstart=%u SOend=<END-OF_PDU>)",
                                          (guint16)so_start);
             }
             else {
                 write_pdu_label_and_info(top_ti, NULL, pinfo,
-                                         "  (SOstart=%u SOend=%u)",
+                                         " (SOstart=%u SOend=%u)",
                                          (guint16)so_start, (guint16)so_end);
             }
 

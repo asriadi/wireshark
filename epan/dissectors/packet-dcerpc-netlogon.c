@@ -59,7 +59,7 @@ static void printnbyte(const guint8* tab,int nb,const char* txt,const char* txt2
     debugprintf("%s ",txt);
     for(i=0;i<nb;i++)
     {
-        debugprintf("%02hhX ",*(tab+i));
+        debugprintf("%02X ",*(tab+i));
     }
     debugprintf("%s",txt2);
 }
@@ -472,8 +472,7 @@ typedef struct _seen_packet {
 } seen_packet;
 
 static seen_packet seen;
-guint
-netlogon_auth_hash (gconstpointer k);
+
 static e_uuid_t uuid_dcerpc_netlogon = {
     0x12345678, 0x1234, 0xabcd,
     { 0xef, 0x00, 0x01, 0x23, 0x45, 0x67, 0xcf, 0xfb }
@@ -590,7 +589,7 @@ netlogon_auth_equal (gconstpointer k1, gconstpointer k2)
                 ADDRESSES_EQUAL(&key1->dst,&key2->dst));
 }
 
-guint
+static guint
 netlogon_auth_hash (gconstpointer k)
 {
     const netlogon_auth_key *key1 = (const netlogon_auth_key *)k;
@@ -602,7 +601,7 @@ netlogon_auth_hash (gconstpointer k)
     else {
         unsigned int i = 0;
         hash_val1 = 0;
-        for(i=0; i<strlen(key1->name);i++) {
+        for(i=0; key1->name[i]; i++) {
             hash_val1 += key1->name[i];
         }
     }

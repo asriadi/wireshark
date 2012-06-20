@@ -1219,7 +1219,7 @@ find_type(char *name)
 			FPRINTF(eth_code, "    return offset;\n");
 			FPRINTF(eth_code, "}\n");
 			FPRINTF(eth_code, "\n");
-			tmptype=register_new_type("NTTIME", dissectorname, "FT_ABSOLUTE_TIME", "BASE_NONE", "0", "NULL", 4);
+			tmptype=register_new_type("NTTIME", dissectorname, "FT_ABSOLUTE_TIME", "ABSOLUTE_TIME_LOCAL", "0", "NULL", 4);
 		} else if(!strcmp(name,"NTTIME_hyper")){
 			/* 8 bytes, aligned to 8 bytes */
 			sprintf(dissectorname, "%s_dissect_%s", ifname, name);
@@ -1235,7 +1235,7 @@ find_type(char *name)
 			FPRINTF(eth_code, "    return offset;\n");
 			FPRINTF(eth_code, "}\n");
 			FPRINTF(eth_code, "\n");
-			tmptype=register_new_type("NTTIME_hyper", dissectorname, "FT_ABSOLUTE_TIME", "BASE_NONE", "0", "NULL", 4);
+			tmptype=register_new_type("NTTIME_hyper", dissectorname, "FT_ABSOLUTE_TIME", "ABSOLUTE_TIME_LOCAL", "0", "NULL", 4);
 		} else if(!strcmp(name,"NTTIME_1sec")){
 			/* 8 bytes, aligned to 8 bytes */
 			sprintf(dissectorname, "%s_dissect_%s", ifname, name);
@@ -1251,7 +1251,7 @@ find_type(char *name)
 			FPRINTF(eth_code, "    return offset;\n");
 			FPRINTF(eth_code, "}\n");
 			FPRINTF(eth_code, "\n");
-			tmptype=register_new_type("NTTIME_1sec", dissectorname, "FT_ABSOLUTE_TIME", "BASE_NONE", "0", "NULL", 4);
+			tmptype=register_new_type("NTTIME_1sec", dissectorname, "FT_ABSOLUTE_TIME", "ABSOLUTE_TIME_LOCAL", "0", "NULL", 4);
 		} else if(!strcmp(name,"udlong")){
 			/* 8 bytes, aligned to 4 bytes */
 			sprintf(dissectorname, "%s_dissect_%s", ifname, name);
@@ -1311,7 +1311,7 @@ find_type(char *name)
 			FPRINTF(eth_code, "    return offset;\n");
 			FPRINTF(eth_code, "}\n");
 			FPRINTF(eth_code, "\n");
-			tmptype=register_new_type("time_t", dissectorname, "FT_ABSOLUTE_TIME", "BASE_NONE", "0", "NULL", 4);
+			tmptype=register_new_type("time_t", dissectorname, "FT_ABSOLUTE_TIME", "ABSOLUTE_TIME_LOCAL", "0", "NULL", 4);
 		} else if(!strcmp(name,"SID")){
 			sprintf(dissectorname, "%s_dissect_%s", ifname, name);
 			FPRINTF(NULL,"\nAutogenerating built-in type:%s\n------------\n",name);
@@ -1553,7 +1553,7 @@ static void parsetypedefstruct(int pass)
 		}
 		FPRINTF(eth_code, "    old_offset=offset;\n");
 		FPRINTF(eth_code, "    if(parent_tree){\n");
-		FPRINTF(eth_code, " 	   item=proto_tree_add_item(parent_tree, hf_index, tvb, offset, -1, TRUE);\n");
+		FPRINTF(eth_code, " 	   item=proto_tree_add_item(parent_tree, hf_index, tvb, offset, -1, ENC_NA);\n");
 		FPRINTF(eth_code, " 	   tree=proto_item_add_subtree(item, ett_%s_%s);\n", ifname, struct_name);
 		FPRINTF(eth_code, "    }\n");
 		FPRINTF(eth_code, "\n");
@@ -1988,7 +1988,7 @@ static void parsetypedefbitmap(int pass)
 		}
 		FPRINTF(eth_code, "\n");
 		FPRINTF(eth_code, "    if(parent_tree){\n");
-		FPRINTF(eth_code, " 	   item=proto_tree_add_item(parent_tree, hf_index, tvb, offset, %d, TRUE);\n", alignment);
+		FPRINTF(eth_code, " 	   item=proto_tree_add_item(parent_tree, hf_index, tvb, offset, %d, ENC_LITTLE_ENDIAN);\n", alignment);
 		FPRINTF(eth_code, " 	   tree=proto_item_add_subtree(item, ett_%s_%s);\n", ifname, bitmap_name);
 		FPRINTF(eth_code, "    }\n");
 		FPRINTF(eth_code, "\n");
@@ -2769,6 +2769,8 @@ static void parsetypedefenum(void)
 {
 	token_item_t *ti;
 	enum_list_t *enum_list, *el, *lastel;
+	char *p;
+	long val;
 	int eval, enumsize;
 	char dissectorname[256], valsstring[256], hfvalsstring[256];
 
@@ -2847,7 +2849,12 @@ static void parsetypedefenum(void)
 		if(!strcmp(ti->str,"=")){
 			ti=ti->next;
 			/* grab value */
-			el->val=atoi(ti->str);
+			val=strtol(ti->str,&p,0);
+			if (p==ti->str||*p) {
+				fprintf(stderr, "ERROR: typedefenum value is not a number\n");
+				Exit(10);
+			}
+			el->val=val;
 			ti=ti->next;
 		} else {
 			el->val=eval;

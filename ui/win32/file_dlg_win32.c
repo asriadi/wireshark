@@ -59,9 +59,9 @@
 
 #include "ui/last_open_dir.h"
 
+#include "ui/gtk/main.h"
 #include "ui/gtk/file_dlg.h"
 #include "ui/gtk/capture_file_dlg.h"
-#include "ui/gtk/main.h"
 #include "ui/gtk/menus.h"
 #include "ui/gtk/drag_and_drop.h"
 #include "ui/gtk/capture_dlg.h"
@@ -114,6 +114,7 @@ typedef enum {
 #if (_MSC_VER <= 1200)
 static UINT CALLBACK open_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT CALLBACK save_as_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
+static UINT CALLBACK export_specified_packets_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT CALLBACK merge_file_hook_proc(HWND mf_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT CALLBACK export_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT CALLBACK export_raw_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
@@ -121,6 +122,7 @@ static UINT CALLBACK export_sslkeys_file_hook_proc(HWND of_hwnd, UINT ui_msg, WP
 #else
 static UINT_PTR CALLBACK open_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT_PTR CALLBACK save_as_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
+static UINT_PTR CALLBACK export_specified_packets_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT_PTR CALLBACK merge_file_hook_proc(HWND mf_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT_PTR CALLBACK export_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
 static UINT_PTR CALLBACK export_raw_file_hook_proc(HWND of_hwnd, UINT ui_msg, WPARAM w_param, LPARAM l_param);
@@ -263,19 +265,22 @@ win32_open_file (HWND h_wnd) {
 
 
 void
-win32_save_as_file(HWND h_wnd, action_after_save_e action_after_save, gpointer action_after_save_data) {
+win32_save_as_file(HWND h_wnd)
+{
     GArray *savable_file_types;
     OPENFILENAME *ofn;
     TCHAR  file_name16[MAX_PATH] = _T("");
     GString *file_name8;
     gchar *file_last_dot;
+    GSList *extensions_list, *extension;
+    gboolean add_extension;
     gchar *dirname;
     int    ofnsize;
 #if (_MSC_VER >= 1500)
     OSVERSIONINFO osvi;
 #endif
 
-    savable_file_types = wtap_get_savable_file_types(cfile.cd_t, cfile.lnk_t);
+    savable_file_types = wtap_get_savable_file_types(cfile.cd_t, cfile.linktypes);
     if (savable_file_types == NULL)
         return;  /* shouldn't happen - the "Save As..." item should be disabled if we can't save the file */
 
@@ -321,50 +326,65 @@ win32_save_as_file(HWND h_wnd, action_after_save_e action_after_save, gpointer a
     if (GetSaveFileName(ofn)) {
         filetype = g_array_index(savable_file_types, int, ofn->nFilterIndex - 1);
 
-        /* append the default file extension if there's none given by the user */
-        /* (we expect a file extension to be at most 5 chars + the dot) */
+        /*
+         * Append the default file extension if there's none given by the user
+         * or if they gave one that's not one of the valid extensions for
+         * the file type.
+         */
         file_name8 = g_string_new(utf_16to8(file_name16));
         file_last_dot = strrchr(file_name8->str,'.');
-        if(file_last_dot == NULL || strlen(file_name8->str)-(file_last_dot-file_name8->str) > 5+1) {
-            if(wtap_default_file_extension(filetype) != NULL) {
+        extensions_list = wtap_get_file_extensions_list(filetype, FALSE);
+        if (extensions_list != NULL) {
+            /* We have one or more extensions for this file type.
+               Start out assuming we need to add the default one. */
+            add_extension = TRUE;
+            if (file_last_dot != NULL) {
+                /* Skip past the dot. */
+                file_last_dot++;
+
+                /* OK, see if the file has one of those extensions. */
+                for (extension = extensions_list; extension != NULL;
+                     extension = g_slist_next(extension)) {
+                    if (g_ascii_strcasecmp((char *)extension->data, file_last_dot) == 0) {
+                        /* The file name has one of the extensions for this file type */
+                        add_extension = FALSE;
+                        break;
+                    }
+                }
+            }
+        } else {
+            /* We have no extensions for this file type.  Don't add one. */
+            add_extension = FALSE;
+        }
+        if (add_extension) {
+            if (wtap_default_file_extension(filetype) != NULL) {
                 g_string_append_printf(file_name8, ".%s", wtap_default_file_extension(filetype));
             }
         }
 
         g_sf_hwnd = NULL;
-        /* Write out the packets (all, or only the ones from the current
-           range) to the file with the specified name. */
 
-        /* GetSaveFileName() already asked the user if he wants to overwrite the old file,        */
-        /* so if we are here, user already confirmed to overwrite - just delete the old file now. */
-        /* Note: Windows ws_unlink cannot delete a currently open file; Therefore the             */
-        /*       GetSaveFileName dialog has been coded to prevent doing a 'save as' to the        */
-        /*       currently open capture file.                                                     */
-        /* XX: Windows Wireshark is built with GLIB >= 2.6 these       */
-        /*     days so ws_unlink will properly convert the             */
-        /*     UTF8 filename to UTF16 & then do a _wunlink.            */
-        /* XX: if the cf_save fails, it will do a GTK simple_dialog()  */
-        /*     which is not useful while doing a Windows dialog.       */
-        /*     (A GTK dialog box will be generated and basically will  */
-        /*     only appear when the redisplayed Windows 'save_as-file' */
-        /*     dialog is dismissed. It will then need to be dismissed. */
-        /*     This should be fixed even though the cf_save()          */
-        /*     presumably should rarely fail in this case.             */
-        if ((ws_unlink(file_name8->str) != 0) && (errno == EACCES)) {
-            /* XXX: Is MessageBox the best way to pop up an error ? How to make text bold ? */
-            gchar *str = g_strdup_printf("Unable to delete file: %s\nPlease choose another name !", file_name8->str);
-            MessageBox( NULL, utf_8to16(str), _T("Error"), MB_ICONERROR | MB_APPLMODAL | MB_OK);
-            g_free(str);
-            goto AGAIN;
-        }
-        if (cf_save(&cfile, file_name8->str, &g_range, filetype, FALSE) != CF_OK) {
+        /*
+         * GetSaveFileName() already asked the user if he wants to overwrite
+         * the old file, so if we are here, the user already said "yes".
+         * Write out all the packets to the file with the specified name.
+         *
+         * XXX: if the cf_save_packets() fails, it will do a GTK+
+         * simple_dialog(), which is not useful while runing a Windows
+         * dialog.
+         * (A GTK dialog box will be generated and basically will
+         * only appear when the redisplayed Windows 'save_as-file'
+         * dialog is dismissed. It will then need to be dismissed.
+         * This should be fixed even though the cf_save_packets()
+         * presumably should rarely fail in this case.
+         */
+        if (cf_save_packets(&cfile, file_name8->str, filetype, FALSE/*compressed */, FALSE/*discard_comments */, FALSE/* dont_reopen */) != CF_OK) {
             /* The write failed.  Try again. */
-        AGAIN:
             g_array_free(savable_file_types, TRUE);
             g_string_free(file_name8, TRUE /* free_segment */);
             g_free( (void *) ofn->lpstrFilter);
             g_free( (void *) ofn);
-            win32_save_as_file(h_wnd, action_after_save, action_after_save_data);
+            win32_save_as_file(h_wnd);
             return;
         }
 
@@ -373,37 +393,143 @@ win32_save_as_file(HWND h_wnd, action_after_save_e action_after_save, gpointer a
         set_last_open_dir(dirname);
 
         g_string_free(file_name8, TRUE /* free_segment */);
+    }
+    g_sf_hwnd = NULL;
+    g_array_free(savable_file_types, TRUE);
+    g_free( (void *) ofn->lpstrFilter);
+    g_free( (void *) ofn);
+}
 
-        /* we have finished saving, do we have pending things to do? */
-        switch(action_after_save) {
-            case(after_save_no_action):
-                break;
-            case(after_save_open_dialog):
-                win32_open_file(h_wnd);
-                break;
-            case(after_save_open_recent_file):
-                menu_open_recent_file_cmd(action_after_save_data);
-                break;
-            case(after_save_open_dnd_file):
-                dnd_open_file_cmd(action_after_save_data);
-                break;
-            case(after_save_merge_dialog):
-                win32_merge_file(h_wnd);
-                break;
-#ifdef HAVE_LIBPCAP
-            case(after_save_capture_dialog):
-                capture_start_confirmed();
-                break;
+
+void
+win32_export_specified_packets_file(HWND h_wnd) {
+    GArray *savable_file_types;
+    OPENFILENAME *ofn;
+    TCHAR  file_name16[MAX_PATH] = _T("");
+    GString *file_name8;
+    gchar *file_last_dot;
+    GSList *extensions_list, *extension;
+    gboolean add_extension;
+    gchar *dirname;
+    int    ofnsize;
+#if (_MSC_VER >= 1500)
+    OSVERSIONINFO osvi;
 #endif
-            case(after_save_close_file):
-                cf_close(&cfile);
-                break;
-            case(after_save_exit):
-                main_do_quit();
-                break;
-            default:
-                g_assert_not_reached();
+
+    savable_file_types = wtap_get_savable_file_types(cfile.cd_t, cfile.linktypes);
+    if (savable_file_types == NULL)
+        return;  /* shouldn't happen - the "Save As..." item should be disabled if we can't save the file */
+
+    /* see OPENFILENAME comment in win32_open_file */
+#if (_MSC_VER >= 1500)
+    SecureZeroMemory(&osvi, sizeof(OSVERSIONINFO));
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+    GetVersionEx(&osvi);
+    if (osvi.dwMajorVersion >= 5) {
+        ofnsize = sizeof(OPENFILENAME);
+    } else {
+        ofnsize = OPENFILENAME_SIZE_VERSION_400;
+    }
+#else
+    ofnsize = sizeof(OPENFILENAME) + 12;
+#endif
+    ofn = g_malloc0(ofnsize);
+
+    ofn->lStructSize = ofnsize;
+    ofn->hwndOwner = h_wnd;
+#if (_MSC_VER <= 1200)
+    ofn->hInstance = (HINSTANCE) GetWindowLong(h_wnd, GWL_HINSTANCE);
+#else
+    ofn->hInstance = (HINSTANCE) GetWindowLongPtr(h_wnd, GWLP_HINSTANCE);
+#endif
+    ofn->lpstrFilter = build_file_save_type_list(savable_file_types);
+    ofn->lpstrCustomFilter = NULL;
+    ofn->nMaxCustFilter = 0;
+    ofn->nFilterIndex = 1;  /* the first entry is the best match; 1-origin indexing */
+    ofn->lpstrFile = file_name16;
+    ofn->nMaxFile = MAX_PATH;
+    ofn->lpstrFileTitle = NULL;
+    ofn->nMaxFileTitle = 0;
+    ofn->lpstrInitialDir = utf_8to16(get_last_open_dir());
+    ofn->lpstrTitle = _T("Wireshark: Export Specified Packets");
+    ofn->Flags = OFN_ENABLESIZING  | OFN_ENABLETEMPLATE  | OFN_EXPLORER     |
+                 OFN_NOCHANGEDIR   | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
+                 OFN_PATHMUSTEXIST | OFN_ENABLEHOOK      | OFN_SHOWHELP;
+    ofn->lpstrDefExt = NULL;
+    ofn->lpfnHook = export_specified_packets_file_hook_proc;
+    ofn->lpTemplateName = _T("WIRESHARK_EXPORT_SPECIFIED_PACKETS_FILENAME_TEMPLATE");
+
+    if (GetSaveFileName(ofn)) {
+        filetype = g_array_index(savable_file_types, int, ofn->nFilterIndex - 1);
+
+        /*
+         * Append the default file extension if there's none given by the user
+         * or if they gave one that's not one of the valid extensions for
+         * the file type.
+         */
+        file_name8 = g_string_new(utf_16to8(file_name16));
+        file_last_dot = strrchr(file_name8->str,'.');
+        extensions_list = wtap_get_file_extensions_list(filetype, FALSE);
+        if (extensions_list != NULL) {
+            /* We have one or more extensions for this file type.
+               Start out assuming we need to add the default one. */
+            add_extension = TRUE;
+            if (file_last_dot != NULL) {
+                /* Skip past the dot. */
+                file_last_dot++;
+
+                /* OK, see if the file has one of those extensions. */
+                for (extension = extensions_list; extension != NULL;
+                     extension = g_slist_next(extension)) {
+                    if (g_ascii_strcasecmp((char *)extension->data, file_last_dot) == 0) {
+                        /* The file name has one of the extensions for this file type */
+                        add_extension = FALSE;
+                        break;
+                    }
+                }
+            }
+        } else {
+            /* We have no extensions for this file type.  Don't add one. */
+            add_extension = FALSE;
         }
+        if (add_extension) {
+            if (wtap_default_file_extension(filetype) != NULL) {
+                g_string_append_printf(file_name8, ".%s", wtap_default_file_extension(filetype));
+            }
+        }
+
+        g_sf_hwnd = NULL;
+
+        /*
+         * GetSaveFileName() already asked the user if he wants to overwrite
+         * the old file, so if we are here, the user already said "yes".
+         * Write out the specified packets to the file with the specified
+         * name.
+         *
+         * XXX: if the cf_export_specified_packets() fails, it will do a
+         * GTK+ simple_dialog(), which is not useful while runing a Windows
+         * dialog.
+         * (A GTK dialog box will be generated and basically will
+         * only appear when the redisplayed Windows 'save_as-file'
+         * dialog is dismissed. It will then need to be dismissed.
+         * This should be fixed even though the cf_save_packets()
+         * presumably should rarely fail in this case.
+         */
+        if (cf_export_specified_packets(&cfile, file_name8->str, &g_range, filetype, FALSE) != CF_OK) {
+            /* The write failed.  Try again. */
+            g_array_free(savable_file_types, TRUE);
+            g_string_free(file_name8, TRUE /* free_segment */);
+            g_free( (void *) ofn->lpstrFilter);
+            g_free( (void *) ofn);
+            win32_export_specified_packets_file(h_wnd);
+            return;
+        }
+
+        /* Save the directory name for future file dialogs. */
+        dirname = get_dirname(file_name8->str);  /* Overwrites cf_name */
+        set_last_open_dir(dirname);
+
+        g_string_free(file_name8, TRUE /* free_segment */);
     }
     g_sf_hwnd = NULL;
     g_array_free(savable_file_types, TRUE);
@@ -1377,19 +1503,6 @@ open_file_hook_proc(HWND of_hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     return 0;
 }
 
-/* XXX - Copied verbatim from ui/gtk/capture_file_dlg.c.  Perhaps it
- * should be in wiretap instead?
- */
-
-static gboolean
-can_save_with_wiretap(int ft)
-{
-    /* To save a file with Wiretap, Wiretap has to handle that format,
-     and its code to handle that format must be able to write a file
-     with this file's encapsulation type. */
-    return wtap_dump_can_open(ft) && wtap_dump_can_write_encap(ft, cfile.lnk_t);
-}
-
 /* Generate a list of the file types we can save this file as.
 
    "filetype" is the type it has now.
@@ -1414,7 +1527,7 @@ append_file_type(GArray *sa, int ft)
     TCHAR *str16;
     guint16 zero = 0;
 
-    extensions_list = wtap_get_file_extensions_list(ft);
+    extensions_list = wtap_get_file_extensions_list(ft, TRUE);
     if (extensions_list == NULL) {
         /* This file type doesn't have any particular extension
            conventionally used for it, so we'll just use "*.*"
@@ -1525,7 +1638,7 @@ build_file_format_list(HWND sf_hwnd) {
 
         if (!packet_range_process_all(&g_range) || ft != cfile.cd_t) {
             /* not all unfiltered packets or a different file type.  We have to use Wiretap. */
-            if (!can_save_with_wiretap(ft))
+            if (!wtap_can_save_with_wiretap(ft, cfile.linktypes))
                 continue;       /* We can't. */
         }
 
@@ -1549,13 +1662,107 @@ build_file_format_list(HWND sf_hwnd) {
 }
 #endif
 
-#define RANGE_TEXT_MAX 128
 #if (_MSC_VER <= 1200)
 static UINT CALLBACK
 #else
 static UINT_PTR CALLBACK
 #endif
 save_as_file_hook_proc(HWND sf_hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
+    HWND           cur_ctrl;
+    OFNOTIFY      *notify = (OFNOTIFY *) l_param;
+    /*int            new_filetype, index;*/
+
+    switch(msg) {
+        case WM_INITDIALOG:
+            g_sf_hwnd = sf_hwnd;
+
+            /* Default to saving in the file's current format. */
+            filetype = cfile.cd_t;
+
+            /* Fill in the file format list */
+            /*build_file_format_list(sf_hwnd);*/
+
+            break;
+        case WM_COMMAND:
+            cur_ctrl = (HWND) l_param;
+
+            switch (w_param) {
+#if 0
+                case (CBN_SELCHANGE << 16) | EWFD_FILE_TYPE_COMBO:
+                    index = SendMessage(cur_ctrl, CB_GETCURSEL, 0, 0);
+                    if (index != CB_ERR) {
+                        new_filetype = SendMessage(cur_ctrl, CB_GETITEMDATA, (WPARAM) index, 0);
+                        if (new_filetype != CB_ERR) {
+                            if (filetype != new_filetype) {
+                                if (wtap_can_save_with_wiretap(new_filetype, cfile.linktypes)) {
+                                    cur_ctrl = GetDlgItem(sf_hwnd, EWFD_CAPTURED_BTN);
+                                    EnableWindow(cur_ctrl, TRUE);
+                                    cur_ctrl = GetDlgItem(sf_hwnd, EWFD_DISPLAYED_BTN);
+                                    EnableWindow(cur_ctrl, TRUE);
+                                } else {
+                                    cur_ctrl = GetDlgItem(sf_hwnd, EWFD_CAPTURED_BTN);
+                                    SendMessage(cur_ctrl, BM_SETCHECK, 0, 0);
+                                    EnableWindow(cur_ctrl, FALSE);
+                                    cur_ctrl = GetDlgItem(sf_hwnd, EWFD_DISPLAYED_BTN);
+                                    EnableWindow(cur_ctrl, FALSE);
+                                }
+                                filetype = new_filetype;
+                            }
+                        }
+                    }
+                    break;
+#endif
+                default:
+                    break;
+            }
+            break;
+        case WM_NOTIFY:
+            switch (notify->hdr.code) {
+                case CDN_HELP:
+                    topic_cb(NULL, HELP_SAVE_WIN32_DIALOG);
+                    break;
+                case CDN_FILEOK: {
+                    HWND   parent;
+                    TCHAR  file_name16_selected[MAX_PATH];
+                    char  *file_name8_selected;
+                    int    selected_size;
+
+                    /* Check if trying to do 'save as' to the currently open file */
+                    parent = GetParent(sf_hwnd);
+                    selected_size = CommDlg_OpenSave_GetSpec(parent, file_name16_selected, MAX_PATH);
+                    if (selected_size > 0) {
+                        file_name8_selected = utf_16to8(file_name16_selected);
+                        if (files_identical(cfile.filename, file_name8_selected)) {
+                            /* XXX: Is MessageBox the best way to pop up an error ? How to make text bold ? */
+                            gchar *str = g_strdup_printf(
+                                "Capture File \"%s\" identical to loaded file !!\n\n"
+                                "Please choose a different filename.",
+                                file_name8_selected);
+                            MessageBox( parent, utf_8to16(str), _T("Error"), MB_ICONERROR | MB_APPLMODAL | MB_OK);
+                            g_free(str);
+                            SetWindowLongPtr(sf_hwnd, DWLP_MSGRESULT, 1L); /* Don't allow ! */
+                            return 1;
+                        }
+                    }
+                }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        default:
+            break;
+    }
+    return 0;
+}
+
+#define RANGE_TEXT_MAX 128
+#if (_MSC_VER <= 1200)
+static UINT CALLBACK
+#else
+static UINT_PTR CALLBACK
+#endif
+export_specified_packets_file_hook_proc(HWND sf_hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     HWND           cur_ctrl;
     OFNOTIFY      *notify = (OFNOTIFY *) l_param;
     /*int            new_filetype, index;*/
@@ -1571,7 +1778,7 @@ save_as_file_hook_proc(HWND sf_hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
             packet_range_init(&g_range);
             /* default to displayed packets */
             g_range.process_filtered   = TRUE;
-	    g_range.include_dependents   = TRUE;
+            g_range.include_dependents   = TRUE;
 
             /* Fill in the file format list */
             /*build_file_format_list(sf_hwnd);*/
@@ -1590,7 +1797,7 @@ save_as_file_hook_proc(HWND sf_hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
                         new_filetype = SendMessage(cur_ctrl, CB_GETITEMDATA, (WPARAM) index, 0);
                         if (new_filetype != CB_ERR) {
                             if (filetype != new_filetype) {
-                                if (can_save_with_wiretap(new_filetype)) {
+                                if (wtap_can_save_with_wiretap(new_filetype, cfile.linktypes)) {
                                     cur_ctrl = GetDlgItem(sf_hwnd, EWFD_CAPTURED_BTN);
                                     EnableWindow(cur_ctrl, TRUE);
                                     cur_ctrl = GetDlgItem(sf_hwnd, EWFD_DISPLAYED_BTN);

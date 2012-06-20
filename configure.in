@@ -2,7 +2,7 @@
 #
 AC_PREREQ(2.60)
 
-AC_INIT(wireshark, 1.7.1)
+AC_INIT(wireshark, 1.9.0)
 
 dnl Check for CPU / vendor / OS
 dnl The user is encouraged to use either `AC_CANONICAL_BUILD', or
@@ -178,13 +178,14 @@ AM_CONDITIONAL(HAVE_DOXYGEN, test x$HAVE_DOXYGEN = xyes)
 AC_SYS_LARGEFILE
 
 # GnuTLS
+# Version 3.0 switched from LGPLv2.1+ to LGPLv3+.
 tls_message="no"
 AC_ARG_WITH([gnutls],
   AC_HELP_STRING( [--with-gnutls=@<:@yes/no@:>@],
 		  [use GnuTLS library @<:@default=yes@:>@]),
   with_gnutls="$withval", with_gnutls="yes")
 if test "x$with_gnutls" = "xyes"; then
-  PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 1.2.0],
+  PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 1.2.0 gnutls < 3],
         [
                 echo "GnuTLS found, enabling SSL decryption"
                 AC_DEFINE(HAVE_LIBGNUTLS, 1, [Define to use GnuTLS library])
@@ -221,11 +222,44 @@ if test "x$with_gcrypt" = "xyes"; then
   )
 fi
 
+AC_ARG_WITH([qt],
+  AC_HELP_STRING( [--with-qt=@<:@yes/no@:>@],
+                  [use Qt instead of GTK+ @<:@default=no@:>@]),
+  with_qt="$withval", with_qt="no")
+
+libnl_message="no"
+PKG_CHECK_MODULES(LIBNL3, libnl-genl-3.0 >= 3.0, [have_libnl3=yes], [have_libnl3=no])
+PKG_CHECK_MODULES(LIBNL2, libnl-2.0 >= 2.0, [have_libnl2=yes], [have_libnl2=no])
+PKG_CHECK_MODULES(LIBNL1, libnl-1 >= 1.0, [have_libnl1=yes], [have_libnl1=no])
+if (test "${have_libnl3}" = "yes"); then
+        CFLAGS="$CFLAGS $LIBNL3_CFLAGS"
+        LIBS="$LIBS $LIBNL3_LIBS"
+	AC_DEFINE(HAVE_LIBNL, 1, [Enable libnl support])
+	AC_DEFINE(HAVE_LIBNL3, 1, [libnl version 3])
+	AC_DEFINE(HAVE_WIRELESS_TOOLBAR, 1, [Wireless Toolbar])
+	libnl_message="yes (v3)"
+	enable_airpcap=no
+elif (test "${have_libnl2}" = "yes"); then
+        CFLAGS="$CFLAGS $LIBNL2_CFLAGS"
+        LIBS="$LIBS $LIBNL2_LIBS"
+	AC_DEFINE(HAVE_LIBNL, 1, [Enable libnl support])
+	AC_DEFINE(HAVE_LIBNL2, 1, [libnl version 2])
+	AC_DEFINE(HAVE_WIRELESS_TOOLBAR, 1, [Wireless Toolbar])
+	libnl_message="yes (v2)"
+	enable_airpcap=no
+elif (test "${have_libnl1}" = "yes"); then
+        CFLAGS="$CFLAGS $LIBNL1_CFLAGS"
+        LIBS="$LIBS $LIBNL1_LIBS"
+	AC_DEFINE(HAVE_LIBNL, 1, [Enable libnl support])
+	AC_DEFINE(HAVE_WIRELESS_TOOLBAR, 1, [Wireless Toolbar])
+	libnl_message="yes (v1)"
+	enable_airpcap=no
+fi
+
 AC_ARG_WITH([gtk3],
   AC_HELP_STRING( [--with-gtk3=@<:@yes/no@:>@],
                   [use GTK+ 3.0 instead of 2.0 @<:@default=no@:>@]),
   with_gtk3="$withval", with_gtk3="no")
-
 
 # libsmi
 # FIXME: currently the path argument to with-libsmi is being ignored
@@ -324,19 +358,18 @@ AC_ARG_ENABLE(extra-gcc-checks,
 #		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wunreachable-code)
 #		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wunsafe-loop-optimizations)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wno-long-long)
-		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wbad-function-cast)
+		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wbad-function-cast, C)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wcast-qual)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Waddress)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Warray-bounds)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wattributes)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wdiv-by-zero)
-		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wformat-security)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wignored-qualifiers)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wpragmas)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wredundant-decls)
 		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wvla)
-		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wc++-compat)
-		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wjump-misses-init)
+		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wc++-compat, C)
+		AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wjump-misses-init, C)
 		#
 		# epan/dissectors/packet-ncp2222.inc blocks this one
 		# for now.
@@ -363,14 +396,14 @@ AC_ARG_ENABLE(extra-gcc-checks,
 ],)
 AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wall -W) # -W is now known as -Wextra
 AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wextra) # -W is now known as -Wextra
-AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wdeclaration-after-statement)
+AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wdeclaration-after-statement, C)
 AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wendif-labels)
 AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wpointer-arith)
-AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wno-pointer-sign)
+AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wno-pointer-sign, C)
 AC_WIRESHARK_GCC_CFLAGS_CHECK(-Warray-bounds)
 AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wcast-align)
 AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wformat-security)
-AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wold-style-definition)
+AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wold-style-definition, C)
 AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wno-error=unused-but-set-variable)    ##  for now
 #
 # Use the faster pre gcc 4.5 floating point precision if available;
@@ -380,7 +413,7 @@ AC_WIRESHARK_GCC_CFLAGS_CHECK(-Wno-error=unused-but-set-variable)    ##  for now
 # annoying warnings.
 #
 if test "x$CC" != "xclang" ; then
-AC_WIRESHARK_GCC_CFLAGS_CHECK(-fexcess-precision=fast)
+  AC_WIRESHARK_GCC_CFLAGS_CHECK(-fexcess-precision=fast)
 fi
 
 AC_WIRESHARK_LDFLAGS_CHECK([-Wl,--as-needed])
@@ -392,7 +425,7 @@ AC_WIRESHARK_LDFLAGS_CHECK([-Wl,--as-needed])
 
 #
 # If we're running GCC or clang, add '-D_U_="__attribute__((unused))"' to
-# CFLAGS as well, so we can use _U_ to flag unused function arguments and
+# CPPFLAGS as well, so we can use _U_ to flag unused function arguments and
 # not get warnings about them. Otherwise, add '-D_U_=""', so that _U_ used
 # to flag an unused function argument will compile with non-GCC, non-clang
 # compilers.
@@ -400,16 +433,16 @@ AC_WIRESHARK_LDFLAGS_CHECK([-Wl,--as-needed])
 # XXX - other compilers?
 #
 if test "x$GCC" = "xyes" -o "x$CC" = "xclang" ; then
-  CFLAGS="-D_U_=\"__attribute__((unused))\" $CFLAGS"
+  CPPFLAGS="-D_U_=\"__attribute__((unused))\" $CPPFLAGS"
 else
-  CFLAGS="-D_U_=\"\" $CFLAGS"
+  CPPFLAGS="-D_U_=\"\" $CPPFLAGS"
 fi
 
 # If we're running GCC or CLang, always use FORTIFY_SOURCE=2
 # See: http://gcc.gnu.org/ml/gcc-patches/2004-09/msg02055.html
 # Note: FORTIFY_SOURCE is only effective for gcc -O2 (and -O1 ?)
 if test "x$GCC" = "xyes" -o "x$CC" = "xclang" ; then
-  CFLAGS="-D_FORTIFY_SOURCE=2 $CFLAGS"
+  CPPFLAGS="-D_FORTIFY_SOURCE=2 $CPPFLAGS"
 fi
 
 #
@@ -454,7 +487,9 @@ if test "x$GCC" = "xyes" ; then
 	solaris*)
 		# the X11 headers don't automatically include prototype info
 		# and a lot don't include the return type
-		CFLAGS="$CFLAGS -Wno-return-type -DFUNCPROTO=15"
+		CPPFLAGS="$CPPFLAGS -DFUNCPROTO=15"
+		CFLAGS="$CFLAGS -Wno-return-type"
+		CXXFLAGS="$CXXFLAGS -Wno-return-type"
 		AC_MSG_RESULT(GCC on Solaris - added -Wno-return-type -DFUNCPROTO=15)
 		;;
 	darwin*)
@@ -494,7 +529,12 @@ else
 		# "-Ae" for ANSI C plus extensions such as "long long".
 		# "+O2", for optimization.  XXX - works with "-g"?
 		#
+		# HP's ANSI C++ compiler doesn't support "-Ae", but
+		# does support "+O2", at least according to the
+		# documentation I can find online.
+		#
 		CFLAGS="-Ae +O2 $CFLAGS"
+		CXXFLAGS="+O2 $CFLAGS"
 		AC_MSG_RESULT(HP ANSI C compiler - added -Ae +O2)
 		;;
 	darwin*)
@@ -636,7 +676,6 @@ if test "x$prefix" != "x" ; then
 		# Arrange that we search for header files in "$prefix/include", as
 		# various packages we use may have been installed under "$prefix/include".
 		#
-		CFLAGS="$CFLAGS -I$prefix/include"
 		CPPFLAGS="$CPPFLAGS -I$prefix/include"
 
 		#
@@ -667,7 +706,6 @@ if test "x$ac_cv_enable_usr_local" = "xyes" ; then
 		# as various packages we use ("libpcap", "zlib", "adns")
 		# may have been installed under "/usr/local/include".
 		#
-		CFLAGS="$CFLAGS -I/usr/local/include"
 		CPPFLAGS="$CPPFLAGS -I/usr/local/include"
 
 		#
@@ -757,6 +795,7 @@ if test "x$enable_profile_build" = "xyes" ; then
 	if test "x$GCC" = "xyes" -o "x$CLANG" = "xyes" ; then
 		AC_MSG_RESULT(yes)
 		CFLAGS=" -pg $CFLAGS"
+		CXXFLAGS=" -pg $CXXFLAGS"
 	else
 		AC_MSG_RESULT(no)
 		echo "Building profile binaries currently only supported for GCC and clang."
@@ -788,32 +827,79 @@ docdir=`(
 )`
 AC_DEFINE_UNQUOTED(DOC_DIR, "$docdir", [Directory for docs])
 
-# GTK checks; we require GTK+ 2.12 or later.
-# We don't add $GLIB_LIBS to LIBS, because we don't want to force all
-# programs to be built with GTK+.
+# GTK+ and Qt checks; we require GTK+ 2.12 or later, and, for now,
+# don't require any particular version of Qt (except perhaps by
+# implication, as older versions might not support pkgconfig).
 #
-if test "x$enable_wireshark" = "xyes"; then
-	if test "x$with_gtk3" = "xyes"; then
-		AM_PATH_GTK_3_0(3.0.0,
-	        [
-        	        CFLAGS="$CFLAGS $GTK_CFLAGS"
-                	CXXFLAGS="$CXXFLAGS $GTK_CFLAGS"
-			have_gtk=yes
-	                AC_DEFINE(HAVE_GTK, 1,
-			    [Define to 1 if compiling with GTK])
-	        ], have_gtk=no)
+# We only do those if we're going to be building Wireshark;
+# otherwise, we don't have any GUI to build, so we don't use
+# GTK+ or Qt.
+#
+# We don't add $GTK_LIBS or $Qt_LIBS to LIBS, because we don't want to
+# force all programs to be built with GTK+ or Qt.
+#
+# Release dates for GTK+ versions:
+# 2.12.0: 14 Sep 2007
+# 2.14.0: 04 Sep 2008
+# 2.16.0: 13 Mar 2009
+# 2.18.0: 23 Sep 2009
+# 2.20.0: 23 Mar 2010
+# 2.22.0: 23 Sep 2010
+# 2.24.0: 30 Jan 2011
+# 3.0.0:  10 Feb 2011
+# 3.2.0:  25 Sep 2011
+# 3.4.0:  26 Mar 2012
 
-	else
-		AM_PATH_GTK_2_0(2.12.0,
+if test "x$enable_wireshark" = "xyes"; then
+	if test "x$with_qt" = "xyes"; then
+		PKG_CHECK_MODULES([Qt], [QtCore QtGui],
 		[
-			CFLAGS="$CFLAGS $GTK_CFLAGS"
-			CXXFLAGS="$CXXFLAGS $GTK_CFLAGS"
-			have_gtk=yes
-			AC_DEFINE(HAVE_GTK, 1,
-			    [Define to 1 if compiling with GTK])
-		], have_gtk=no)
+			CFLAGS="$CFLAGS $Qt_CFLAGS"
+			CXXFLAGS="$CXXFLAGS $Qt_CFLAGS"
+			#
+			# XXX - greasy hack to make ui/gtk/recent.c
+			# compile.
+			#
+			CPPFLAGS="-DQT_GUI_LIB $CPPFLAGS"
+			have_qt=yes
+		],
+		[
+			AC_MSG_ERROR([Qt is not available])
+		])
+
+		#
+		# We don't know whether we have GTK+, but we
+		# won't be using it, so it's as if we don't
+		# have it.
+		#
+		have_gtk=no
+	else
+		#
+		# Not Qt - either GTK+ 3.x or 2.x.
+		#
+		if test "x$with_gtk3" = "xyes"; then
+			AM_PATH_GTK_3_0(3.0.0,
+			[
+				CFLAGS="$CFLAGS $GTK_CFLAGS"
+				CXXFLAGS="$CXXFLAGS $GTK_CFLAGS"
+				have_gtk=yes
+				AC_DEFINE(HAVE_GTK, 1,
+				    [Define to 1 if compiling with GTK])
+			], have_gtk=no)
+
+		else
+			AM_PATH_GTK_2_0(2.12.0,
+			[
+				CFLAGS="$CFLAGS $GTK_CFLAGS"
+				CXXFLAGS="$CXXFLAGS $GTK_CFLAGS"
+				have_gtk=yes
+				AC_DEFINE(HAVE_GTK, 1,
+				    [Define to 1 if compiling with GTK])
+			], have_gtk=no)
+		fi
 	fi
 else
+	have_qt=no
 	have_gtk=no
 fi
 
@@ -830,23 +916,53 @@ fi
 # We don't add $GLIB_LIBS to LIBS, because we don't want to force all
 # programs to be built with GLib.
 #
+# Release dates for GLib versions:
+# 2.14.0: 03 Aug 2007
+# 2.16.0: 10 Mar 2008
+# 2.18.0: 02 Sep 2008
+# 2.20.0: 13 Mar 2009
+# 2.22.0: 22 Sep 2009
+# 2.24.0: 28 Mar 2010
+# 2.26.0: 27 Sep 2010
+# 2.28.0: 08 Feb 2011
+# 2.30.0: 27 Sep 2011
+# 2.32.0: 24 Mar 2012
+
 if test "$have_gtk" = "no" ; then
 	#
 	# We don't have GTK+.
-	# If they didn't explicitly say "--disable-wireshark", fail (so
-	# that, unless they explicitly indicated that they don't want
-	# Wireshark, we stop so they know they won't be getting
-	# Wireshark unless they fix the GTK+ problem).
 	#
-	if test "x$enable_wireshark" = "xyes"; then
-		if test "x$with_gtk3" = "xyes"; then
-			AC_MSG_ERROR([GTK+ 3.0 or later isn't available, so Wireshark can't be compiled])
-		else
-			AC_MSG_ERROR([GTK+ 2.12 or later isn't available, so Wireshark can't be compiled])
+	if test "$have_qt" = "yes" ; then
+		#
+		# However, we do have Qt, and thus will be building
+		# Wireshark (if the user had explicitly disabled
+		# Wireshark, we wouldn't have looked for Qt, so we
+		# wouldn't think we had it, and thus wouldn't be here).
+		#
+		wireshark_bin="wireshark\$(EXEEXT)"
+		wireshark_man="wireshark.1"
+	        wireshark_SUBDIRS="codecs ui/qt"
+	else
+		#
+		# We don't have Qt, either, which means we have no UI
+		# toolkit.
+		#
+		# If they didn't explicitly say "--disable-wireshark",
+		# fail (so that, unless they explicitly indicated that
+		# they don't want Wireshark, we stop so they know they
+		# won't be getting Wireshark unless they fix the GTK+/Qt
+		# problem).
+		#
+		if test "x$enable_wireshark" = "xyes"; then
+			if test "x$with_gtk3" = "xyes"; then
+				AC_MSG_ERROR([GTK+ 3.0 or later isn't available, so Wireshark can't be compiled])
+			else
+				AC_MSG_ERROR([Neither Qt nor GTK+ 2.12 or later are available, so Wireshark can't be compiled])
+			fi
 		fi
+		wireshark_bin=""
+		wireshark_man=""
 	fi
-	wireshark_bin=""
-	wireshark_man=""
 	# Use GLIB_CFLAGS
 	AM_PATH_GLIB_2_0(2.14.0,
 	[
@@ -855,8 +971,9 @@ if test "$have_gtk" = "no" ; then
 	], AC_MSG_ERROR(GLib 2.14 or later distribution not found.), gthread gmodule)
 else
 	#
-	# We have GTK+, and thus will be building Wireshark unless the
-	# user explicitly disabled it.
+	# We have GTK+, and thus will be building Wireshark (if the user
+	# had explicitly disabled Wireshark, we wouldn't have looked for
+	# GTK+, so we wouldn't think we had it, and thus wouldn't be here).
 	#
 	wireshark_bin="wireshark\$(EXEEXT)"
 	wireshark_man="wireshark.1"
@@ -864,27 +981,27 @@ else
 	# Don't use GLIB_CFLAGS
 	AM_PATH_GLIB_2_0(2.14.0, , AC_MSG_ERROR(GLib 2.14 or later distribution not found.), gthread gmodule)
 
-	CFLAGS="-DGTK_DISABLE_SINGLE_INCLUDES $CFLAGS"
+	CPPFLAGS="-DGTK_DISABLE_SINGLE_INCLUDES $CPPFLAGS"
 	## Define GTK_DISABLE_DEPRECATED only if GTK lt 3.2
 	## GTK 3.2 deprecates GtkVBox & GtkHBox which are currently used extensively by Wireshark.
 	if test $gtk_config_major_version -eq 2 -o $gtk_config_minor_version -lt 2; then
-		CFLAGS="-DGTK_DISABLE_DEPRECATED $CFLAGS"
+		CPPFLAGS="-DGTK_DISABLE_DEPRECATED $CPPFLAGS"
 	fi
-	# CFLAGS="-DGDK_DISABLE_DEPRECATED $CFLAGS"
+	# CPPFLAGS="-DGDK_DISABLE_DEPRECATED $CPPFLAGS"
 	if test $gtk_config_major_version -eq 2 -a $gtk_config_minor_version -ge 20; then
 		# Enable GSEAL when building with GTK > 2.20 and < 3.0
 		# (Versions prior to 2.22 lacked some necessary accessors.)
-		CFLAGS="-DGSEAL_ENABLE $CFLAGS"
+		CPPFLAGS="-DGSEAL_ENABLE $CPPFLAGS"
 	fi
 fi
 
 # Error out if a glib header other than a "top level" header
 #  (glib.h, glib-object.h, gio.h) or certain other headers( e.g.,gmodule.h)
 #  is used.
-CFLAGS="-DG_DISABLE_SINGLE_INCLUDES $CFLAGS"
+CPPFLAGS="-DG_DISABLE_SINGLE_INCLUDES $CPPFLAGS"
 
 # Error out on the usage of deprecated glib functions
-CFLAGS="-DG_DISABLE_DEPRECATED $CFLAGS"
+CPPFLAGS="-DG_DISABLE_DEPRECATED $CPPFLAGS"
 
 #
 # Check whether GLib modules are supported, to determine whether we
@@ -1161,7 +1278,27 @@ else
 	AC_WIRESHARK_PCAP_CHECK
 fi
 
-# Enable/disable dumpcap
+
+dnl Check for airpcap
+AC_MSG_CHECKING(whether to include airpcap support)
+AC_ARG_ENABLE(airpcap,
+  AC_HELP_STRING( [--enable-airpcap],
+                  [use AirPcap in Wireshark @<:@default=yes@:>@]),
+  enable_airpcap=$enableval, enable_airpcap=yes)
+
+if test x$enable_airpcap = xyes; then
+	if test "x$want_pcap" = "xno" ; then
+		enable_airpcap=no
+		AC_MSG_RESULT(pcap not available - disabling airpcap)
+	else
+		AC_MSG_RESULT(yes)
+		AC_DEFINE(HAVE_AIRPCAP, 1, [Enable AirPcap])
+		AC_DEFINE(HAVE_WIRELESS_TOOLBAR, 1, [Wireless Toolbar])
+	fi
+else
+	AC_MSG_RESULT(no)
+fi
+
 
 dnl dumpcap check
 AC_MSG_CHECKING(whether to build dumpcap)
@@ -1620,7 +1757,7 @@ AC_MSG_CHECKING(whether to use the Python interpreter for scripting)
 
 AC_ARG_WITH(python,
     AC_HELP_STRING( [--with-python@<:@=DIR@:>@],
-                    [use Python interpreter (installed in DIR, if supplied) @<:@default=no@:>@ (EXPERIMENTAL)]),
+                    [use Python interpreter (installed in DIR, if supplied) @<:@default=no@:>@ (BROKEN/UNSTABLE)]),
 [
 	pythondir='${libdir}/wireshark/python/${VERSION}'
 	if test "x$withval" = "xno"
@@ -1666,20 +1803,16 @@ AC_DEFINE(WS_VAR_IMPORT, extern, [Define as the string to precede external varia
 #
 AC_DEFINE(WS_MSVC_NORETURN,, [Define as the string to precede declarations of routines that never return])
 
-AC_ARG_ENABLE(airpcap,
-  AC_HELP_STRING( [--enable-airpcap],
-                  [use AirPcap in Wireshark @<:@default=no@:>@]),
-  enable_airpcap=$enableval
-  if test x$enable_airpcap != xno; then
-	AC_DEFINE(HAVE_AIRPCAP, 1, [Enable AirPcap])
-  fi
-)
-
 dnl Checks for typedefs, structures, and compiler characteristics.
 # AC_C_CONST
 
 # Check how we can get the time zone abbreviation
 AC_WIRESHARK_TIMEZONE_ABBREV
+
+# We need to know whether "struct stat" has an "st_flags" member
+# for file_user_immutable().
+
+AC_WIRESHARK_STRUCT_ST_FLAGS
 
 # We need to know whether "struct sockaddr" has an "sa_len" member
 # for get_interface_list().
@@ -1837,6 +1970,22 @@ CPPFLAGS="$CPPFLAGS '-DPLUGIN_DIR=\"\$(plugindir)\"'"
 PLUGIN_LIBS=""
 AC_SUBST(PLUGIN_LIBS)
 
+#
+# Check if (emem) memory allocations must be 8-byte aligned.
+# I haven't been able to write C code that reliably makes that determination
+# (different versions of GCC with or without optimization give different
+# results) so just assume everything except (32-bit) x86 needs 8-byte
+# alignment (64-bit x86 will get 8-byte alignment from G_MEM_ALIGN anyway).
+#
+AC_MSG_CHECKING(whether we need memory allocations to be 8-byte aligned)
+if test x$host_cpu != xi386
+then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(NEED_8_BYTE_ALIGNMENT, 1, [Define if we need memory allocations to be 8-byte aligned])
+else
+  AC_MSG_RESULT(no)
+fi
+
 dnl libtool defs
 #
 # Yes, AM_PROG_LIBTOOL is redundant with newer version(s) of some tool(s)
@@ -1986,6 +2135,8 @@ AC_OUTPUT(
   ui/gtk/Makefile
   ui/gtk/doxygen.cfg
   ui/cli/Makefile
+  ui/qt/Makefile
+  ui/qt/doxygen.cfg
   help/Makefile
   packaging/Makefile
   packaging/macosx/Info.plist
@@ -2001,7 +2152,6 @@ AC_OUTPUT(
   plugins/asn1/Makefile
   plugins/docsis/Makefile
   plugins/ethercat/Makefile
-  plugins/giop/Makefile
   plugins/gryphon/Makefile
   plugins/irda/Makefile
   plugins/m2m/Makefile
@@ -2023,16 +2173,20 @@ dnl AC_CONFIG_FILES([tools/setuid-root.pl], [chmod +x tools/setuid-root.pl])
 
 # Pretty messages
 
-if test "x$have_gtk" = "xyes"; then
-	if test "x$with_gtk3" = "xyes"; then
-		gui_lib_message=" (with GTK+ 3"
-	else
-		gui_lib_message=" (with GTK+ 2"
-	fi
-	if test "x$have_ige_mac" = "xyes"; then
-		gui_lib_message="$gui_lib_message and Mac OS X integration)"
-	else
-		gui_lib_message="$gui_lib_message)"
+if test "x$have_qt" = "xyes"; then
+	gui_lib_message=" (with Qt)"
+else
+	if test "x$have_gtk" = "xyes"; then
+		if test "x$with_gtk3" = "xyes"; then
+			gui_lib_message=" (with GTK+ 3"
+		else
+			gui_lib_message=" (with GTK+ 2"
+		fi
+		if test "x$have_ige_mac" = "xyes"; then
+			gui_lib_message="$gui_lib_message and Mac OS X integration)"
+		else
+			gui_lib_message="$gui_lib_message)"
+		fi
 	fi
 fi
 
@@ -2152,3 +2306,4 @@ echo "           Use IPv6 name resolution : $enable_ipv6"
 echo "                 Use gnutls library : $tls_message"
 echo "     Use POSIX capabilities library : $libcap_message"
 echo "                  Use GeoIP library : $geoip_message"
+echo "                     Use nl library : $libnl_message"

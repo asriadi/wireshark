@@ -80,8 +80,7 @@ echo "Running $TSHARK with args: $TSHARK_ARGS ($HOWMANY)"
 echo "Running $RANDPKT with args: $RANDPKT_ARGS"
 echo ""
 
-# Not yet - properly handle empty filenames
-#trap "rm $TMP_DIR/$TMP_FILE $TMP_DIR/$RAND_FILE; exit 1" 1 2 15
+trap "MAX_PASSES=1; echo 'Caught signal'" HUP INT TERM
 
 # Iterate over our capture files.
 PASS=0
@@ -90,6 +89,7 @@ while [ $PASS -lt $MAX_PASSES -o $MAX_PASSES -lt 1 ] ; do
     echo "Pass $PASS:"
 
     for PKT_TYPE in $PKT_TYPES ; do
+	if [ $PASS -gt $MAX_PASSES ] ; then break ; fi # We caught a signal
 	echo -n "    $PKT_TYPE: "
 
 	DISSECTOR_BUG=0

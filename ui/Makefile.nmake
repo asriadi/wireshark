@@ -40,7 +40,8 @@ libui.lib	: ..\config.h $(WIRESHARK_UI_OBJECTS)
 	link /lib /out:libui.lib $(WIRESHARK_UI_OBJECTS)
 
 clean:
-	rm -f $(WIRESHARK_UI_OBJECTS) $(WIRESHARK_TAP_OBJECTS) libui.lib *.pdb doxygen.cfg html/*.* wireshark-tap-register-cache.pkl
+	rm -f $(WIRESHARK_UI_OBJECTS) $(WIRESHARK_TAP_OBJECTS) libui.lib *.pdb *.sbr \
+		doxygen.cfg html/*.* wireshark-tap-register-cache.pkl
 	if exist html rmdir html
 
 distclean: clean
@@ -72,9 +73,9 @@ doxygen: doxygen.cfg doxygen-run doxygen.chm
 checkapi: checkapi-base checkapi-todo
 
 checkapi-base:
-	$(PERL) ../tools/checkAPIs.pl -g deprecated-gtk \
+	$(PERL) ../tools/checkAPIs.pl -g deprecated-gtk -build \
 	$(WIRESHARK_UI_SRC)
 
 checkapi-todo:
-	$(PERL) ../tools/checkAPIs.pl -M -g deprecated-gtk-todo \
+	$(PERL) ../tools/checkAPIs.pl -M -g deprecated-gtk-todo -build \
 	$(WIRESHARK_UI_SRC)

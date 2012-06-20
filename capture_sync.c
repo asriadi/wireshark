@@ -225,8 +225,8 @@ win32strerror(DWORD error)
     size_t errlen;
     char *p;
 
-    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errbuf,
-                   ERRBUF_SIZE, NULL);
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		   NULL, error, 0, errbuf, ERRBUF_SIZE, NULL);
 
     /*
      * "FormatMessage()" "helpfully" sticks CR/LF at the end of the
@@ -312,6 +312,9 @@ init_pipe_args(int *argc) {
 
     /* Make that the first argument in the argument list (argv[0]). */
     argv = sync_pipe_add_arg(argv, argc, exename);
+
+    /* sync_pipe_add_arg strdupes exename, so we should free our copy */
+    g_free(exename);
 
     return argv;
 }
@@ -1513,8 +1516,9 @@ pipe_read_block(int pipe_fd, char *indicator, int len, char *msg,
     /* does the data fit into the given buffer? */
     if(required > len) {
         g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_DEBUG,
-              "read %d length error, required %d > len %d, indicator: %u",
-              pipe_fd, required, len, *indicator);
+              "read %d length error, required %d > len %d, header: 0x%02x 0x%02x 0x%02x 0x%02x",
+              pipe_fd, required, len,
+              header[0], header[1], header[2], header[3]);
 
         /* we have a problem here, try to read some more bytes from the pipe to debug where the problem really is */
         memcpy(msg, header, sizeof(header));

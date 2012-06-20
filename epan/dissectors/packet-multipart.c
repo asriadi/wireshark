@@ -60,15 +60,15 @@
 #include "config.h"
 #endif
 
-#include <stdlib.h>
 #include <string.h>
-#include <epan/prefs.h>
-#include <glib.h>
 #include <ctype.h>
-#include <epan/base64.h>
-#include <epan/emem.h>
+
+#include <glib.h>
 
 #include <epan/packet.h>
+#include <epan/prefs.h>
+#include <epan/base64.h>
+#include <epan/emem.h>
 
 #include "packet-imf.h"
 
@@ -795,6 +795,9 @@ process_body_part(proto_tree *tree, tvbuff_t *tvb, const guint8 *boundary,
 
 		return boundary_start + boundary_line_len;
 	}
+
+	g_free(filename);
+	g_free(typename);
 
 	return -1;
 }

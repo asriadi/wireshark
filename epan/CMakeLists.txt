@@ -272,6 +272,7 @@ set(DIRTY_ASN1_DISSECTOR_SRC
 	dissectors/packet-m3ap.c
 	dissectors/packet-nbap.c
 	dissectors/packet-p1.c
+	dissectors/packet-parlay.c
 	dissectors/packet-pcap.c
 	dissectors/packet-pkcs12.c
 	dissectors/packet-pres.c
@@ -281,6 +282,7 @@ set(DIRTY_ASN1_DISSECTOR_SRC
 	dissectors/packet-snmp.c
 	dissectors/packet-t124.c
 	dissectors/packet-t125.c
+	dissectors/packet-tango.c
 	dissectors/packet-tcap.c
 	dissectors/packet-tetra.c
 )
@@ -324,7 +326,6 @@ set(DISSECTOR_SRC
 	dissectors/packet-aim-stats.c
 	dissectors/packet-aim-translate.c
 	dissectors/packet-aim-userlookup.c
-	dissectors/packet-airopeek.c
 	dissectors/packet-ajp13.c
 	dissectors/packet-alcap.c
 	dissectors/packet-amqp.c
@@ -367,6 +368,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-bctp.c
 	dissectors/packet-beep.c
 	dissectors/packet-ber.c
+	dissectors/packet-bfcp.c
 	dissectors/packet-bfd.c
 	dissectors/packet-bgp.c
 	dissectors/packet-bittorrent.c
@@ -409,7 +411,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-cimetrics.c
 	dissectors/packet-cip.c
 	dissectors/packet-cipmotion.c
-	dissectors/packet-cipsafety.c	
+	dissectors/packet-cipsafety.c
 	dissectors/packet-cisco-erspan.c
 	dissectors/packet-cisco-oui.c
 	dissectors/packet-cisco-sm.c
@@ -424,7 +426,9 @@ set(DISSECTOR_SRC
 	dissectors/packet-collectd.c
 	dissectors/packet-componentstatus.c
 	dissectors/packet-cops.c
+	dissectors/packet-coseventcomm.c
 	dissectors/packet-cosine.c
+	dissectors/packet-cosnaming.c
 	dissectors/packet-cpfi.c
 	dissectors/packet-cpha.c
 	dissectors/packet-csm-encaps.c
@@ -519,6 +523,11 @@ set(DISSECTOR_SRC
 	dissectors/packet-dlm3.c
 	dissectors/packet-dlsw.c
 	dissectors/packet-dmp.c
+	dissectors/packet-dmx.c
+	dissectors/packet-dmx-chan.c
+	dissectors/packet-dmx-test.c
+	dissectors/packet-dmx-text.c
+	dissectors/packet-dmx-sip.c
 	dissectors/packet-dnp.c
 	dissectors/packet-dns.c
 	dissectors/packet-dplay.c
@@ -532,7 +541,14 @@ set(DISSECTOR_SRC
 	dissectors/packet-dtpt.c
 	dissectors/packet-dua.c
 	dissectors/packet-dvb-data-mpe.c
+	dissectors/packet-dvb-ait.c
+	dissectors/packet-dvb-bat.c
+	dissectors/packet-dvb-eit.c
 	dissectors/packet-dvb-ipdc.c
+	dissectors/packet-dvb-nit.c
+	dissectors/packet-dvb-sdt.c
+	dissectors/packet-dvb-tdt.c
+	dissectors/packet-dvb-tot.c
 	dissectors/packet-dvbci.c
 	dissectors/packet-dvmrp.c
 	dissectors/packet-e100.c
@@ -563,6 +579,8 @@ set(DISSECTOR_SRC
 	dissectors/packet-etherip.c
 	dissectors/packet-ethertype.c
 	dissectors/packet-etsi_card_app_toolkit.c
+	dissectors/packet-eiss.c
+	dissectors/packet-etv.c
 	dissectors/packet-evrc.c
 	dissectors/packet-exec.c
 	dissectors/packet-extreme.c
@@ -604,6 +622,11 @@ set(DISSECTOR_SRC
 	dissectors/packet-giop.c
 	dissectors/packet-git.c
 	dissectors/packet-glbp.c
+	dissectors/packet-gluster_cli.c
+	dissectors/packet-gluster_pmap.c
+	dissectors/packet-glusterd.c
+	dissectors/packet-glusterfs.c
+	dissectors/packet-glusterfs_hndsk.c
 	dissectors/packet-gmhdr.c
 	dissectors/packet-gmrp.c
 	dissectors/packet-gmr1_bcch.c
@@ -651,6 +674,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-h263.c
 	dissectors/packet-h263p.c
 	dissectors/packet-h264.c
+	dissectors/packet-hartip.c
 	dissectors/packet-hazelcast.c
 	dissectors/packet-hci_h1.c
 	dissectors/packet-hci_h4.c
@@ -685,8 +709,12 @@ set(DISSECTOR_SRC
 	dissectors/packet-ieee1722.c
 	dissectors/packet-ieee17221.c
 	dissectors/packet-ieee80211.c
+	dissectors/packet-ieee80211-airopeek.c
+	dissectors/packet-ieee80211-netmon.c
 	dissectors/packet-ieee80211-prism.c
 	dissectors/packet-ieee80211-radio.c
+	dissectors/packet-ieee80211-radiotap.c
+	dissectors/packet-ieee80211-radiotap-iter.c
 	dissectors/packet-ieee80211-wlancap.c
 	dissectors/packet-ieee802154.c
 	dissectors/packet-ieee8021ah.c
@@ -733,12 +761,14 @@ set(DISSECTOR_SRC
 	dissectors/packet-ismacryp.c
 	dissectors/packet-ismp.c
 	dissectors/packet-isns.c
+	dissectors/packet-iso7816.c
 	dissectors/packet-isup.c
 	dissectors/packet-itdm.c
 	dissectors/packet-iua.c
 	dissectors/packet-iuup.c
 	dissectors/packet-iwarp-ddp-rdmap.c
 	dissectors/packet-iwarp-mpa.c
+	dissectors/packet-ixveriwave.c
 	dissectors/packet-jmirror.c
 	dissectors/packet-jpeg.c
 	dissectors/packet-json.c
@@ -747,6 +777,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-k12.c
 	dissectors/packet-kadm5.c
 	dissectors/packet-kdp.c
+	dissectors/packet-kdsp.c
 	dissectors/packet-kerberos.c
 	dissectors/packet-kerberos4.c
 	dissectors/packet-kingfisher.c
@@ -772,6 +803,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-lisp.c
 	dissectors/packet-llc.c
 	dissectors/packet-lldp.c
+	dissectors/packet-llrp.c
 	dissectors/packet-llt.c
 	dissectors/packet-lmi.c
 	dissectors/packet-lmp.c
@@ -786,6 +818,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-m2tp.c
 	dissectors/packet-m2ua.c
 	dissectors/packet-m3ua.c
+	dissectors/packet-maap.c
 	dissectors/packet-mac-lte.c
 	dissectors/packet-mac-lte-framed.c
 	dissectors/packet-maccontrol.c
@@ -806,16 +839,24 @@ set(DISSECTOR_SRC
 	dissectors/packet-mip6.c
 	dissectors/packet-mmse.c
 	dissectors/packet-mndp.c
+	dissectors/packet-moldudp.c
+	dissectors/packet-moldudp64.c
 	dissectors/packet-mongo.c
 	dissectors/packet-mount.c
 	dissectors/packet-mp2t.c
 	dissectors/packet-mp4ves.c
+	dissectors/packet-mpeg-ca.c
+	dissectors/packet-mpeg-descriptor.c
+	dissectors/packet-mpeg-dsmcc.c
 	dissectors/packet-mpeg-pat.c
+	dissectors/packet-mpeg-pmt.c
 	dissectors/packet-mpeg-sect.c
 	dissectors/packet-mpeg1.c
 	dissectors/packet-mpls.c
 	dissectors/packet-mpls-echo.c
 	dissectors/packet-mpls-pm.c
+	dissectors/packet-mpls-psc.c
+	dissectors/packet-mpls-y1711.c
 	dissectors/packet-mq.c
 	dissectors/packet-mq-pcf.c
 	dissectors/packet-mrdisc.c
@@ -856,11 +897,11 @@ set(DISSECTOR_SRC
 	dissectors/packet-netbios.c
 	dissectors/packet-netdump.c
 	dissectors/packet-netflow.c
-	dissectors/packet-netmon-802_11.c
 	dissectors/packet-netperfmeter.c
 	dissectors/packet-netsync.c
 	dissectors/packet-nettl.c
 	dissectors/packet-newmail.c
+	dissectors/packet-nflog.c
 	dissectors/packet-nfs.c
 	dissectors/packet-nfsacl.c
 	dissectors/packet-nfsauth.c
@@ -879,10 +920,12 @@ set(DISSECTOR_SRC
 	dissectors/packet-null.c
 	dissectors/packet-nwmtp.c
 	dissectors/packet-oicq.c
+	dissectors/packet-oipf.c
 	dissectors/packet-olsr.c
 	dissectors/packet-omapi.c
 	dissectors/packet-omron-fins.c
 	dissectors/packet-opensafety.c
+	dissectors/packet-openwire.c
 	dissectors/packet-osi-options.c
 	dissectors/packet-osi.c
 	dissectors/packet-ositp.c
@@ -898,6 +941,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-pcnfsd.c
 	dissectors/packet-pcp.c
 	dissectors/packet-pdcp-lte.c
+	dissectors/packet-peekremote.c
 	dissectors/packet-per.c
 	dissectors/packet-pflog.c
 	dissectors/packet-pgm.c
@@ -909,6 +953,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-pnrp.c
 	dissectors/packet-pop.c
 	dissectors/packet-portmap.c
+	dissectors/packet-ppcap.c
 	dissectors/packet-ppi.c
 	dissectors/packet-ppi-antenna.c
 	dissectors/packet-ppi-geolocation-common.c
@@ -937,8 +982,6 @@ set(DISSECTOR_SRC
 	dissectors/packet-quake2.c
 	dissectors/packet-quake3.c
 	dissectors/packet-quakeworld.c
-	dissectors/packet-radiotap.c
-	dissectors/packet-radiotap-iter.c
 	dissectors/packet-radius.c
 	dissectors/packet-radius_packetcable.c
 	dissectors/packet-raw.c
@@ -952,6 +995,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-retix-bpdu.c
 	dissectors/packet-rfc2190.c
 	dissectors/packet-rfid-felica.c
+	dissectors/packet-rfid-pn532.c
 	dissectors/packet-rgmp.c
 	dissectors/packet-rip.c
 	dissectors/packet-ripng.c
@@ -1009,6 +1053,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-scsi-smc.c
 	dissectors/packet-scsi-ssc.c
 	dissectors/packet-sctp.c
+	dissectors/packet-sdh.c
 	dissectors/packet-sdlc.c
 	dissectors/packet-sdp.c
 	dissectors/packet-sebek.c
@@ -1058,6 +1103,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-stun.c
 	dissectors/packet-sua.c
 	dissectors/packet-symantec.c
+	dissectors/packet-sync.c
 	dissectors/packet-synergy.c
 	dissectors/packet-synphasor.c
 	dissectors/packet-syslog.c
@@ -1116,6 +1162,8 @@ set(DISSECTOR_SRC
 	dissectors/packet-uts.c
 	dissectors/packet-v120.c
 	dissectors/packet-v52.c
+	dissectors/packet-v5dl.c
+	dissectors/packet-v5ef.c
 	dissectors/packet-v5ua.c
 	dissectors/packet-vcdu.c
 	dissectors/packet-vicp.c
@@ -1133,9 +1181,11 @@ set(DISSECTOR_SRC
 	dissectors/packet-wai.c
 	dissectors/packet-wap.c
 	dissectors/packet-wassp.c
+	dissectors/packet-waveagent.c
 	dissectors/packet-wbxml.c
 	dissectors/packet-wccp.c
 	dissectors/packet-wcp.c
+	dissectors/packet-websocket.c
 	dissectors/packet-wfleet-hdlc.c
 	dissectors/packet-who.c
 	dissectors/packet-wifi-p2p.c
@@ -1145,6 +1195,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-wol.c
 	dissectors/packet-wow.c
 	dissectors/packet-wps.c
+	dissectors/packet-wreth.c
 	dissectors/packet-wsmp.c
 	dissectors/packet-wsp.c
 	dissectors/packet-wtls.c
@@ -1165,6 +1216,7 @@ set(DISSECTOR_SRC
 	dissectors/packet-xot.c
 	dissectors/packet-xtp.c
 	dissectors/packet-xyplex.c
+	dissectors/packet-yami.c
 	dissectors/packet-yhoo.c
 	dissectors/packet-ymsg.c
 	dissectors/packet-ypbind.c

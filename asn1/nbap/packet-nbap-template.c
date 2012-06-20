@@ -34,8 +34,12 @@
 #include <epan/packet.h>
 #include <epan/sctpppids.h>
 #include <epan/asn1.h>
+#include <epan/conversation.h>
 
 #include "packet-per.h"
+#include "packet-isup.h"
+#include "packet-umts_fp.h"
+#include "packet-rrc.h"
 
 #ifdef _MSC_VER
 /* disable: "warning C4146: unary minus operator applied to unsigned type, result still unsigned" */
@@ -46,26 +50,126 @@
 #define PSNAME "NBAP"
 #define PFNAME "nbap"
 
+/* Debug */
+#if 0
+#define nbap_debug0(str) g_warning(str)
+#define nbap_debug1(str,p1) g_warning(str,p1)
+#define nbap_debug2(str,p1,p2) g_warning(str,p1,p2)
+#define nbap_debug3(str,p1,p2,p3) g_warning(str,p1,p2,p3)
+#else
+#define nbap_debug0(str)
+#define nbap_debug1(str,p1)
+#define nbap_debug2(str,p1,p2)
+#define nbap_debug3(str,p1,p2,p3)
+#endif
+
+/* Global variables */
+dissector_handle_t fp_handle;
+static guint32	transportLayerAddress_ipv4;
+static guint16	BindingID_port;
+
 #include "packet-nbap-val.h"
 
 /* Initialize the protocol and registered fields */
 static int proto_nbap = -1;
 static int hf_nbap_transportLayerAddress_ipv4 = -1;
 static int hf_nbap_transportLayerAddress_ipv6 = -1;
+static int hf_nbap_transportLayerAddress_nsap = -1;
 
 #include "packet-nbap-hf.c"
 
 /* Initialize the subtree pointers */
 static int ett_nbap = -1;
 static int ett_nbap_TransportLayerAddress = -1;
+static int ett_nbap_TransportLayerAddress_nsap = -1;
+static int ett_nbap_ib_sg_data = -1;
 
 #include "packet-nbap-ett.c"
+
+
+extern int proto_fp;
+
+/*
+ * Structure to build information needed to dissect the FP flow beeing set up.
+ */
+struct _nbap_msg_info_for_fp
+{
+	guint32 ProcedureCode;
+	guint32 ddMode;
+	gboolean is_uplink;
+	gint channel;                       /* see definitions in packet-umts_fp.h Channel types */
+	guint8  dch_crc_present;            /* 0=No, 1=Yes, 2=Unknown */
+};
+
+typedef struct
+{
+	gint num_dch_in_flow;
+	gint next_dch;
+	gint num_ul_chans;
+	gint ul_chan_tf_size[MAX_FP_CHANS];
+	gint ul_chan_num_tbs[MAX_FP_CHANS];
+	gint num_dl_chans;
+	gint dl_chan_tf_size[MAX_FP_CHANS];
+	gint dl_chan_num_tbs[MAX_FP_CHANS];
+
+}nbap_dch_channel_info_t;
+
+nbap_dch_channel_info_t nbap_dch_chnl_info[maxNrOfDCHs];
+
+/* Struct to collect E-DCH data in a packet 
+ * As the address data comes before the ddi entries
+ * we save the address to be able to find the conversation and update the
+ * conversation data.
+ */
+typedef struct
+{
+	address 	crnc_address;
+	guint16		crnc_port;
+	gint		no_ddi_entries;
+	guint8		edch_ddi[MAX_EDCH_DDIS];
+	guint		edch_macd_pdu_size[MAX_EDCH_DDIS];
+	guint8		edch_type;  /* 1 means T2 */
+
+} nbap_edch_channel_info_t;
+
+nbap_edch_channel_info_t nbap_edch_channel_info[maxNrOfEDCHMACdFlows];
+
+typedef struct
+{
+	address 			crnc_address;
+	guint16				crnc_port;
+	enum fp_rlc_mode	rlc_mode;
+	guint32				hsdsch_physical_layer_category;
+} nbap_hsdsch_channel_info_t;
+
+nbap_hsdsch_channel_info_t nbap_hsdsch_channel_info[maxNrOfMACdFlows];
+
+gint g_num_dch_in_flow;
+/* maxNrOfTFs					INTEGER ::= 32 */
+gint g_dchs_in_flow_list[maxNrOfTFs];
+struct _nbap_msg_info_for_fp g_nbap_msg_info_for_fp;
 
 /* Global variables */
 static guint32 ProcedureCode;
 static guint32 ProtocolIE_ID;
 static guint32 ddMode;
 static const gchar *ProcedureID;
+static guint32 t_dch_id, dch_id, prev_dch_id, commonphysicalchannelid, e_dch_macdflow_id, hsdsch_macdflow_id, e_dch_ddi_value;
+static guint32 MACdPDU_Size, commontransportchannelid;
+static guint num_items;
+static gint paging_indications;
+static guint32 ib_type, segment_type;
+
+enum TransportFormatSet_type_enum
+{
+	NBAP_DCH_UL,
+	NBAP_DCH_DL,
+	NBAP_CPCH,
+	NBAP_FACH,
+	NBAP_PCH
+};
+
+enum TransportFormatSet_type_enum transportFormatSet_type;
 
 /* Dissector tables */
 static dissector_table_t nbap_ies_dissector_table;
@@ -140,7 +244,10 @@ void proto_register_nbap(void) {
       { "transportLayerAddress IPv6", "nbap.transportLayerAddress_ipv6",
         FT_IPv6, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-
+    { &hf_nbap_transportLayerAddress_nsap,
+      { "transportLayerAddress NSAP", "nbap.transportLayerAddress_NSAP",
+        FT_BYTES, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
 #include "packet-nbap-hfarr.c"
   };
 
@@ -148,6 +255,8 @@ void proto_register_nbap(void) {
   static gint *ett[] = {
 		  &ett_nbap,
 		  &ett_nbap_TransportLayerAddress,
+		  &ett_nbap_TransportLayerAddress_nsap,
+		  &ett_nbap_ib_sg_data,
 #include "packet-nbap-ettarr.c"
   };
 
@@ -178,6 +287,7 @@ proto_reg_handoff_nbap(void)
 	dissector_handle_t nbap_handle;
 
 	nbap_handle = find_dissector("nbap");
+	fp_handle = find_dissector("fp");
 	dissector_add_uint("sctp.ppi", NBAP_PAYLOAD_PROTOCOL_ID, nbap_handle);
 	dissector_add_handle("sctp.port", nbap_handle);  /* for "decode-as" */
 

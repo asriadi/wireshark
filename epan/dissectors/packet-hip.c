@@ -104,7 +104,9 @@ typedef enum {
 #define PARAM_RELAY_FROM                63998
 #define PARAM_RELAY_TO                  64002
 #define PARAM_RELAY_HMAC                65520
-
+/* HIPv2 draft-ietf-hip-rfc5201-bis-08 see section 5.2 */
+#define PARAM_HIP_CIPHER                579
+#define PARAM_HIT_SUITE_LIST            715
 /* Bit masks */
 #define PARAM_CRITICAL_BIT              0x0001
 /* See RFC 5201 section 5.1 */
@@ -165,6 +167,8 @@ static const value_string hip_param_vals[] = {
         { PARAM_REG_REQUEST, "REG_REQUEST" },
         { PARAM_REG_RESPONSE, "REG_RESPONSE" },
         { PARAM_REG_FROM, "REG_FROM" },
+        { PARAM_HIP_CIPHER, "HIP_CIPHER"},
+        { PARAM_HIT_SUITE_LIST, "HIT_SUITE_LIST"},
         { 0, NULL }
 };
 
@@ -272,6 +276,24 @@ static const value_string nat_traversal_mode_vals[] = {
         { 0, NULL }
 };
 
+/* HIPv2 draft-ietf-hip-rfc5201-bis-08 Section 5.2 */
+static const value_string cipher_vals[] = {
+        { 0x0, "Reserved" },
+        { 0x01, "NULL-ENCRYPT" },
+        { 0x02, "AES-128-CBC" },
+        { 0x03, "3DES-CBC" },
+        { 0x04, "AES-256-CBC" },
+        { 0, NULL }
+};
+
+static const value_string hit_suite_vals[] = {
+        { 0x00, "Reserved" },
+        { 0x01, "RSA,DSA/SHA-256" },
+        { 0x02, "ECDSA/SHA384" },
+        { 0x03, "ECDSA_LOW/SHA-1" },
+        { 0, NULL }
+};
+
 /* functions */
 static int dissect_hip_tlv(tvbuff_t *tvb, int offset, proto_item *ti, int type, int tlv_len);
 
@@ -311,6 +333,8 @@ static int hf_hip_tlv_dh_pub = -1;
 static int hf_hip_tlv_dh_pv_length = -1;
 static int hf_hip_tlv_trans_id = -1;
 static int hf_hip_tlv_esp_reserved = -1;
+static int hf_hip_tlv_cipher_id = -1;
+static int hf_hip_tlv_hit_suite_id = -1;
 static int hf_hip_tlv_host_id_len = -1;
 static int hf_hip_tlv_host_di_type = -1;
 static int hf_hip_tlv_host_di_len = -1;
@@ -724,7 +748,7 @@ dissect_hip_tlv(tvbuff_t *tvb, int offset, proto_item *ti, int type, int tlv_len
                 proto_tree_add_item(t, hf_hip_tlv_puzzle_o, tvb, newoffset, 2, ENC_BIG_ENDIAN);
                 /* Puzzle I */
                 newoffset += 2;
-                proto_tree_add_item(t, hf_hip_tlv_puzzle_i, tvb,newoffset, 8, ENC_NA);
+                proto_tree_add_item(t, hf_hip_tlv_puzzle_i, tvb,newoffset, tlv_len - 4, ENC_NA);
                 break;
         case PARAM_SOLUTION:
                 t = proto_item_add_subtree(ti, ett_hip_tlv_data);
@@ -738,10 +762,10 @@ dissect_hip_tlv(tvbuff_t *tvb, int offset, proto_item *ti, int type, int tlv_len
                 proto_tree_add_item(t, hf_hip_tlv_solution_o, tvb,newoffset, 2, ENC_BIG_ENDIAN);
                 /* Solution I */
                 newoffset += 2;
-                proto_tree_add_item(t, hf_hip_tlv_solution_i, tvb, newoffset, 8, ENC_NA);
+                proto_tree_add_item(t, hf_hip_tlv_solution_i, tvb, newoffset, (tlv_len - 4)/2, ENC_NA);
                 /* Solution J */
-                newoffset += 8;
-                proto_tree_add_item(t, hf_hip_tlv_solution_j, tvb, newoffset, 8, ENC_NA);
+                newoffset += (tlv_len - 4) /2;
+                proto_tree_add_item(t, hf_hip_tlv_solution_j, tvb, newoffset, (tlv_len -4)/2, ENC_NA);
                 break;
         case PARAM_SEQ:
                 t = proto_item_add_subtree(ti, ett_hip_tlv_data);
@@ -857,6 +881,28 @@ dissect_hip_tlv(tvbuff_t *tvb, int offset, proto_item *ti, int type, int tlv_len
                  */
                 proto_tree_add_text(t, tvb, newoffset, tlv_len - 4,
                                     "Encrypted Parameter Data (%u bytes)",  tlv_len - 4);
+                break;
+        case PARAM_HIP_CIPHER:
+                t = proto_item_add_subtree(ti, ett_hip_tlv_data);
+                while (tlv_len > 0) {
+                        /* Suite # 1, 2, ...,  n
+                           two bytes per Cipher Suite id */
+                        proto_tree_add_item(t, hf_hip_tlv_cipher_id, tvb, newoffset, 2, ENC_BIG_ENDIAN);
+                        tlv_len -= 2;
+                        newoffset += 2;
+                }
+                break;
+        case PARAM_HIT_SUITE_LIST:
+                t = proto_item_add_subtree(ti, ett_hip_tlv_data);
+                while (tlv_len > 0) {
+                        /* Suite # 1, 2, ...,  n
+                           one byte per HIT Suite id.
+                           According to specification, HIT_SUITE_LIST is defined as eight-bit field,
+                           current four-bit HIT Suite-IDs only use the four higher order bits in the ID Field.*/
+                        proto_tree_add_item(t, hf_hip_tlv_hit_suite_id, tvb, newoffset, 1, ENC_BIG_ENDIAN);
+                        tlv_len -= 1;
+                        newoffset += 1;
+                }
                 break;
         case PARAM_HOST_ID:
                 t = proto_item_add_subtree(ti, ett_hip_tlv_data);
@@ -1041,7 +1087,7 @@ dissect_hip_tlv(tvbuff_t *tvb, int offset, proto_item *ti, int type, int tlv_len
                 } else if (type == PARAM_REG_FAILED) {
                         /* Failure Type */
                         proto_tree_add_item(t, hf_hip_tlv_reg_failtype, tvb, newoffset, 1, ENC_BIG_ENDIAN);
-                        newoffset++;;
+                        newoffset++;
                         tlv_len--;
                 } else {
                         /* Lifetime */
@@ -1108,7 +1154,7 @@ dissect_hip_tlv(tvbuff_t *tvb, int offset, proto_item *ti, int type, int tlv_len
                 proto_tree_add_item(t, hf_hip_tlv_relay_from_reserved, tvb, newoffset, 1, ENC_BIG_ENDIAN);
                 newoffset += 1;
                 /* Address */
-                proto_tree_add_item(t, hf_hip_tlv_relay_to_address, tvb, newoffset, 16, ENC_NA);
+                proto_tree_add_item(t, hf_hip_tlv_relay_from_address, tvb, newoffset, 16, ENC_NA);
                 break;
         case PARAM_RELAY_TO:
                 t = proto_item_add_subtree(ti, ett_hip_tlv_data);
@@ -1283,6 +1329,14 @@ proto_register_hip(void)
                 { &hf_hip_tlv_esp_reserved,
                   { "Reserved", "hip.tlv.esp_trans_res",
                     FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+
+                { &hf_hip_tlv_cipher_id,
+                  { "Cipher ID", "hip.tlv.cipher_id",
+                    FT_UINT16, BASE_DEC, VALS(cipher_vals), 0x0, NULL, HFILL }},
+
+                { &hf_hip_tlv_hit_suite_id,
+                  { "HIT Suite ID", "hip.tlv.hit_suite_id",
+                    FT_UINT8, BASE_DEC, VALS(hit_suite_vals), 0xF0, NULL, HFILL }},
 
                 { &hf_hip_tlv_host_id_len,
                   { "Host Identity Length", "hip.tlv.host_id_length",
@@ -1557,3 +1611,15 @@ proto_reg_handoff_hip(void)
         hip_handle2 = create_dissector_handle(dissect_hip_in_udp, proto_hip);
         dissector_add_uint("udp.port", 10500, hip_handle2);
 }
+/*
+ * Editor modelines  -  http://www.wireshark.org/tools/modelines.html
+ *
+ * Local variables:
+ * c-basic-offset: 8
+ * tab-width: 8
+ * indent-tabs-mode: nil
+ * End:
+ *
+ * vi: set shiftwidth=8 tabstop=8 expandtab:
+ * :indentSize=8:tabSize=8:noTabs=true:
+ */

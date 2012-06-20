@@ -1020,7 +1020,7 @@ static int dissect_kademlia_hash_hidden(tvbuff_t *tvb, packet_info *pinfo _U_,
     hash = kademlia_hash(tvb, offset);
 
     /* <File hash> ::= HASH (16 word MD4 digest) */
-    hidden_item = proto_tree_add_string_format_value(tree, hf_kademlia_hash, tvb, offset, 16, hash, "%s", hash);
+    hidden_item = proto_tree_add_string(tree, hf_kademlia_hash, tvb, offset, 16, hash);
     PROTO_ITEM_SET_HIDDEN(hidden_item);
 
     return offset+16;
@@ -1034,7 +1034,7 @@ static int dissect_kademlia_hash(tvbuff_t *tvb, packet_info *pinfo _U_,
     hash = kademlia_hash(tvb, offset);
 
     /* <File hash> ::= HASH (16 word MD4 digest) */
-    proto_tree_add_string_format_value(tree, *value_ptr, tvb, offset, 16, hash, "%s", hash);
+    proto_tree_add_string(tree, *value_ptr, tvb, offset, 16, hash);
 
     return dissect_kademlia_hash_hidden(tvb, pinfo, offset, tree);
 }
@@ -1047,7 +1047,7 @@ static int dissect_kademlia_tag_hash_hidden(tvbuff_t *tvb, packet_info *pinfo _U
     hash = kademlia_hash(tvb, offset);
 
     /* <File hash> ::= HASH (16 word MD4 digest) */
-    hidden_item = proto_tree_add_string_format_value(tree, hf_kademlia_tag_hash, tvb, offset, 16, hash, "%s", hash);
+    hidden_item = proto_tree_add_string(tree, hf_kademlia_tag_hash, tvb, offset, 16, hash);
     PROTO_ITEM_SET_HIDDEN(hidden_item);
 
     return offset+16;
@@ -1060,7 +1060,7 @@ static int dissect_kademlia_tag_hash(tvbuff_t *tvb, packet_info *pinfo _U_,
     hash = kademlia_hash(tvb, offset);
 
     /* <File hash> ::= HASH (16 word MD4 digest) */
-    proto_tree_add_string_format_value(tree, hf_kademlia_hash, tvb, offset, 16, hash, "%s", hash);
+    proto_tree_add_string(tree, hf_kademlia_hash, tvb, offset, 16, hash);
     return dissect_kademlia_tag_hash_hidden( tvb, pinfo, offset, tree );
 }
 
@@ -1940,7 +1940,7 @@ static void dissect_emule_tcp_message(guint8 msg_type,
         case EMULE_MSG_HELLO_ANSWER:  /* eMule Info Answer: <eMule Version> <Meta tag list> */
             version = tvb_get_letohs(tvb, offset);
             proto_tree_add_text(tree, tvb, offset, 2, "Version: %u", version);
-            offset = dissect_edonkey_metatag_list(tvb, pinfo, offset+2, tree);
+            dissect_edonkey_metatag_list(tvb, pinfo, offset+2, tree);
             break;
 
         case EMULE_MSG_QUEUE_RANKING: /* eMule Queue Ranking: <eMule Rank (guint16)> */
@@ -1949,12 +1949,12 @@ static void dissect_emule_tcp_message(guint8 msg_type,
             break;
 
         case EMULE_MSG_SOURCES_REQUEST: /* Sources Request: <File Hash> */
-            offset = dissect_edonkey_file_hash(tvb, pinfo, offset, tree);
+            dissect_edonkey_file_hash(tvb, pinfo, offset, tree);
             break;
 
         case EMULE_MSG_SOURCES_ANSWER: /* Sources Answer: <File Hash> <Address List> */
             offset = dissect_edonkey_file_hash(tvb, pinfo, offset, tree);
-            offset = dissect_emule_address_list(tvb, pinfo, offset, tree);
+            dissect_emule_address_list(tvb, pinfo, offset, tree);
             break;
 
         case EMULE_MSG_SEC_IDENT_STATE: {
@@ -1964,13 +1964,12 @@ static void dissect_emule_tcp_message(guint8 msg_type,
             offset++;
             rndchallenge = tvb_get_letohl(tvb, offset);
             proto_tree_add_text(tree, tvb, offset, 4, "Rndchallenge: %u", rndchallenge);
-            offset += 4;
             break;
             }
 
 
         case EMULE_MSG_PUBLIC_KEY: /* Public Key: <1byte : len> <len bytes: pubkey> */
-            offset = dissect_edonkey_public_key(tvb, pinfo, offset, tree);
+            /* offset =*/ dissect_edonkey_public_key(tvb, pinfo, offset, tree);
             /* offset = dissect_emule_publickey(tvb, pinfo, offset, tree); */
             break;
 
@@ -1979,7 +1978,6 @@ static void dissect_emule_tcp_message(guint8 msg_type,
             if (msg_end != offset) {
                 guint8 sigIPused = tvb_get_guint8(tvb, offset);
                 proto_tree_add_text(tree, tvb, offset, 1, "Sig IP Used: %u", sigIPused);
-                offset++;
             }
             break;
 
@@ -2026,7 +2024,7 @@ static void dissect_emule_tcp_message(guint8 msg_type,
             offset = dissect_edonkey_start_offset_64(tvb, pinfo, offset, tree);
             offset = dissect_edonkey_end_offset_64(tvb, pinfo, offset, tree);
             offset = dissect_edonkey_end_offset_64(tvb, pinfo, offset, tree);
-            offset = dissect_edonkey_end_offset_64(tvb, pinfo, offset, tree);
+            dissect_edonkey_end_offset_64(tvb, pinfo, offset, tree);
             break;
 
         case EMULE_MSG_SENDING_PART_64:  /* Sending Part: <File hash> <Start offset> <End offset> DATA */
@@ -2041,7 +2039,7 @@ static void dissect_emule_tcp_message(guint8 msg_type,
 
         case EMULE_MSG_CALLBACK:  /* Callback: < hash ><hash> <uint16> */
             offset = dissect_edonkey_file_hash(tvb, pinfo, offset, tree);
-            offset = dissect_edonkey_file_hash(tvb, pinfo, offset, tree);
+            /*offset = */dissect_edonkey_file_hash(tvb, pinfo, offset, tree);
             /* offset = dissect_edonkey_generic_uint16(tvb, pinfo, offset, tree, "uint16" ); */
             break;
 
@@ -2050,7 +2048,7 @@ static void dissect_emule_tcp_message(guint8 msg_type,
             partnum = tvb_get_letohs(tvb, offset);
             proto_tree_add_uint(tree, hf_emule_aich_partnum, tvb, offset, 2, partnum);
             offset += 2;
-            offset = dissect_emule_aich_root_hash(tvb, pinfo, offset, tree);
+            dissect_emule_aich_root_hash(tvb, pinfo, offset, tree);
             break;
 
         case EMULE_MSG_AICH_ANSWER: /* AICH Answer: <File Hash> <PartNum> <AICH Hash> <AICH Hash List> */
@@ -2059,13 +2057,13 @@ static void dissect_emule_tcp_message(guint8 msg_type,
             proto_tree_add_uint(tree, hf_emule_aich_partnum, tvb, offset, 2, partnum);
             offset += 2;
             offset = dissect_emule_aich_root_hash(tvb, pinfo, offset, tree);
-            offset = dissect_emule_aich_hash_list(tvb, pinfo, offset, tree);
+            dissect_emule_aich_hash_list(tvb, pinfo, offset, tree);
             break;
 
         case EMULE_MSG_MULTIPACKET: /* MultiPacket: <Hash> <Opcodes> */
         case EMULE_MSG_MULTIPACKET_ANSWER:
         case EMULE_MSG_MULTIPACKET_EXT: /* MultiPacketExt: <Hash> <FileLength> <Opcodes> */
-            offset = dissect_emule_multipacket(tvb, pinfo, offset, offset+length, tree, msg_type==EMULE_MSG_MULTIPACKET_EXT);
+            dissect_emule_multipacket(tvb, pinfo, offset, offset+length, tree, msg_type==EMULE_MSG_MULTIPACKET_EXT);
             break;
 
         default:
@@ -2754,7 +2752,7 @@ static int dissect_kademlia_udp_message(guint8 msg_type,
                   }
                 }
                 binarray[128] = '\0';
-                proto_tree_add_string_format_value(tree, hf_kademlia_distance, tvb, offset, 0, binarray, "%s", binarray);
+                proto_tree_add_string(tree, hf_kademlia_distance, tvb, offset, 0, binarray);
             }
             break;
 

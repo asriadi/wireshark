@@ -159,11 +159,7 @@ static GtkWidget *radio_TTL, *radio_ON;
 static void
 comparestat_set_title(compstat_t *cs)
 {
-	char *title;
-
-	title=g_strdup_printf("Compare two capture files: %s", cf_get_display_name(&cfile));
-	gtk_window_set_title(GTK_WINDOW(cs->win), title);
-	g_free(title);
+	set_window_title(cs->win, "Compare two capture files");
 }
 
 /* called when new capture starts, when it rescans the packetlist after some prefs have
@@ -401,7 +397,7 @@ call_foreach_merge_settings(gpointer value, gpointer arg)
 	if((fInfo->num==tot_packet_amount)&&(cs->stop_packet_nr_first!=G_MAXINT32)){
 		/* calculate missing stop number */
 		swap=cs->stop_packet_nr_first;
-		cs->stop_packet_nr_first=tot_packet_amount-cs->second_file_amount;;
+		cs->stop_packet_nr_first=tot_packet_amount-cs->second_file_amount;
 		cs->stop_packet_nr_second=swap;
 	}
 
@@ -702,6 +698,7 @@ static void
 gtk_comparestat_init(const char *optarg, void* userdata _U_)
 {
 	compstat_t *cs;
+	char *display_name;
 	char *title_string;
 	char *filter_string;
 	GtkWidget *stat_label;
@@ -760,11 +757,13 @@ gtk_comparestat_init(const char *optarg, void* userdata _U_)
 	gtk_window_set_default_size(GTK_WINDOW(cs->win), 550, 400);
 	comparestat_set_title(cs);
 
-	vbox=gtk_vbox_new(FALSE, 3);
+	vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 3, FALSE);
 	gtk_container_add(GTK_CONTAINER(cs->win), vbox);
 	gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
 
-	title_string = g_strdup_printf("Compare two capture files: %s", cf_get_display_name(&cfile));
+	display_name = cf_get_display_name(&cfile);
+	title_string = g_strdup_printf("Compare two capture files: %s", display_name);
+	g_free(display_name);
 	stat_label=gtk_label_new(title_string);
 	g_free(title_string);
 	gtk_box_pack_start(GTK_BOX(vbox), stat_label, FALSE, FALSE, 0);
@@ -911,14 +910,14 @@ gtk_comparestat_cb(GtkAction *action _U_, gpointer user_data _U_)
 	dlg=dlg_window_new("Wireshark: Compare two capture files");
 	gtk_window_set_default_size(GTK_WINDOW(dlg), 300, -1);
 
-	dlg_box=gtk_vbox_new(FALSE, 10);
+	dlg_box=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 10, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(dlg_box), 10);
 	gtk_container_add(GTK_CONTAINER(dlg), dlg_box);
 	gtk_widget_show(dlg_box);
 
 	/* spin Box */
-	spin_start_box=gtk_hbox_new(FALSE, 10);
-	spin_stop_box=gtk_hbox_new(FALSE, 10);
+	spin_start_box=ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10, FALSE);
+	spin_stop_box=ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10, FALSE);
 
 	/* spin label */
 	gtk_container_set_border_width(GTK_CONTAINER(spin_start_box), 1);
@@ -949,7 +948,7 @@ gtk_comparestat_cb(GtkAction *action _U_, gpointer user_data _U_)
 	gtk_widget_show(spin_stop_box);
 
 	/* differ Box */
-	differ_box=gtk_hbox_new(FALSE, 10);
+	differ_box=ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10, FALSE);
 
 	/* radio label */
 	gtk_container_set_border_width(GTK_CONTAINER(differ_box), 1);
@@ -969,7 +968,7 @@ gtk_comparestat_cb(GtkAction *action _U_, gpointer user_data _U_)
 	gtk_widget_show(differ_box);
 
 	/* order Box */
-	order_box=gtk_hbox_new(FALSE, 10);
+	order_box=ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10, FALSE);
 
 	/* order label */
 	gtk_container_set_border_width(GTK_CONTAINER(order_box), 1);
@@ -989,7 +988,7 @@ gtk_comparestat_cb(GtkAction *action _U_, gpointer user_data _U_)
 	gtk_widget_show(order_box);
 
 	/* spin box */
-	spin_var_box=gtk_hbox_new(FALSE, 10);
+	spin_var_box=ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10, FALSE);
 
 	/* spin label */
 	gtk_container_set_border_width(GTK_CONTAINER(spin_var_box), 1);
@@ -1012,7 +1011,7 @@ gtk_comparestat_cb(GtkAction *action _U_, gpointer user_data _U_)
 	gtk_widget_show(spin_var_box);
 
 	/* filter box */
-	filter_box=gtk_hbox_new(FALSE, 3);
+	filter_box=ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3, FALSE);
 
 	/* filter label */
 	filter_bt=gtk_button_new_from_stock(WIRESHARK_STOCK_DISPLAY_FILTER_ENTRY);

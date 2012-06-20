@@ -5,7 +5,7 @@
 #
 # Trying to follow "Building Wireshark on SnowLeopard"
 # given by Michael Tuexen at
-# http://nplab.fh-muenster.de/groups/wiki/wiki/fb7a4/Building_Wireshark_on_SnowLeopard.html 
+# http://nplab.fh-muenster.de/groups/wiki/wiki/fb7a4/Building_Wireshark_on_SnowLeopard.html
 #
 
 # To set up a GTK3 environment
@@ -18,7 +18,7 @@
 # The following libraries are required.
 #
 GETTEXT_VERSION=0.18.1.1
-GLIB_VERSION=2.31.8
+GLIB_VERSION=2.32.3
 #
 # pkg-config 0.26 appears to have broken the "we have our own GLib"
 # stuff, even if you explicitly set GLIB_CFLAGS and GLIB_LIBS.
@@ -26,16 +26,16 @@ GLIB_VERSION=2.31.8
 # so we use 0.25 instead.
 #
 PKG_CONFIG_VERSION=0.26
-ATK_VERSION=2.2.0
-PANGO_VERSION=1.29.5
-PNG_VERSION=1.5.7
-PIXMAN_VERSION=0.24.0
-CAIRO_VERSION=1.10.2
-GDK_PIXBUF_VERSION=2.25.0
+ATK_VERSION=2.4.0
+PANGO_VERSION=1.30.0
+PNG_VERSION=1.5.10
+PIXMAN_VERSION=0.26.0
+CAIRO_VERSION=1.12.2
+GDK_PIXBUF_VERSION=2.26.1
 if [ -z "$GTK3" ]; then
-  GTK_VERSION=2.24.8
+  GTK_VERSION=2.24.10
 else
-  GTK_VERSION=3.2.3
+  GTK_VERSION=3.5.2
 fi
 
 #
@@ -45,7 +45,7 @@ fi
 XZ_VERSION=5.0.3
 
 # In case we want to build with cmake
-CMAKE_VERSION=2.8.7
+CMAKE_VERSION=2.8.8
 
 #
 # The following libraries are optional.
@@ -64,9 +64,11 @@ LIBGPG_ERROR_VERSION=1.10
 # file, but http://directory.fsf.org/project/libgcrypt/ lists only
 # 1.4.6.
 #
-LIBGCRYPT_VERSION=1.4.6
-GNUTLS_VERSION=2.12.7
-LUA_VERSION=5.1.4
+LIBGCRYPT_VERSION=1.5.0
+GNUTLS_VERSION=2.12.19
+# Stay with Lua 5.1 when updating until the code has been changed
+# to support 5.2
+LUA_VERSION=5.1.5
 PORTAUDIO_VERSION=pa_stable_v19_20111121
 #
 # XXX - they appear to have an unversioned gzipped tarball for the
@@ -176,12 +178,7 @@ cd glib-$GLIB_VERSION
 # script doesn't try to use pkg-config to get the appropriate
 # CFLAGS and LIBS.
 #
-LIBFFI_CFLAGS="-I/usr/include/ffi" LIBFFI_LIBS="-L/usr/lib" ./configure || exit 1
-#
-# Mac OS X on 64-bit platforms provides libiconv, but in a form that
-# confuses GLib.
-#
-patch -p1 < ../../macosx-support-lib-patches/glib-gconvert.patch || exit 1
+LIBFFI_CFLAGS="-I/usr/include/ffi" LIBFFI_LIBS="-lffi" ./configure || exit 1
 make -j 3 || exit 1
 # Apply patch: we depend on libffi, but pkg-config doesn't get told.
 patch -p0 <../../macosx-support-lib-patches/glib-pkgconfig.patch || exit 1
@@ -235,8 +232,8 @@ if [ -n "$GTK3" ]; then
   # And now cairo itself.
   #
   echo "Downloading, building, and installing Cairo:"
-  curl -O http://cairographics.org/releases/cairo-$CAIRO_VERSION.tar.gz || exit 1
-  tar xvfz cairo-$CAIRO_VERSION.tar.gz || exit 1
+  curl -O http://cairographics.org/releases/cairo-$CAIRO_VERSION.tar.xz || exit 1
+  xzcat cairo-$CAIRO_VERSION.tar.xz | tar xf - || exit 1
   cd cairo-$CAIRO_VERSION
   #./configure --enable-quartz=no || exit 1
   # Maybe follow http://cairographics.org/end_to_end_build_for_mac_os_x/
@@ -244,12 +241,12 @@ if [ -n "$GTK3" ]; then
   make -j 3 || exit 1
   $DO_MAKE_INSTALL || exit 1
   cd ..
-fi 
+fi
 
 echo "Downloading, building, and installing ATK:"
 atk_dir=`expr $ATK_VERSION : '\([0-9][0-9]*\.[0-9][0-9]*\).*'`
-curl -O http://ftp.gnome.org/pub/gnome/sources/atk/$atk_dir/atk-$ATK_VERSION.tar.bz2 || exit 1
-bzcat atk-$ATK_VERSION.tar.bz2 | tar xf - || exit 1
+curl -O http://ftp.gnome.org/pub/gnome/sources/atk/$atk_dir/atk-$ATK_VERSION.tar.xz || exit 1
+xzcat atk-$ATK_VERSION.tar.xz | tar xf - || exit 1
 cd atk-$ATK_VERSION
 ./configure || exit 1
 make -j 3 || exit 1
@@ -258,8 +255,8 @@ cd ..
 
 echo "Downloading, building, and installing Pango:"
 pango_dir=`expr $PANGO_VERSION : '\([0-9][0-9]*\.[0-9][0-9]*\).*'`
-curl -L -O http://ftp.gnome.org/pub/gnome/sources/pango/$pango_dir/pango-$PANGO_VERSION.tar.bz2
-bzcat pango-$PANGO_VERSION.tar.bz2 | tar xf - || exit 1
+curl -L -O http://ftp.gnome.org/pub/gnome/sources/pango/$pango_dir/pango-$PANGO_VERSION.tar.xz
+xzcat pango-$PANGO_VERSION.tar.xz | tar xf - || exit 1
 cd pango-$PANGO_VERSION
 ./configure || exit 1
 make -j 3 || exit 1
@@ -365,7 +362,7 @@ then
 	# XXX - is there some reason to prefer nettle?  Or does
 	# Wireshark directly use libgcrypt routines?
 	#
-	./configure --with-libgcrypt || exit 1
+	./configure --with-libgcrypt --without-p11-kit || exit 1
 	make -j 3 || exit 1
 	#
 	# The pkgconfig file for GnuTLS says "requires zlib", but OS X,
@@ -377,7 +374,7 @@ then
 	# depend on building GnuTLS with zlib, an alternative would be
 	# to configure it not to use zlib.)
 	#
-	patch -p0 lib/gnutls.pc <../../macosx-support-lib-patches/gnutls-pkgconfig.patch || exit 1
+	patch -p0 lib/gnutls.pc.in <../../macosx-support-lib-patches/gnutls-pkgconfig.patch || exit 1
 	$DO_MAKE_INSTALL || exit 1
 	cd ..
 fi

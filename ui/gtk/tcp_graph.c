@@ -39,8 +39,16 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #if GTK_CHECK_VERSION(3,0,0)
+#define USE_CROSSHAIR_CURSOR 1
 # include <gdk/gdkkeysyms-compat.h>
 #endif
+
+/* The old crosshair functionality does not work (well) with cairo
+ * disable it and use a crosshair cursor instead.
+ * Use a define for now so the functionality can be restored if need be
+ * but redisign is probably needed to get it to work with cairo
+ */
+#define USE_CROSSHAIR_CURSOR 1
 
 #include <epan/packet.h>
 #include <epan/ipproto.h>
@@ -375,10 +383,13 @@ static int debugging = 0;
 /*int debugging = DBS_TPUT_ELMTS;*/
 
 static void create_gui (struct graph * );
+#if USE_CROSSHAIR_CURSOR
+#else
 #if 0
 static void create_text_widget (struct graph * );
 static void display_text (struct graph * );
 #endif
+#endif /* USE_CROSSHAIR_CURSOR */
 static void create_drawing_area (struct graph * );
 static void control_panel_create (struct graph * );
 static GtkWidget *control_panel_create_zoom_group (struct graph * );
@@ -455,11 +466,14 @@ static void toggle_crosshairs (struct graph *g);
 static void toggle_time_origin (struct graph * );
 static void toggle_seq_origin (struct graph * );
 static void restore_initial_graph_view (struct graph *g);
+#if USE_CROSSHAIR_CURSOR
+#else
 static void cross_xor (struct graph * , int , int );
 static void cross_draw (struct graph * , int , int );
 static void cross_erase (struct graph * );
-static void magnify_create (struct graph * , int , int );
 static void magnify_move (struct graph * , int , int );
+#endif /* USE_CROSSHAIR_CURSOR */
+static void magnify_create (struct graph * , int , int );
 static void magnify_destroy (struct graph * );
 static void magnify_draw (struct graph * );
 static void magnify_get_geom (struct graph * , int , int );
@@ -471,11 +485,14 @@ static gboolean expose_event (GtkWidget * , GdkEventExpose * , gpointer );
 #endif
 static gboolean button_press_event (GtkWidget * , GdkEventButton * , gpointer );
 static gboolean button_release_event (GtkWidget * , GdkEventButton * , gpointer );
+#if USE_CROSSHAIR_CURSOR
+#else /* USE_CROSSHAIR_CURSOR */
 static gboolean motion_notify_event (GtkWidget * , GdkEventMotion * , gpointer );
-static gboolean key_press_event (GtkWidget * , GdkEventKey * , gpointer );
-static gboolean key_release_event (GtkWidget * , GdkEventKey * , gpointer );
 static gboolean leave_notify_event (GtkWidget * , GdkEventCrossing * , gpointer );
 static gboolean enter_notify_event (GtkWidget * , GdkEventCrossing * , gpointer );
+#endif
+static gboolean key_press_event (GtkWidget * , GdkEventKey * , gpointer );
+static gboolean key_release_event (GtkWidget * , GdkEventKey * , gpointer );
 static void tseq_initialize (struct graph * );
 static void tseq_get_bounds (struct graph * );
 static void tseq_stevens_read_config (struct graph * );
@@ -593,13 +610,30 @@ static void set_busy_cursor(GdkWindow *w)
 	cursor = gdk_cursor_new(GDK_WATCH);
 	gdk_window_set_cursor(w, cursor);
 	gdk_flush();
+#if GTK_CHECK_VERSION(3,0,0)
+	g_object_unref(cursor);
+#else
 	gdk_cursor_unref(cursor);
+#endif
 }
 
-static void unset_busy_cursor(GdkWindow *w)
+static void unset_busy_cursor(GdkWindow *w, gboolean cross)
 {
-	gdk_window_set_cursor(w, NULL);
-	gdk_flush();
+	GdkCursor* cursor;
+
+	if(cross){
+		cursor = gdk_cursor_new(GDK_CROSSHAIR);
+		gdk_window_set_cursor(w, cursor);
+		gdk_flush();
+#if GTK_CHECK_VERSION(3,0,0)
+		g_object_unref(cursor);
+#else
+		gdk_cursor_unref(cursor);
+#endif
+	}else{
+		gdk_window_set_cursor(w, NULL);
+		gdk_flush();
+	}
 }
 void tcp_graph_cb (GtkAction *action, gpointer user_data _U_)
 {
@@ -660,6 +694,7 @@ static void create_drawing_area (struct graph *g)
 	GdkColormap *colormap;
 	GdkColor color;
 #endif
+	char *display_name;
 	char window_title[WINDOW_TITLE_LENGTH];
 	struct segment current;
 	struct tcpheader *thdr;
@@ -672,14 +707,16 @@ static void create_drawing_area (struct graph *g)
 #endif
 	debug(DBS_FENTRY) puts ("create_drawing_area()");
 	thdr=select_tcpip_session (&cfile, &current);
+	display_name = cf_get_display_name(&cfile);
 	g_snprintf (window_title, WINDOW_TITLE_LENGTH, "TCP Graph %d: %s %s:%d -> %s:%d",
 			refnum,
-			cf_get_display_name(&cfile),
+			display_name,
 			ep_address_to_str(&(thdr->ip_src)),
 			thdr->th_sport,
 			ep_address_to_str(&(thdr->ip_dst)),
 			thdr->th_dport
 	);
+	g_free(display_name);
 	g->toplevel = dlg_window_new ("Tcp Graph");
 	gtk_window_set_title(GTK_WINDOW(g->toplevel), window_title);
 	gtk_widget_set_name (g->toplevel, "Test Graph");
@@ -702,16 +739,20 @@ static void create_drawing_area (struct graph *g)
 	g_signal_connect(g->drawing_area,"configure_event", G_CALLBACK(configure_event),
         g);
 	 */
-	g_signal_connect(g->drawing_area, "motion_notify_event",
-                       G_CALLBACK(motion_notify_event), g);
+
 	g_signal_connect(g->drawing_area, "button_press_event",
                        G_CALLBACK(button_press_event), g);
 	g_signal_connect(g->drawing_area, "button_release_event",
                        G_CALLBACK(button_release_event), g);
+#if USE_CROSSHAIR_CURSOR
+#else
+	g_signal_connect(g->drawing_area, "motion_notify_event",
+                       G_CALLBACK(motion_notify_event), g);
 	g_signal_connect(g->drawing_area, "leave_notify_event",
                        G_CALLBACK(leave_notify_event), g);
 	g_signal_connect(g->drawing_area, "enter_notify_event",
                        G_CALLBACK(enter_notify_event), g);
+#endif /* USE_CROSSHAIR_CURSOR */
 	g_signal_connect(g->toplevel, "destroy", G_CALLBACK(callback_toplevel_destroy), g);
 	/* why doesn't drawing area send key_press_signals? */
 	g_signal_connect(g->toplevel, "key_press_event", G_CALLBACK(key_press_event), g);
@@ -732,7 +773,7 @@ static void create_drawing_area (struct graph *g)
 #if 0
 	/* Prep. to include the controls in the graph window */
 
-	vbox = gtk_vbox_new (FALSE, 0);
+	vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_add (GTK_CONTAINER (g->toplevel), vbox);
 	gtk_container_set_border_width (GTK_CONTAINER (g->toplevel), 5);
 	gtk_widget_show (vbox);
@@ -746,7 +787,7 @@ static void create_drawing_area (struct graph *g)
 
 	/*gtk_box_pack_start (GTK_BOX (vbox), g->gui.control_panel, FALSE, FALSE, 0);*/
 
-	hbox=gtk_hbox_new(FALSE, 3);
+	hbox=ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3, FALSE);
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 5);
 	gtk_container_set_border_width(GTK_CONTAINER(hbox), 3);
 	gtk_box_set_child_packing(GTK_BOX(vbox), hbox, FALSE, FALSE, 0, GTK_PACK_START);
@@ -885,7 +926,7 @@ static void control_panel_add_zoom_page (struct graph *g, GtkWidget *n)
 	gtk_container_set_border_width (GTK_CONTAINER (zoom_frame), 5);
 	zoom_lock_frame = control_panel_create_zoomlock_group (g);
 	gtk_container_set_border_width (GTK_CONTAINER (zoom_lock_frame), 5);
-	box = gtk_vbox_new (FALSE, 0);
+	box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_box_pack_start (GTK_BOX (box), zoom_frame, TRUE, TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (box), zoom_lock_frame, TRUE, TRUE, 0);
 	gtk_widget_show (box);
@@ -916,7 +957,7 @@ static void control_panel_add_origin_page (struct graph *g, GtkWidget *n)
 			gtk_radio_button_get_group (GTK_RADIO_BUTTON (time_orig_cap)),
 			"beginning of this TCP connection");
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (time_orig_conn), TRUE);
-	time_orig_box = gtk_vbox_new (TRUE, 0);
+	time_orig_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_box_pack_start (GTK_BOX (time_orig_box), time_orig_conn, TRUE, TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (time_orig_box), time_orig_cap, TRUE, TRUE, 0);
 	time_orig_frame = gtk_frame_new ("Time origin");
@@ -929,7 +970,7 @@ static void control_panel_add_origin_page (struct graph *g, GtkWidget *n)
 	seq_orig_zero = gtk_radio_button_new_with_label (gtk_radio_button_get_group (
 			GTK_RADIO_BUTTON (seq_orig_isn)), "0 (=absolute)");
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (seq_orig_isn), TRUE);
-	seq_orig_box = gtk_vbox_new (TRUE, 0);
+	seq_orig_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_box_pack_start (GTK_BOX (seq_orig_box), seq_orig_isn, TRUE, TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (seq_orig_box), seq_orig_zero, TRUE, TRUE, 0);
 	seq_orig_frame = gtk_frame_new ("Sequence number origin");
@@ -942,7 +983,7 @@ static void control_panel_add_origin_page (struct graph *g, GtkWidget *n)
 	g_signal_connect(time_orig_conn, "toggled", G_CALLBACK(callback_time_origin), g);
 	g_signal_connect(seq_orig_isn, "toggled", G_CALLBACK(callback_seq_origin), g);
 
-	box = gtk_vbox_new (FALSE, 0);
+	box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_set_border_width (GTK_CONTAINER (box), 5);
 	gtk_box_pack_start (GTK_BOX (box), time_orig_frame, TRUE, TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (box), seq_orig_frame, TRUE, TRUE, 0);
@@ -998,7 +1039,7 @@ static void callback_create_help(GtkWidget *widget _U_, gpointer data _U_)
 	toplevel = dlg_window_new ("Help for TCP graphing");
 	gtk_window_set_default_size(GTK_WINDOW(toplevel), 500, 400);
 
-	vbox = gtk_vbox_new (FALSE, 3);
+	vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
 	gtk_container_add (GTK_CONTAINER (toplevel), vbox);
 
@@ -1051,11 +1092,11 @@ static GtkWidget *control_panel_create_zoom_group (struct graph *g)
 	zoom_out = gtk_radio_button_new_with_label (
 					gtk_radio_button_get_group (GTK_RADIO_BUTTON (zoom_in)), "out");
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (zoom_in), TRUE);
-	zoom_inout_box = gtk_hbox_new (FALSE, 0);
+	zoom_inout_box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
 	gtk_box_pack_start (GTK_BOX (zoom_inout_box), zoom_in, FALSE, FALSE, 10);
 	gtk_box_pack_start (GTK_BOX (zoom_inout_box), zoom_out, FALSE, FALSE, 0);
 
-	zoom_separator1 = gtk_hseparator_new ();
+	zoom_separator1 = gtk_separator_new (GTK_ORIENTATION_HORIZONTAL);
 
 	zoom_h_entry = gtk_entry_new ();
 	gtk_entry_set_text (GTK_ENTRY (zoom_h_entry), "1.000");
@@ -1080,7 +1121,7 @@ static GtkWidget *control_panel_create_zoom_group (struct graph *g)
 	gtk_table_attach (GTK_TABLE (zoom_table), zoom_v_entry, 1, 2, 1, 2,
 				GTK_FILL|GTK_EXPAND, GTK_FILL|GTK_EXPAND, 5, 0);
 
-	zoom_separator2 = gtk_hseparator_new ();
+	zoom_separator2 = gtk_separator_new (GTK_ORIENTATION_HORIZONTAL);
 
 	zoom_h_adj = (GtkAdjustment * )gtk_adjustment_new ((gfloat)1.2, 1.0, 5, (gfloat)0.1, 1, 0);
 	zoom_h_step = gtk_spin_button_new (zoom_h_adj, 0, 1);
@@ -1117,7 +1158,7 @@ static GtkWidget *control_panel_create_zoom_group (struct graph *g)
 	gtk_table_attach (GTK_TABLE (zoom_step_table), zoom_ratio_toggle, 0,2,3,4,
 				GTK_FILL|GTK_EXPAND, GTK_FILL|GTK_EXPAND, 5, 0);
 
-	zoom_box = gtk_vbox_new (FALSE, 0);
+	zoom_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_box_pack_start (GTK_BOX (zoom_box), zoom_inout_box, TRUE, TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (zoom_box), zoom_separator1, TRUE, TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (zoom_box), zoom_table, TRUE, TRUE, 0);
@@ -1291,7 +1332,7 @@ static GtkWidget *control_panel_create_magnify_group (struct graph *g)
 	gtk_container_add (GTK_CONTAINER (mag_zoom_frame), mag_zoom_table);
 	gtk_container_set_border_width (GTK_CONTAINER (mag_zoom_frame), 3);
 
-	mag_box = gtk_vbox_new (FALSE, 0);
+	mag_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_box_pack_start (GTK_BOX (mag_box), mag_wh_table, TRUE, TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (mag_box), mag_zoom_frame, TRUE, TRUE, 0);
 	mag_frame = gtk_frame_new ("Magnify");
@@ -1422,7 +1463,7 @@ static GtkWidget *control_panel_create_zoomlock_group (struct graph *g)
 					gtk_radio_button_get_group (GTK_RADIO_BUTTON (zoom_lock_none)),
 					"vertical");
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (zoom_lock_none), TRUE);
-	zoom_lock_box = gtk_hbox_new (FALSE, 0);
+	zoom_lock_box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
 	gtk_box_pack_start(GTK_BOX(zoom_lock_box), zoom_lock_none,
                            TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(zoom_lock_box), zoom_lock_h, TRUE, TRUE, 0);
@@ -1465,11 +1506,11 @@ static GtkWidget *control_panel_create_cross_group (struct graph *g)
 	on = gtk_radio_button_new_with_label (
 				gtk_radio_button_get_group (GTK_RADIO_BUTTON (off)), "on");
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (off), TRUE);
-	box = gtk_hbox_new (FALSE, 0);
+	box = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
 	gtk_box_pack_start (GTK_BOX (box), label, FALSE, FALSE, 10);
 	gtk_box_pack_start (GTK_BOX (box), off, FALSE, FALSE, 10);
 	gtk_box_pack_start (GTK_BOX (box), on, FALSE, FALSE, 0);
-	vbox = gtk_vbox_new (FALSE, 0);
+	vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_box_pack_start (GTK_BOX (vbox), box, FALSE, FALSE, 15);
 	/* frame = gtk_frame_new ("Cross:"); */
 	frame = gtk_frame_new (NULL);
@@ -1482,7 +1523,28 @@ static GtkWidget *control_panel_create_cross_group (struct graph *g)
 
 	return frame;
 }
+#if USE_CROSSHAIR_CURSOR
+static void callback_cross_on_off (GtkWidget *toggle, gpointer data)
+{
+	GdkCursor* cursor;
+	struct graph *g = (struct graph * )data;
 
+	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (toggle))) {
+		g->cross.draw = TRUE;
+		cursor = gdk_cursor_new(GDK_CROSSHAIR);
+		gdk_window_set_cursor(gtk_widget_get_window(g->drawing_area), cursor);
+		gdk_flush();
+#if GTK_CHECK_VERSION(3,0,0)
+		g_object_unref(cursor);
+#else
+		gdk_cursor_unref(cursor);
+#endif
+	}else{
+		gdk_window_set_cursor(gtk_widget_get_window(g->drawing_area), NULL);
+		gdk_flush();
+	}
+}
+#else
 static void callback_cross_on_off (GtkWidget *toggle, gpointer data)
 {
 	struct graph *g = (struct graph * )data;
@@ -1490,13 +1552,14 @@ static void callback_cross_on_off (GtkWidget *toggle, gpointer data)
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (toggle))) {
 		int x, y;
 		g->cross.draw = TRUE;
-		gdk_window_get_pointer (gtk_widget_get_window(g->drawing_area), &x, &y, 0);
-		cross_draw (g, x, y);
+		/*gdk_window_get_pointer (gtk_widget_get_window(g->drawing_area), &x, &y, 0);
+		cross_draw (g, x, y);*/
 	} else {
 		g->cross.draw = FALSE;
 		cross_erase (g);
 	}
 }
+#endif /* USE_CROSSHAIR_CURSOR */
 
 static GtkWidget *control_panel_create_graph_type_group (struct graph *g)
 {
@@ -1537,8 +1600,8 @@ static GtkWidget *control_panel_create_graph_type_group (struct graph *g)
 		break;
 	}
 	graph_init = gtk_check_button_new_with_label ("Init on change");
-	graph_sep = gtk_hseparator_new ();
-	graph_box = gtk_vbox_new (FALSE, 0);
+	graph_sep = gtk_separator_new (GTK_ORIENTATION_HORIZONTAL);
+	graph_box = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_box_pack_start (GTK_BOX (graph_box), graph_rtt, TRUE, TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (graph_box), graph_tput, TRUE, TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (graph_box), graph_tseqstevens, TRUE, TRUE, 0);
@@ -1832,16 +1895,36 @@ static void graph_segment_list_get (struct graph *g)
 
 typedef struct _th_t {
 	int num_hdrs;
-	struct tcpheader *tcphdr;
+	#define MAX_SUPPORTED_TCP_HEADERS 8
+	struct tcpheader *tcphdrs[MAX_SUPPORTED_TCP_HEADERS];
 } th_t;
 
 static int
 tap_tcpip_packet(void *pct, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *vip)
 {
+	int n;
+	gboolean is_unique = TRUE;
 	th_t *th=pct;
+	struct tcpheader *header = (struct tcpheader *)vip;
 
-	th->num_hdrs++;
-	th->tcphdr=(struct tcpheader *)vip;
+	/* Check new header details against any/all stored ones */
+	for (n=0; n < th->num_hdrs; n++) {
+		struct tcpheader *stored = th->tcphdrs[n];
+
+		if (compare_headers(&stored->ip_src, &stored->ip_dst,
+		                    stored->th_sport, stored->th_dport,
+		                    &header->ip_src, &header->ip_dst,
+		                    header->th_sport, stored->th_dport,
+		                    COMPARE_CURR_DIR)) {
+			is_unique = FALSE;
+			break;
+		}
+	}
+
+	/* Add address if unique and have space for it */
+	if (is_unique && (th->num_hdrs < MAX_SUPPORTED_TCP_HEADERS)) {
+		th->tcphdrs[th->num_hdrs++] = header;
+	}
 
 	return 0;
 }
@@ -1858,7 +1941,7 @@ static struct tcpheader *select_tcpip_session (capture_file *cf, struct segment 
 	epan_dissect_t edt;
 	dfilter_t *sfcode;
 	GString *error_string;
-	th_t th = {0, NULL};
+	th_t th = {0, {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}};
 
 	fdata = cf->current_frame;
 
@@ -1904,26 +1987,27 @@ static struct tcpheader *select_tcpip_session (capture_file *cf, struct segment 
 	if(th.num_hdrs>1){
 		/* can only handle a single tcp layer yet */
 		simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
-		    "The selected packet has more than one TCP"
-		    "header in it.");
+		    "The selected packet has more than one TCP unique conversation "
+		    "in it.");
 		return NULL;
 	}
 
+	/* For now, still always choose the first/only one */
 	hdrs->num = fdata->num;
 	hdrs->rel_secs = (guint32) fdata->rel_ts.secs;
 	hdrs->rel_usecs = fdata->rel_ts.nsecs/1000;
 	hdrs->abs_secs = (guint32) fdata->abs_ts.secs;
 	hdrs->abs_usecs = fdata->abs_ts.nsecs/1000;
-	hdrs->th_seq=th.tcphdr->th_seq;
-	hdrs->th_ack=th.tcphdr->th_ack;
-	hdrs->th_win=th.tcphdr->th_win;
-	hdrs->th_flags=th.tcphdr->th_flags;
-	hdrs->th_sport=th.tcphdr->th_sport;
-	hdrs->th_dport=th.tcphdr->th_dport;
-	hdrs->th_seglen=th.tcphdr->th_seglen;
-	COPY_ADDRESS(&hdrs->ip_src, &th.tcphdr->ip_src);
-	COPY_ADDRESS(&hdrs->ip_dst, &th.tcphdr->ip_dst);
-	return th.tcphdr;
+	hdrs->th_seq=th.tcphdrs[0]->th_seq;
+	hdrs->th_ack=th.tcphdrs[0]->th_ack;
+	hdrs->th_win=th.tcphdrs[0]->th_win;
+	hdrs->th_flags=th.tcphdrs[0]->th_flags;
+	hdrs->th_sport=th.tcphdrs[0]->th_sport;
+	hdrs->th_dport=th.tcphdrs[0]->th_dport;
+	hdrs->th_seglen=th.tcphdrs[0]->th_seglen;
+	COPY_ADDRESS(&hdrs->ip_src, &th.tcphdrs[0]->ip_src);
+	COPY_ADDRESS(&hdrs->ip_dst, &th.tcphdrs[0]->ip_dst);
+	return th.tcphdrs[0];
 
 }
 
@@ -2120,7 +2204,7 @@ static void graph_display (struct graph *g)
 {
 	set_busy_cursor (gtk_widget_get_window(g->drawing_area));
 	graph_pixmap_draw (g);
-	unset_busy_cursor (gtk_widget_get_window(g->drawing_area));
+	unset_busy_cursor (gtk_widget_get_window(g->drawing_area), g->cross.draw);
 	graph_pixmaps_switch (g);
 	graph_pixmap_display (g);
 }
@@ -2138,10 +2222,12 @@ static void graph_pixmap_display (struct graph *g)
 	cairo_rectangle (cr, g->wp.x, g->wp.y, g->wp.width, g->wp.height);
 	cairo_fill (cr);
 	cairo_destroy (cr);
-
+#if USE_CROSSHAIR_CURSOR
+#else
     if (g->cross.erase_needed) {
        cross_xor(g, g->cross.x, g->cross.y);
     }
+#endif
 }
 
 static void graph_pixmaps_switch (struct graph *g)
@@ -2751,7 +2837,7 @@ static void graph_select_segment (struct graph *g, int x, int y)
 	if (num) {
 		cf_goto_frame(&cfile, num);
 	}
-	unset_busy_cursor (gtk_widget_get_window(g->drawing_area));
+	unset_busy_cursor (gtk_widget_get_window(g->drawing_area), g->cross.draw);
 }
 
 static int line_detect_collision (struct element *e, int x, int y)
@@ -2797,10 +2883,11 @@ static int ellipse_detect_collision (struct element *e, int x, int y)
 	else
 		return FALSE;
 }
-
+#if USE_CROSSHAIR_CURSOR
+#else
 static void cross_xor (struct graph *g, int x, int y)
 {
-#if GTK_CHECK_VERSION(3,0,0)
+#if GTK_CHECK_VERSION(2,22,0)
 	GdkColor color_gray15 = {0x0, 0x2626, 0x2626, 0x2626};
 	cairo_t *cr;
 
@@ -2812,17 +2899,11 @@ static void cross_xor (struct graph *g, int x, int y)
 		cairo_set_operator (cr, CAIRO_OPERATOR_XOR);
 		gdk_cairo_set_source_color (cr, &color_gray15);
 		cairo_set_line_width (cr, 1.0);
-		cairo_move_to(cr,  g->wp.x, y);
-		cairo_line_to(cr,  g->wp.x + g->wp.width, y);
-		cairo_stroke(cr);
-		cairo_destroy(cr);
-		/* draw vertical line */
-		cr = gdk_cairo_create (gtk_widget_get_window(g->drawing_area));
-		cairo_set_operator (cr, CAIRO_OPERATOR_XOR);
-		gdk_cairo_set_source_color (cr, &color_gray15);
-		cairo_set_line_width (cr, 1.0);
-		cairo_move_to(cr,  x, g->wp.y);
-		cairo_line_to(cr,  x, g->wp.y + g->wp.height);
+		cairo_move_to(cr,  g->wp.x+0.5, y+0.5);
+		cairo_line_to(cr,  g->wp.x + g->wp.width+0.5, y+0.5);
+		/* Draw vertical line */
+		cairo_move_to(cr,  x+0.5, g->wp.y+0.5);
+		cairo_line_to(cr,  x+0.5, g->wp.y + g->wp.height+0.5);
 		cairo_stroke(cr);
 		cairo_destroy(cr);
 	}
@@ -2836,7 +2917,7 @@ static void cross_xor (struct graph *g, int x, int y)
 		gdk_draw_line (gtk_widget_get_window(g->drawing_area), xor_gc, x,
 						g->wp.y, x, g->wp.y + g->wp.height);
 	}
-#endif
+#endif /* GTK_CHECK_VERSION(2,22,0) */
 }
 
 static void cross_draw (struct graph *g, int x, int y)
@@ -2852,6 +2933,22 @@ static void cross_erase (struct graph *g)
 	cross_xor (g, g->cross.x, g->cross.y);
 	g->cross.erase_needed = 0;
 }
+
+static void magnify_move (struct graph *g, int x, int y)
+{
+	struct ipoint pos, offsetpos;
+
+	gdk_window_get_position (gtk_widget_get_window(GTK_WIDGET (g->toplevel)), &pos.x, &pos.y);
+	g->magnify.x = pos.x + x - g->magnify.width/2;
+	g->magnify.y = pos.y + y - g->magnify.height/2;
+	offsetpos.x = g->magnify.x + g->magnify.offset.x;
+	offsetpos.x = offsetpos.x >= 0 ? offsetpos.x : 0;
+	offsetpos.y = g->magnify.y + g->magnify.offset.y;
+	offsetpos.y = offsetpos.y >= 0 ? offsetpos.y : 0;
+	magnify_get_geom (g, x, y);
+	magnify_draw (g);
+}
+#endif /* USE_CROSSHAIR_CURSOR */
 
 static void magnify_create (struct graph *g, int x, int y)
 {
@@ -2926,21 +3023,6 @@ static void magnify_create (struct graph *g, int x, int y)
 	graph_pixmaps_create (mg);
 	magnify_draw (g);
 	g->magnify.active = 1;
-}
-
-static void magnify_move (struct graph *g, int x, int y)
-{
-	struct ipoint pos, offsetpos;
-
-	gdk_window_get_position (gtk_widget_get_window(GTK_WIDGET (g->toplevel)), &pos.x, &pos.y);
-	g->magnify.x = pos.x + x - g->magnify.width/2;
-	g->magnify.y = pos.y + y - g->magnify.height/2;
-	offsetpos.x = g->magnify.x + g->magnify.offset.x;
-	offsetpos.x = offsetpos.x >= 0 ? offsetpos.x : 0;
-	offsetpos.y = g->magnify.y + g->magnify.offset.y;
-	offsetpos.y = offsetpos.y >= 0 ? offsetpos.y : 0;
-	magnify_get_geom (g, x, y);
-	magnify_draw (g);
 }
 
 static void magnify_destroy (struct graph *g)
@@ -3210,8 +3292,11 @@ static void do_zoom_mouse (struct graph *g, GdkEventButton *event)
 	axis_display (g->y_axis);
 	axis_display (g->x_axis);
 	update_zoom_spins (g);
+#if USE_CROSSHAIR_CURSOR
+#else
 	if (g->cross.draw)
 		cross_draw (g, (int) event->x, (int) event->y);
+#endif /* USE_CROSSHAIR_CURSOR */
 }
 
 static void do_zoom_keyboard (struct graph *g)
@@ -3220,8 +3305,16 @@ static void do_zoom_keyboard (struct graph *g)
 	struct { double x, y; } factor;
 	int pointer_x, pointer_y;
 
-	gdk_window_get_pointer (gtk_widget_get_window(g->drawing_area), &pointer_x, &pointer_y, 0);
+#if GTK_CHECK_VERSION(3,0,0)
+	gdk_window_get_device_position (gtk_widget_get_window(g->drawing_area),
+                                  gdk_device_manager_get_client_pointer (
+                                    gdk_display_get_device_manager (
+                                      gtk_widget_get_display (GTK_WIDGET (g->drawing_area)))),
+                                  &pointer_x, &pointer_y, NULL);
 
+#else
+	gdk_window_get_pointer (gtk_widget_get_window(g->drawing_area), &pointer_x, &pointer_y, 0);
+#endif
 	if (g->zoom.flags & ZOOM_OUT) {
 		if (g->zoom.flags & ZOOM_HLOCK)
 			factor.x = 1.0;
@@ -3277,8 +3370,11 @@ static void do_zoom_keyboard (struct graph *g)
 	axis_display (g->y_axis);
 	axis_display (g->x_axis);
 	update_zoom_spins (g);
+#if USE_CROSSHAIR_CURSOR
+#else
 	if (g->cross.draw)
 		cross_draw (g, pointer_x, pointer_y);
+#endif /* USE_CROSSHAIR_CURSOR */
 }
 
 static void do_zoom_in_keyboard (struct graph *g)
@@ -3298,8 +3394,18 @@ static void do_select_segment (struct graph *g)
 {
 	int pointer_x, pointer_y;
 
+#if GTK_CHECK_VERSION(3,0,0)
+	gdk_window_get_device_position (gtk_widget_get_window(g->drawing_area),
+                                  gdk_device_manager_get_client_pointer (
+                                    gdk_display_get_device_manager (
+                                      gtk_widget_get_display (GTK_WIDGET (g->drawing_area)))),
+                                  &pointer_x, &pointer_y, NULL);
+
+#else
 	gdk_window_get_pointer (gtk_widget_get_window(g->drawing_area), &pointer_x, &pointer_y, 0);
+#endif
 	graph_select_segment (g, pointer_x, pointer_y);
+
 }
 
 static void do_wscale_graph (struct graph *g)
@@ -3331,8 +3437,16 @@ static void do_magnify_create (struct graph *g)
 {
 	int pointer_x, pointer_y;
 
-	gdk_window_get_pointer (gtk_widget_get_window(g->drawing_area), &pointer_x, &pointer_y, 0);
+#if GTK_CHECK_VERSION(3,0,0)
+	gdk_window_get_device_position (gtk_widget_get_window(g->drawing_area),
+                                  gdk_device_manager_get_client_pointer (
+                                    gdk_display_get_device_manager (
+                                      gtk_widget_get_display (GTK_WIDGET (g->drawing_area)))),
+                                  &pointer_x, &pointer_y, NULL);
 
+#else
+	gdk_window_get_pointer (gtk_widget_get_window(g->drawing_area), &pointer_x, &pointer_y, 0);
+#endif
 	magnify_create (g, (int )rint (pointer_x), (int )rint (pointer_y));
 }
 
@@ -3350,11 +3464,14 @@ static void do_key_motion (struct graph *g)
 	graph_display (g);
 	axis_display (g->y_axis);
 	axis_display (g->x_axis);
+#if USE_CROSSHAIR_CURSOR
+#else
 	if (g->cross.draw) {
 		int pointer_x, pointer_y;
 		gdk_window_get_pointer (gtk_widget_get_window(g->drawing_area), &pointer_x, &pointer_y, 0);
 		cross_draw (g, pointer_x, pointer_y);
 	}
+#endif /* USE_CROSSHAIR_CURSOR */
 }
 
 static void do_key_motion_up (struct graph *g, int step)
@@ -3418,6 +3535,8 @@ static gboolean button_press_event (GtkWidget *widget _U_, GdkEventButton *event
 	return TRUE;
 }
 
+#if USE_CROSSHAIR_CURSOR
+#else
 static gboolean motion_notify_event (GtkWidget *widget _U_, GdkEventMotion *event, gpointer user_data)
 {
     struct graph *g = user_data;
@@ -3474,7 +3593,7 @@ static gboolean motion_notify_event (GtkWidget *widget _U_, GdkEventMotion *even
 
 	return TRUE;
 }
-
+#endif /* USE_CROSSHAIR_CURSOR */
 static gboolean button_release_event (GtkWidget *widget _U_, GdkEventButton *event, gpointer user_data)
 {
     struct graph *g = user_data;
@@ -3582,6 +3701,8 @@ static gboolean key_release_event (GtkWidget *widget _U_, GdkEventKey *event, gp
 	return TRUE;
 }
 
+#if USE_CROSSHAIR_CURSOR
+#else
 static gboolean leave_notify_event (GtkWidget *widget _U_, GdkEventCrossing *event _U_, gpointer user_data)
 {
     struct graph *g = user_data;
@@ -3596,7 +3717,7 @@ static gboolean enter_notify_event (GtkWidget *widget, GdkEventCrossing *event _
 {
     struct graph *g = user_data;
 
-	/* graph_pixmap_display (g); */
+	 graph_pixmap_display (g);
 	if (g->cross.draw) {
 		int x, y;
 		gdk_window_get_pointer (gtk_widget_get_window(widget), &x, &y, 0);
@@ -3604,19 +3725,20 @@ static gboolean enter_notify_event (GtkWidget *widget, GdkEventCrossing *event _
 	}
 	return TRUE;
 }
-
+#endif /* USE_CROSSHAIR_CURSOR */
 static void toggle_crosshairs (struct graph *g)
 {
 	g->cross.draw ^= 1;
-#if 0
+#if USE_CROSSHAIR_CURSOR
+#else
 	if (g->cross.draw) {
 		int x, y;
 		gdk_window_get_pointer (gtk_widget_get_window(g->drawing_area), &x, &y, 0);
-		cross_draw (g);
+		cross_draw (g, x, y);
 	} else if (g->cross.erase_needed) {
 		cross_erase (g);
 	}
-#endif
+#endif /* USE_CROSSHAIR_CURSOR */
 	/* toggle buttons emit their "toggled" signals so don't bother doing
 	 * any real work here, it will be done in signal handlers */
 	if (g->cross.draw)

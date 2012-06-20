@@ -27,10 +27,6 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-
 #include <string.h>
 #include <gtk/gtk.h>
 
@@ -80,11 +76,7 @@ void register_tap_listener_gtk_camelsrt(void);
  */
 static void camelsrt_set_title(struct camelsrt_t * p_camelsrt)
 {
-  char * title;
-  title = g_strdup_printf("CAMEL Service Response Time statistics: %s",
-			  cf_get_display_name(&cfile));
-  gtk_window_set_title(GTK_WINDOW(p_camelsrt->win), title);
-  g_free(title);
+  set_window_title(p_camelsrt->win, "CAMEL Service Response Time statistics");
 }
 
 static void camelsrt_reset(void *phs)
@@ -172,7 +164,7 @@ static void gtk_camelsrt_init(const char *optarg, void *userdata _U_)
   gtk_window_set_default_size(GTK_WINDOW(p_camelsrt->win), 550, 400);
   camelsrt_set_title(p_camelsrt);
 
-  vbox=gtk_vbox_new(FALSE, 3);
+  vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 3, FALSE);
   gtk_container_add(GTK_CONTAINER(p_camelsrt->win), vbox);
   gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
 

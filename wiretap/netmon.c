@@ -155,7 +155,7 @@ static const int netmon_encap[] = {
 	WTAP_ENCAP_FDDI_BITSWAPPED,
 	WTAP_ENCAP_ATM_PDUS,	/* NDIS WAN - this is what's used for ATM */
 	WTAP_ENCAP_UNKNOWN,	/* NDIS LocalTalk, but format 2.x uses it for IP-over-IEEE 1394 */
-	WTAP_ENCAP_IEEE802_11_NETMON_RADIO,
+	WTAP_ENCAP_IEEE_802_11_NETMON,
 				/* NDIS "DIX", but format 2.x uses it for 802.11 */
 	WTAP_ENCAP_RAW_IP,	/* NDIS ARCNET raw, but format 2.x uses it for "Tunneling interfaces" */
 	WTAP_ENCAP_RAW_IP,	/* NDIS ARCNET 878.2, but format 2.x uses it for "Wireless WAN" */
@@ -362,7 +362,7 @@ int netmon_open(wtap *wth, int *err, gchar **err_info)
 		g_free(netmon);
 		return -1;
 	}
-	frame_table = g_malloc(frame_table_length);
+	frame_table = (guint32 *)g_malloc(frame_table_length);
 	errno = WTAP_ERR_CANT_READ;
 	bytes_read = file_read(frame_table, frame_table_length, wth->fh);
 	if ((guint32)bytes_read != frame_table_length) {
@@ -457,7 +457,7 @@ netmon_set_pseudo_header_info(int pkt_encap,
 		pseudo_header->eth.fcs_len = 0;
 		break;
 
-	case WTAP_ENCAP_IEEE802_11_NETMON_RADIO:
+	case WTAP_ENCAP_IEEE_802_11_NETMON:
 		/*
 		 * It appears to be the case that management
 		 * frames have an FCS and data frames don't;
@@ -512,9 +512,8 @@ again:
 	   file, but set the frame table up so it's the last
 	   record in sequence. */
 	rec_offset = netmon->frame_table[netmon->current_frame];
-	if (wth->data_offset != rec_offset) {
-		wth->data_offset = rec_offset;
-		if (file_seek(wth->fh, wth->data_offset, SEEK_SET, err) == -1)
+	if (file_tell(wth->fh) != rec_offset) {
+		if (file_seek(wth->fh, rec_offset, SEEK_SET, err) == -1)
 			return FALSE;
 	}
 	netmon->current_frame++;
@@ -540,7 +539,6 @@ again:
 		}
 		return FALSE;
 	}
-	wth->data_offset += hdr_size;
 
 	switch (netmon->version_major) {
 
@@ -565,7 +563,7 @@ again:
 		return FALSE;
 	}
 
-	*data_offset = wth->data_offset;
+	*data_offset = file_tell(wth->fh);
 
 	/*
 	 * If this is an ATM packet, the first
@@ -596,7 +594,6 @@ again:
 		 */
 		orig_size -= (guint)sizeof (struct netmon_atm_hdr);
 		packet_size -= (guint)sizeof (struct netmon_atm_hdr);
-		wth->data_offset += sizeof (struct netmon_atm_hdr);
 		break;
 
 	default:
@@ -608,7 +605,6 @@ again:
 	if (!netmon_read_rec_data(wth->fh, data_ptr, packet_size, err,
 	    err_info))
 		return FALSE;	/* Read error */
-	wth->data_offset += packet_size;
 
 	switch (netmon->version_major) {
 
@@ -696,7 +692,6 @@ again:
 		    trlr_size, err, err_info);
 		if (wth->phdr.pkt_encap == -1)
 			return FALSE;	/* error */
-		wth->data_offset += trlr_size;
 		if (wth->phdr.pkt_encap == 0)
 			goto again;
 		netmon_set_pseudo_header_info(wth->phdr.pkt_encap,
@@ -1172,7 +1167,7 @@ static gboolean netmon_dump(wtap_dumper *wdh, const struct wtap_pkthdr *phdr,
 		/*
 		 * Haven't yet allocated the buffer for the frame table.
 		 */
-		netmon->frame_table = g_malloc(1024 * sizeof *netmon->frame_table);
+		netmon->frame_table = (guint32 *)g_malloc(1024 * sizeof *netmon->frame_table);
 		netmon->frame_table_size = 1024;
 	} else {
 		/*
@@ -1183,7 +1178,7 @@ static gboolean netmon_dump(wtap_dumper *wdh, const struct wtap_pkthdr *phdr,
 			 * Yes - double the size of the frame table.
 			 */
 			netmon->frame_table_size *= 2;
-			netmon->frame_table = g_realloc(netmon->frame_table,
+			netmon->frame_table = (guint32 *)g_realloc(netmon->frame_table,
 			    netmon->frame_table_size * sizeof *netmon->frame_table);
 		}
 	}

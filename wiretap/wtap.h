@@ -110,10 +110,10 @@ extern "C" {
 #define WTAP_ENCAP_IP_OVER_FC                   18
 #define WTAP_ENCAP_PPP_WITH_PHDR                19
 #define WTAP_ENCAP_IEEE_802_11                  20
-#define WTAP_ENCAP_PRISM_HEADER                 21
+#define WTAP_ENCAP_IEEE_802_11_PRISM            21
 #define WTAP_ENCAP_IEEE_802_11_WITH_RADIO       22
-#define WTAP_ENCAP_IEEE_802_11_WLAN_RADIOTAP    23
-#define WTAP_ENCAP_IEEE_802_11_WLAN_AVS         24
+#define WTAP_ENCAP_IEEE_802_11_RADIOTAP         23
+#define WTAP_ENCAP_IEEE_802_11_AVS              24
 #define WTAP_ENCAP_SLL                          25
 #define WTAP_ENCAP_FRELAY                       26
 #define WTAP_ENCAP_FRELAY_WITH_PHDR             27
@@ -215,7 +215,7 @@ extern "C" {
 #define WTAP_ENCAP_JPEG_JFIF                    123	/* obsoleted by WTAP_ENCAP_MIME*/
 #define WTAP_ENCAP_IPNET                        124
 #define WTAP_ENCAP_SOCKETCAN                    125
-#define WTAP_ENCAP_IEEE802_11_NETMON_RADIO      126
+#define WTAP_ENCAP_IEEE_802_11_NETMON           126
 #define WTAP_ENCAP_IEEE802_15_4_NOFCS           127
 #define WTAP_ENCAP_RAW_IPFIX                    128
 #define WTAP_ENCAP_RAW_IP4                      129
@@ -228,8 +228,14 @@ extern "C" {
 #define WTAP_ENCAP_NETANALYZER_TRANSPARENT      136
 #define WTAP_ENCAP_IP_OVER_IB                   137
 #define WTAP_ENCAP_MPEG_2_TS                    138
-#define WTAP_ENCAP_PPP_ETHER			139
+#define WTAP_ENCAP_PPP_ETHER                    139
 #define WTAP_ENCAP_NFC_LLCP                     140
+#define WTAP_ENCAP_NFLOG                        141
+#define WTAP_ENCAP_V5_EF                        142
+#define WTAP_ENCAP_BACNET_MS_TP_WITH_PHDR       143
+#define WTAP_ENCAP_IXVERIWAVE                   144
+#define WTAP_ENCAP_IEEE_802_11_AIROPEEK         145
+#define WTAP_ENCAP_SDH                          146
 
 #define WTAP_NUM_ENCAP_TYPES                    wtap_get_num_encap_types()
 
@@ -298,6 +304,8 @@ extern "C" {
 #define WTAP_FILE_MIME                          59
 #define WTAP_FILE_AETHRA                        60
 #define WTAP_FILE_MPEG_2_TS                     61
+#define WTAP_FILE_VWR_80211                     62
+#define WTAP_FILE_VWR_ETH                       63
 
 #define WTAP_NUM_FILE_TYPES                     wtap_get_num_file_types()
 
@@ -346,6 +354,9 @@ struct nstr_phdr {
 	guint8 rec_type;
 	guint8 vlantag_offset;
 	guint8 coreid_offset;
+	guint8 srcnodeid_offset;
+	guint8 destnodeid_offset;
+	guint8 clflags_offset;
 };
 
 /* Packet "pseudo-header" information for Ethernet capture files. */
@@ -508,7 +519,7 @@ struct p2p_phdr {
 struct ieee_802_11_phdr {
 	gint	fcs_len;	/* Number of bytes of FCS - -1 means "unknown" */
 	guint8	channel;	/* Channel number */
-	guint8	data_rate;	/* in .5 Mb/s units */
+	guint16	data_rate;	/* in .5 Mb/s units */
 	guint8	signal_level;	/* percentage */
 };
 
@@ -864,24 +875,26 @@ struct wtap_pkthdr {
  * absent, use the file encapsulation - but it's not clear that's useful;
  * we currently do that in the module for the file format.
  */
-#define WTAP_HAS_TS		0x00000001	/* time stamp */
-#define WTAP_HAS_CAP_LEN	0x00000002	/* captured length separate from on-the-network length */
-#define WTAP_HAS_INTERFACE_ID	0x00000004	/* interface ID */
-#define WTAP_HAS_COMMENTS	0x00000008	/* comments */
-#define WTAP_HAS_DROP_COUNT	0x00000010	/* drop count */
-#define WTAP_HAS_PACK_FLAGS	0x00000020	/* packet flags */
+#define WTAP_HAS_TS				0x00000001	/**< time stamp */
+#define WTAP_HAS_CAP_LEN		0x00000002	/**< captured length separate from on-the-network length */
+#define WTAP_HAS_INTERFACE_ID	0x00000004	/**< interface ID */
+#define WTAP_HAS_COMMENTS		0x00000008	/**< comments */
+#define WTAP_HAS_DROP_COUNT		0x00000010	/**< drop count */
+#define WTAP_HAS_PACK_FLAGS		0x00000020	/**< packet flags */
 
 /**
  * Holds the option strings from pcapng:s Section Header block(SHB).
  */
 typedef struct wtapng_section_s {
 	/* mandatory */
-	guint64				section_length;
+	guint64				section_length; /**< 64-bit value specifying the length in bytes of the following section.
+										 * Section Length equal -1 (0xFFFFFFFFFFFFFFFF) means that the size of the section is not specified
+										 */
 	/* options */
-	gchar				*opt_comment;	/* NULL if not available */
-	gchar				*shb_hardware;	/* NULL if not available, UTF-8 string containing the description of the hardware used to create this section. */
-	gchar				*shb_os;		/* NULL if not available, UTF-8 string containing the name of the operating system used to create this section. */
-	gchar				*shb_user_appl;	/* NULL if not available, UTF-8 string containing the name of the application used to create this section. */
+	gchar				*opt_comment;	/**< NULL if not available */
+	gchar				*shb_hardware;	/**< NULL if not available, UTF-8 string containing the description of the hardware used to create this section. */
+	gchar				*shb_os;		/**< NULL if not available, UTF-8 string containing the name of the operating system used to create this section. */
+	gchar				*shb_user_appl;	/**< NULL if not available, UTF-8 string containing the name of the application used to create this section. */
 } wtapng_section_t;
 
 
@@ -915,31 +928,53 @@ typedef struct wtapng_iface_descriptions_s {
  * Interface description data
  */
 typedef struct wtapng_if_descr_s {
-	int					wtap_encap;				/**< link_type translated to wtap_encap */
-	guint64				time_units_per_second;
-	/* mandatory */
-	guint16				link_type;
-	guint32				snap_len;
-	/* options */
-	gchar				*opt_comment;			/**< NULL if not available */
-	gchar				*if_name;				/**< NULL if not available, opt 2 A UTF-8 string containing the name of the device used to capture data. */
-	gchar				*if_description;		/**< NULL if not available, opt 3 A UTF-8 string containing the description of the device used to capture data. */
-	/* XXX: if_IPv4addr opt 4  Interface network address and netmask.*/
-	/* XXX: if_IPv6addr opt 5  Interface network address and prefix length (stored in the last byte).*/
-	/* XXX: if_MACaddr  opt 6  Interface Hardware MAC address (48 bits).*/
-	/* XXX: if_EUIaddr  opt 7  Interface Hardware EUI address (64 bits)*/
-	guint64				if_speed;				/**< 0xFFFFFFFF if unknown, opt 8  Interface speed (in bps). 100000000 for 100Mbps */
-	guint8				if_tsresol;				/**< default is 6 for microsecond resolution, opt 9  Resolution of timestamps. 
-												 * If the Most Significant Bit is equal to zero, the remaining bits indicates the resolution of the timestamp as as a negative power of 10
-												 */
-	/* XXX: if_tzone      10  Time zone for GMT support (TODO: specify better). */
-	gchar				*if_filter_str;			/**< NULL if not available, opt 11  libpcap string. */
-	guint16				bpf_filter_len;			/** Opt 11 variant II BPF filter len 0 if not used*/
-	gchar				*if_filter_bpf_bytes;	/** Opt 11 BPF filter or NULL */
-	gchar				*if_os;					/**< NULL if not available, 12  A UTF-8 string containing the name of the operating system of the machine in which this interface is installed. */
-	gint8				if_fcslen;				/**< -1 if unknown or changes between packets, opt 13  An integer value that specified the length of the Frame Check Sequence (in bits) for this interface. */
-	/* XXX: guint64	if_tsoffset; opt 14  A 64 bits integer value that specifies an offset (in seconds)...*/
+    int                    wtap_encap;            /**< link_type translated to wtap_encap */
+    guint64                time_units_per_second;
+    /* mandatory */
+    guint16                link_type;
+    guint32                snap_len;
+    /* options */
+    gchar                 *opt_comment;           /**< NULL if not available */
+    gchar                 *if_name;               /**< NULL if not available, opt 2 A UTF-8 string containing the name of the device used to capture data. */
+    gchar                 *if_description;        /**< NULL if not available, opt 3 A UTF-8 string containing the description of the device used to capture data. */
+    /* XXX: if_IPv4addr opt 4  Interface network address and netmask.*/
+    /* XXX: if_IPv6addr opt 5  Interface network address and prefix length (stored in the last byte).*/
+    /* XXX: if_MACaddr  opt 6  Interface Hardware MAC address (48 bits).*/
+    /* XXX: if_EUIaddr  opt 7  Interface Hardware EUI address (64 bits)*/
+    guint64                if_speed;              /**< 0xFFFFFFFF if unknown, opt 8  Interface speed (in bps). 100000000 for 100Mbps */
+    guint8                 if_tsresol;            /**< default is 6 for microsecond resolution, opt 9  Resolution of timestamps. 
+                                                   * If the Most Significant Bit is equal to zero, the remaining bits indicates the resolution of the timestamp as as a negative power of 10
+                                                   */
+    /* XXX: if_tzone      10  Time zone for GMT support (TODO: specify better). */
+    gchar                 *if_filter_str;         /**< NULL if not available, opt 11  libpcap string. */
+    guint16                bpf_filter_len;        /** Opt 11 variant II BPF filter len 0 if not used*/
+    gchar                 *if_filter_bpf_bytes;   /** Opt 11 BPF filter or NULL */
+    gchar                 *if_os;                 /**< NULL if not available, 12  A UTF-8 string containing the name of the operating system of the machine in which this interface is installed. */
+    gint8                  if_fcslen;             /**< -1 if unknown or changes between packets, opt 13  An integer value that specified the length of the Frame Check Sequence (in bits) for this interface. */
+    /* XXX: guint64    if_tsoffset; opt 14  A 64 bits integer value that specifies an offset (in seconds)...*/
+    guint8                 num_stat_entries;
+    GArray                *interface_statistics;  /**< An array holding the interface statistics from pcapng ISB:s or equivalent(?)*/
 } wtapng_if_descr_t;
+
+
+/** 
+ * Interface Statistics. pcap-ng Interface Statistics Block (ISB).
+ */
+typedef struct wtapng_if_stats_s {
+	/* mandatory */
+	guint32				interface_id;
+	guint32				ts_high;
+	guint32				ts_low;
+	/* options */
+	gchar				*opt_comment;	/**< NULL if not available */
+	guint64				isb_starttime;
+	guint64				isb_endtime;
+	guint64				isb_ifrecv;
+	guint64				isb_ifdrop;
+	guint64				isb_filteraccept;
+	guint64				isb_osdrop;
+	guint64				isb_usrdeliv;
+} wtapng_if_stats_t;
 
 struct Buffer;
 struct wtap_dumper;
@@ -1002,14 +1037,14 @@ typedef int (*wtap_open_routine_t)(struct wtap*, int *, char **);
 struct wtap* wtap_open_offline(const char *filename, int *err,
     gchar **err_info, gboolean do_random);
 
-/*
+/**
  * If we were compiled with zlib and we're at EOF, unset EOF so that
  * wtap_read/gzread has a chance to succeed. This is necessary if
  * we're tailing a file.
  */
 void wtap_cleareof(wtap *wth);
 
-/*
+/**
  * Set callback functions to add new hostnames. Currently pcapng-only.
  * MUST match add_ipv4_name and add_ipv6_name in addr_resolv.c.
  */
@@ -1019,7 +1054,7 @@ void wtap_set_cb_new_ipv4(wtap *wth, wtap_new_ipv4_callback_t add_new_ipv4);
 typedef void (*wtap_new_ipv6_callback_t) (const void *addrp, const gchar *name);
 void wtap_set_cb_new_ipv6(wtap *wth, wtap_new_ipv6_callback_t add_new_ipv6);
 
-/* Returns TRUE if read was successful. FALSE if failure. data_offset is
+/** Returns TRUE if read was successful. FALSE if failure. data_offset is
  * set to the offset in the file where the data for the read packet is
  * located. */
 gboolean wtap_read(wtap *wth, int *err, gchar **err_info,
@@ -1040,6 +1075,7 @@ guint8 *wtap_buf_ptr(wtap *wth);
  * from the file so far. */
 gint64 wtap_read_so_far(wtap *wth);
 gint64 wtap_file_size(wtap *wth, int *err);
+gboolean wtap_iscompressed(wtap *wth);
 guint wtap_snapshot_length(wtap *wth); /* per file */
 int wtap_file_type(wtap *wth);
 int wtap_file_encap(wtap *wth);
@@ -1048,6 +1084,12 @@ wtapng_section_t* wtap_file_get_shb_info(wtap *wth);
 wtapng_iface_descriptions_t *wtap_file_get_idb_info(wtap *wth);
 void wtap_write_shb_comment(wtap *wth, gchar *comment);
 
+/*** close the file descriptors for the current file ***/
+void wtap_fdclose(wtap *wth);
+
+/*** reopen the random file descriptor for the current file ***/
+gboolean wtap_fdreopen(wtap *wth, const char *filename, int *err);
+
 /*** close the current file ***/
 void wtap_sequential_close(wtap *wth);
 void wtap_close(wtap *wth);
@@ -1055,6 +1097,13 @@ void wtap_close(wtap *wth);
 /*** dump packets into a capture file ***/
 gboolean wtap_dump_can_open(int filetype);
 gboolean wtap_dump_can_write_encap(int filetype, int encap);
+
+/**
+ * Return TRUE if a capture with a given GArray of WTAP_ENCAP_ types
+ * can be written in a specified format, and FALSE if it can't.
+ */
+gboolean wtap_dump_can_write_encaps(int ft, const GArray *file_encaps);
+
 gboolean wtap_dump_can_compress(int filetype);
 gboolean wtap_dump_has_name_resolution(int filetype);
 
@@ -1067,6 +1116,10 @@ wtap_dumper* wtap_dump_open_ng(const char *filename, int filetype, int encap,
 wtap_dumper* wtap_dump_fdopen(int fd, int filetype, int encap, int snaplen,
 	gboolean compressed, int *err);
 
+wtap_dumper* wtap_dump_fdopen_ng(int fd, int filetype, int encap, int snaplen,
+				gboolean compressed, wtapng_section_t *shb_hdr, wtapng_iface_descriptions_t *idb_inf, int *err);
+
+
 gboolean wtap_dump(wtap_dumper *, const struct wtap_pkthdr *,
 	const union wtap_pseudo_header *pseudo_header, const guint8 *, int *err);
 void wtap_dump_flush(wtap_dumper *);
@@ -1076,11 +1129,12 @@ struct addrinfo;
 gboolean wtap_dump_set_addrinfo_list(wtap_dumper *wdh, struct addrinfo *addrinfo_list);
 gboolean wtap_dump_close(wtap_dumper *, int *);
 
-/*
+/**
  * Get a GArray of WTAP_FILE_ values for file types that can be used
- * to save a file of a given type with a given WTAP_ENCAP_ type.
+ * to save a file of a given type with a given GArray of WTAP_ENCAP_
+ * types.
  */
-GArray *wtap_get_savable_file_types(int file_type, int file_encap);
+GArray *wtap_get_savable_file_types(int file_type, const GArray *file_encaps);
 
 /*** various string converter functions ***/
 const char *wtap_file_type_string(int filetype);
@@ -1089,7 +1143,7 @@ int wtap_short_string_to_file_type(const char *short_name);
 
 /*** various file extension functions ***/
 const char *wtap_default_file_extension(int filetype);
-GSList *wtap_get_file_extensions_list(int filetype);
+GSList *wtap_get_file_extensions_list(int filetype, gboolean include_compressed);
 void wtap_free_file_extensions_list(GSList *extensions);
 
 const char *wtap_encap_string(int encap);
@@ -1108,55 +1162,55 @@ int wtap_register_file_type(const struct file_type_info* fi);
 int wtap_register_encap_type(char* name, char* short_name);
 
 
-/*
+/**
  * Wiretap error codes.
  */
 #define	WTAP_ERR_NOT_REGULAR_FILE		-1
-	/* The file being opened for reading isn't a plain file (or pipe) */
+	/** The file being opened for reading isn't a plain file (or pipe) */
 #define	WTAP_ERR_RANDOM_OPEN_PIPE		-2
-	/* The file is being opened for random access and it's a pipe */
+	/** The file is being opened for random access and it's a pipe */
 #define	WTAP_ERR_FILE_UNKNOWN_FORMAT		-3
-	/* The file being opened is not a capture file in a known format */
+	/** The file being opened is not a capture file in a known format */
 #define	WTAP_ERR_UNSUPPORTED			-4
-	/* Supported file type, but there's something in the file we
+	/** Supported file type, but there's something in the file we
 	   can't support */
 #define	WTAP_ERR_CANT_WRITE_TO_PIPE		-5
-	/* Wiretap can't save to a pipe in the specified format */
+	/** Wiretap can't save to a pipe in the specified format */
 #define	WTAP_ERR_CANT_OPEN			-6
-	/* The file couldn't be opened, reason unknown */
+	/** The file couldn't be opened, reason unknown */
 #define	WTAP_ERR_UNSUPPORTED_FILE_TYPE		-7
-	/* Wiretap can't save files in the specified format */
+	/** Wiretap can't save files in the specified format */
 #define	WTAP_ERR_UNSUPPORTED_ENCAP		-8
-	/* Wiretap can't read or save files in the specified format with the
+	/** Wiretap can't read or save files in the specified format with the
 	   specified encapsulation */
 #define	WTAP_ERR_ENCAP_PER_PACKET_UNSUPPORTED	-9
-	/* The specified format doesn't support per-packet encapsulations */
+	/** The specified format doesn't support per-packet encapsulations */
 #define	WTAP_ERR_CANT_CLOSE			-10
-	/* The file couldn't be closed, reason unknown */
+	/** The file couldn't be closed, reason unknown */
 #define	WTAP_ERR_CANT_READ			-11
-	/* An attempt to read failed, reason unknown */
+	/** An attempt to read failed, reason unknown */
 #define	WTAP_ERR_SHORT_READ			-12
-	/* An attempt to read read less data than it should have */
+	/** An attempt to read read less data than it should have */
 #define	WTAP_ERR_BAD_FILE			-13
-	/* The file appears to be damaged or corrupted or otherwise bogus */
+	/** The file appears to be damaged or corrupted or otherwise bogus */
 #define	WTAP_ERR_SHORT_WRITE			-14
-	/* An attempt to write wrote less data than it should have */
+	/** An attempt to write wrote less data than it should have */
 #define	WTAP_ERR_UNC_TRUNCATED			-15
-	/* Sniffer compressed data was oddly truncated */
+	/** Sniffer compressed data was oddly truncated */
 #define	WTAP_ERR_UNC_OVERFLOW			-16
-	/* Uncompressing Sniffer data would overflow buffer */
+	/** Uncompressing Sniffer data would overflow buffer */
 #define	WTAP_ERR_UNC_BAD_OFFSET			-17
-	/* LZ77 compressed data has bad offset to string */
+	/** LZ77 compressed data has bad offset to string */
 #define	WTAP_ERR_RANDOM_OPEN_STDIN		-18
-	/* We're trying to open the standard input for random access */
+	/** We're trying to open the standard input for random access */
 #define WTAP_ERR_COMPRESSION_NOT_SUPPORTED	-19
 	/* The filetype doesn't support output compression */
 #define	WTAP_ERR_CANT_SEEK			-20
-	/* An attempt to seek failed, reason unknown */
+	/** An attempt to seek failed, reason unknown */
 #define WTAP_ERR_DECOMPRESS			-21
-	/* Error decompressing */
+	/** Error decompressing */
 #define WTAP_ERR_INTERNAL			-22
-	/* "Shouldn't happen" internal errors */
+	/** "Shouldn't happen" internal errors */
 
 #ifdef __cplusplus
 }

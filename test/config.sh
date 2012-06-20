@@ -57,7 +57,7 @@ DUMPCAP=$WS_BIN_PATH/dumpcap
 if [ "$WS_SYSTEM" = "Windows" -a -z "$TRAFFIC_CAPTURE_IFACE" ] ; then
         # Try to fetch the first Ethernet interface.
         TRAFFIC_CAPTURE_IFACE=`$TSHARK -D 2>&1 | \
-                egrep 'Ethernet|Network Connection|VMware' | \
+                egrep 'Ethernet|Network Connection|VMware|Intel|Realtek' | \
                 head -1 | cut -c 1`
 fi
 TRAFFIC_CAPTURE_IFACE=${TRAFFIC_CAPTURE_IFACE:-1}
@@ -83,6 +83,18 @@ fi
 # Tell Wireshark to quit after capuring packets.
 export WIRESHARK_QUIT_AFTER_CAPTURE="True"
 
+CAPTURE_DIR="captures/"
+
+# Configuration paths
+TEST_HOME="$PWD/fakehome"
+HOME_ENV="HOME"
+
+if [ "$WS_SYSTEM" == "Windows" ] ; then
+	TEST_HOME="`cygpath -w $TEST_HOME`"
+	HOME_ENV="APPDATA"
+	CAPTURE_DIR="`cygpath -w $CAPTURE_DIR`"
+fi
+
 # Display our environment
 
 ##printf "\n ------- Info =-----------------\n"
@@ -92,3 +104,13 @@ export WIRESHARK_QUIT_AFTER_CAPTURE="True"
 ##ls -l $(which wireshark) $(which tshark) $(which dumpcap)
 ##printf " ----------------------------------\n\n"
 
+# Editor modelines
+#
+# Local Variables:
+# sh-basic-offset: 8
+# tab-width: 8
+# indent-tabs-mode: t
+# End:
+#
+# ex: set shiftwidth=8 tabstop=8 noexpandtab:
+# :indentSize=8:tabSize=8:noTabs=false:

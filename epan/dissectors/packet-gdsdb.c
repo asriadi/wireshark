@@ -27,8 +27,6 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
-
 #include <glib.h>
 
 #include <epan/packet.h>
@@ -310,7 +308,7 @@ static const value_string gdsdb_opcode[] = {
 	{ op_close_blob, "Close blob" },
 	{ op_info_database, "Info database" },
 	{ op_info_request, "Info request" },
-	{ op_transaction, "Info transaction" },
+	{ op_info_transaction, "Info transaction" },
 	{ op_info_blob, "Info blob" },
 	{ op_batch_segments, "Batch segments" },
 	{ op_mgr_set_affinity, "Mgr set affinity" },
@@ -347,7 +345,7 @@ static const value_string gdsdb_opcode[] = {
 	{ op_execute2, "Execute 2" },
 	{ op_insert, "Insert" },
 	{ op_sql_response, "Sql response" },
-	{ op_transact_response, "Transact" },
+	{ op_transact, "Transact" },
 	{ op_transact_response, "Transact response" },
 	{ op_drop_database, "Drop database" },
 	{ op_service_attach, "Service attach" },
@@ -439,7 +437,7 @@ gdsdb_connect(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 							offset, 4, ENC_BIG_ENDIAN);
 		offset += 4;
 		proto_tree_add_item(tree, hf_gdsdb_connect_filename, tvb,
-							offset, 4, ENC_ASCII|ENC_BIG_ENDIAN);
+							offset, 4, ENC_ASCII|ENC_NA);
 		length = tvb_get_ntohl(tvb, offset);
 		offset += length + 6;
 		proto_tree_add_item(tree, hf_gdsdb_connect_count, tvb,
@@ -447,7 +445,7 @@ gdsdb_connect(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 		count = tvb_get_ntohl(tvb, offset);
 		offset += 4;
 		proto_tree_add_item(tree, hf_gdsdb_connect_userid, tvb,
-							offset, 4, ENC_ASCII|ENC_BIG_ENDIAN);
+							offset, 4, ENC_ASCII|ENC_NA);
 		length = tvb_get_ntohl(tvb, offset);
 		offset += length + 5;
 		for(i=0;i<count;i++){
@@ -546,7 +544,7 @@ gdsdb_attach(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 							offset, 4, ENC_BIG_ENDIAN);
 		offset += 4;
 		proto_tree_add_item(tree, hf_gdsdb_attach_filename, tvb,
-							offset, 4, ENC_ASCII|ENC_BIG_ENDIAN);
+							offset, 4, ENC_ASCII|ENC_NA);
 		length = tvb_get_ntohl(tvb, offset);
 		offset += length + 6;
 		proto_tree_add_uint_format_value(tree,
@@ -571,7 +569,7 @@ gdsdb_compile(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 							offset, 4, ENC_BIG_ENDIAN);
 		offset += 4;
 		proto_tree_add_item(tree, hf_gdsdb_compile_blr, tvb,
-							offset, 4, ENC_ASCII|ENC_BIG_ENDIAN);
+							offset, 4, ENC_ASCII|ENC_NA);
 	}
 
 	return tvb_length(tvb);
@@ -662,7 +660,7 @@ gdsdb_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 							offset, 8, ENC_BIG_ENDIAN);
 		offset += 8;
 		proto_tree_add_item(tree, hf_gdsdb_response_data, tvb,
-							offset, 4, ENC_ASCII|ENC_BIG_ENDIAN);
+							offset, 4, ENC_ASCII|ENC_NA);
 		length = tvb_get_ntohl(tvb, offset);
 		offset += length + 4;
 		proto_tree_add_item(tree, hf_gdsdb_response_status, tvb,
@@ -723,7 +721,7 @@ gdsdb_open_blob2(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 	if (tree) {
 		offset = 4;
 		proto_tree_add_item(tree, hf_gdsdb_openblob2_bpb, tvb, offset,
-								4, ENC_ASCII|ENC_BIG_ENDIAN);
+								4, ENC_ASCII|ENC_NA);
 		length = tvb_get_ntohl(tvb, offset);
                 offset += length + 6;
 		proto_tree_add_item(tree, hf_gdsdb_openblob_transaction, tvb,
@@ -827,7 +825,7 @@ gdsdb_info(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 		offset += 4;
 		if(opcode == op_service_info) {
 			proto_tree_add_item(tree, hf_gdsdb_info_items, tvb,
-							offset, 4, ENC_ASCII|ENC_BIG_ENDIAN);
+							offset, 4, ENC_ASCII|ENC_NA);
 			length = tvb_get_ntohl(tvb, offset);
 			offset += length + 6;
 		}
@@ -1035,7 +1033,7 @@ gdsdb_prepare(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree)
 							offset, 4, ENC_BIG_ENDIAN);
 		offset += 4;
 		proto_tree_add_item(tree, hf_gdsdb_prepare_querystr, tvb,
-							offset, 4, ENC_ASCII|ENC_BIG_ENDIAN);
+							offset, 4, ENC_ASCII|ENC_NA);
 		length = tvb_get_ntohl(tvb, offset);
 		offset += length + 6;
 		proto_tree_add_uint_format_value(tree,

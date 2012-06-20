@@ -38,30 +38,13 @@ extern void menu_open_filename(gchar *cf_name);
  *  @ingroup main_window_group
  */
 
-/** User pushed a recent file submenu item.
- *
- * @param widget parent widget
- */
-extern void menu_open_recent_file_cmd(gpointer action);
-
-/** The recent file read has finished, update the menu corresponding. */
-extern void menu_recent_read_finished(void);
-
 /** One of the name resolution menu items changed. */
 extern void menu_name_resolution_changed(void);
-
-/** The "Colorize Packet List" option changed. */
-extern void menu_colorize_changed(gboolean packet_list_colorize);
 
 /* Reset preferences menu on profile or preference change. */
 extern void menu_prefs_reset(void);
 
 extern void rebuild_visible_columns_menu (void);
-
-#ifdef HAVE_LIBPCAP
-/** The "Auto Scroll Packet List in Live Capture" option changed. */
-extern void menu_auto_scroll_live_changed(gboolean auto_scroll_in);
-#endif
 
 /** Create a new menu.
  *
@@ -85,13 +68,6 @@ extern void set_menu_object_data(const gchar *path, const gchar *key, gpointer d
  * @param data the corresponding menu 
  */
 extern gboolean popup_menu_handler(GtkWidget *widget, GdkEvent *event, gpointer data);
-
-/** The packet history has changed, we need to update the menu.
- *
- * @param back_history some back history entries available
- * @param forward_history some forward history entries available
- */
-extern void set_menus_for_packet_history(gboolean back_history, gboolean forward_history);
 
 /** The current file has changed, we need to update the file set menu items.
  *
@@ -123,21 +99,6 @@ extern GtkWidget *menus_get_profiles_change_menu (void);
 /* Enable or disable menu items based on whether a tree row is selected
    and and on whether a "Match Selected" can be done. */
 void set_menus_for_selected_tree_row(capture_file *cf);
-
-
-/* Enable or disable menu items based on whether you have a capture file
-   you've finished reading and, if you have one, whether it's been saved
-   and whether it could be saved except by copying the raw packet data. */
-void set_menus_for_capture_file(capture_file *);
-
-
-/* Enable or disable menu items based on whether there's a capture in
-   progress. */
-void set_menus_for_capture_in_progress(gboolean);
-
-/* Enable or disable menu items based on whether you have some captured
-   packets. */
-void set_menus_for_captured_packets(gboolean);
 
 /* Enable or disable menu items based on whether a packet is selected. */
 void set_menus_for_selected_packet(capture_file *cf);

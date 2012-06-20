@@ -33,6 +33,7 @@
 #include "pcap-common.h"
 #include "pcap-encap.h"
 #include "libpcap.h"
+#include "erf.h"
 
 /* See source to the "libpcap" library for information on the "libpcap"
    file format. */
@@ -88,6 +89,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 	gboolean modified;
 	gboolean aix;
 	int file_encap;
+	gint64 first_packet_offset;
 	libpcap_t *libpcap;
 
 	/* Read in the number that should be at the start of a "libpcap" file */
@@ -99,7 +101,6 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 			return -1;
 		return 0;
 	}
-	wth->data_offset += sizeof magic;
 
 	switch (magic) {
 
@@ -170,7 +171,6 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 			return -1;
 		return 0;
 	}
-	wth->data_offset += sizeof hdr;
 
 	if (byte_swapped) {
 		/* Byte-swap the header fields about which we care. */
@@ -257,7 +257,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 	}
 
 	/* This is a libpcap file */
-	libpcap = (libpcap_t *)g_malloc(sizeof(libpcap_t));;
+	libpcap = (libpcap_t *)g_malloc(sizeof(libpcap_t));
 	libpcap->byte_swapped = byte_swapped;
 	libpcap->version_major = hdr.version_major;
 	libpcap->version_minor = hdr.version_minor;
@@ -309,7 +309,8 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 	if (aix) {
 		/*
 		 * Yes.  Skip all the tests for other mutant formats,
-		 * and set the precision to nanosecond precision.
+		 * and for the ERF link-layer header type, and set the
+		 * precision to nanosecond precision.
 		 */
 		wth->file_type = WTAP_FILE_PCAP_AIX;
 		wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
@@ -357,6 +358,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 		 * Try ss991029, the last of his patches, first.
 		 */
 		wth->file_type = WTAP_FILE_PCAP_SS991029;
+		first_packet_offset = file_tell(wth->fh);
 		switch (libpcap_try(wth, err)) {
 
 		case BAD_READ:
@@ -370,13 +372,13 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 		case THIS_FORMAT:
 			/*
 			 * Well, it looks as if it might be 991029.
-			 * Put the seek pointer back, and return success.
+			 * Put the seek pointer back, and finish.
 			 */
-			if (file_seek(wth->fh, wth->data_offset, SEEK_SET, err) == -1) {
+			if (file_seek(wth->fh, first_packet_offset, SEEK_SET, err) == -1) {
 				g_free(wth->priv);
 				return -1;
 			}
-			return 1;
+			goto done;
 
 		case OTHER_FORMAT:
 			/*
@@ -393,7 +395,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 		 * it as 990915.
 		 */
 		wth->file_type = WTAP_FILE_PCAP_SS990915;
-		if (file_seek(wth->fh, wth->data_offset, SEEK_SET, err) == -1) {
+		if (file_seek(wth->fh, first_packet_offset, SEEK_SET, err) == -1) {
 			g_free(wth->priv);
 			return -1;
 		}
@@ -408,6 +410,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 		} else {
 			wth->file_type = WTAP_FILE_PCAP;
 		}
+		first_packet_offset = file_tell(wth->fh);
 		switch (libpcap_try(wth, err)) {
 
 		case BAD_READ:
@@ -422,13 +425,13 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 			/*
 			 * Well, it looks as if it might be a standard
 			 * libpcap file.
-			 * Put the seek pointer back, and return success.
+			 * Put the seek pointer back, and finish.
 			 */
-			if (file_seek(wth->fh, wth->data_offset, SEEK_SET, err) == -1) {
+			if (file_seek(wth->fh, first_packet_offset, SEEK_SET, err) == -1) {
 				g_free(wth->priv);
 				return -1;
 			}
-			return 1;
+			goto done;
 
 		case OTHER_FORMAT:
 			/*
@@ -443,7 +446,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 		 * ss990417.
 		 */
 		wth->file_type = WTAP_FILE_PCAP_SS990417;
-		if (file_seek(wth->fh, wth->data_offset, SEEK_SET, err) == -1) {
+		if (file_seek(wth->fh, first_packet_offset, SEEK_SET, err) == -1) {
 			g_free(wth->priv);
 			return -1;
 		}
@@ -460,13 +463,13 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 		case THIS_FORMAT:
 			/*
 			 * Well, it looks as if it might be ss990417.
-			 * Put the seek pointer back, and return success.
+			 * Put the seek pointer back, and finish.
 			 */
-			if (file_seek(wth->fh, wth->data_offset, SEEK_SET, err) == -1) {
+			if (file_seek(wth->fh, first_packet_offset, SEEK_SET, err) == -1) {
 				g_free(wth->priv);
 				return -1;
 			}
-			return 1;
+			goto done;
 
 		case OTHER_FORMAT:
 			/*
@@ -483,12 +486,13 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 		 * and treat it as a Nokia file.
 		 */
 		wth->file_type = WTAP_FILE_PCAP_NOKIA;
-		if (file_seek(wth->fh, wth->data_offset, SEEK_SET, err) == -1) {
+		if (file_seek(wth->fh, first_packet_offset, SEEK_SET, err) == -1) {
 			g_free(wth->priv);
 			return -1;
 		}
 	}
 
+done:
 	/*
 	 * We treat a DLT_ value of 13 specially - it appears that in
 	 * Nokia libpcap format, it's some form of ATM with what I
@@ -501,6 +505,13 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
 	if (wth->file_type == WTAP_FILE_PCAP_NOKIA && hdr.network == 13)
 		wth->file_encap = WTAP_ENCAP_ATM_PDUS;
 
+	if (wth->file_encap == WTAP_ENCAP_ERF) {
+		/*
+		 * Populate set of interface IDs for ERF format.
+		 * Currently, this *has* to be done at open time.
+		 */
+		erf_populate_interfaces(wth);
+	}
 	return 1;
 }
 
@@ -612,7 +623,6 @@ static gboolean libpcap_read(wtap *wth, int *err, gchar **err_info,
 		return FALSE;
 	}
 
-	wth->data_offset += bytes_read;
 	packet_size = hdr.hdr.incl_len;
 	orig_size = hdr.hdr.orig_len;
 
@@ -629,7 +639,6 @@ static gboolean libpcap_read(wtap *wth, int *err, gchar **err_info,
 		 */
 		packet_size -= 3;
 		orig_size -= 3;
-		wth->data_offset += 3;
 
 		/*
 		 * Read the padding.
@@ -639,7 +648,7 @@ static gboolean libpcap_read(wtap *wth, int *err, gchar **err_info,
 			return FALSE;	/* Read error */
 	}
 
-	*data_offset = wth->data_offset;
+	*data_offset = file_tell(wth->fh);
 
 	libpcap = (libpcap_t *)wth->priv;
 	phdr_len = pcap_process_pseudo_header(wth->fh, wth->file_type,
@@ -653,13 +662,11 @@ static gboolean libpcap_read(wtap *wth, int *err, gchar **err_info,
 	 */
 	orig_size -= phdr_len;
 	packet_size -= phdr_len;
-	wth->data_offset += phdr_len;
 
 	buffer_assure_space(wth->frame_buffer, packet_size);
 	if (!libpcap_read_rec_data(wth->fh, buffer_start_ptr(wth->frame_buffer),
 	    packet_size, err, err_info))
 		return FALSE;	/* Read error */
-	wth->data_offset += packet_size;
 
 	wth->phdr.presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN;
 
@@ -671,6 +678,10 @@ static gboolean libpcap_read(wtap *wth, int *err, gchar **err_info,
 	  } else {
 	    wth->phdr.ts.nsecs = hdr.hdr.ts_usec * 1000;
 	  }
+	} else {
+	  /* Set interface ID for ERF format */
+	  wth->phdr.presence_flags |= WTAP_HAS_INTERFACE_ID;
+	  wth->phdr.interface_id = wth->pseudo_header.erf.phdr.flags & 0x03;
 	}
 	wth->phdr.caplen = packet_size;
 	wth->phdr.len = orig_size;

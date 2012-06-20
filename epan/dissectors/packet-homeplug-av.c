@@ -3312,7 +3312,7 @@ proto_register_homeplug_av(void)
 	  FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL }
 	},
 	{ &hf_homeplug_av_st_mac_req_img_load,
-	  { "Image Load Starting Addres", "homeplug_av.st_mac_req.img_load",
+	  { "Image Load Starting Address", "homeplug_av.st_mac_req.img_load",
 	  FT_UINT32, BASE_HEX, NULL, 0x00, "Unknown", HFILL }
 	},
 	{ &hf_homeplug_av_st_mac_req_img_len,
@@ -3368,7 +3368,7 @@ proto_register_homeplug_av(void)
 	},
 	{ &hf_homeplug_av_rs_dev_cnf_status,
 	  { "Status", "homeplug_av.rs_dev_cnf.status",
-	  FT_UINT8, BASE_NONE, VALS(homeplug_av_rs_dev_status_vals), 0x00, "Unknown", HFILL }
+	  FT_UINT8, BASE_HEX, VALS(homeplug_av_rs_dev_status_vals), 0x00, "Unknown", HFILL }
 	},
 	/* Shared memory related fields */
 	{ &hf_homeplug_av_mem_len_16bits,

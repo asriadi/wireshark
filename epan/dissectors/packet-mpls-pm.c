@@ -32,8 +32,6 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <glib.h>
 
 #include <epan/packet.h>
@@ -903,7 +901,7 @@ proto_register_mpls_pm(void)
                 "Control Code",
                 "mpls.pm.ctrl.code",
                 FT_UINT8, BASE_RANGE_STRING | BASE_HEX,
-                RVALS(&mpls_pm_query_ctrl_code_rvals), 0x0,
+                RVALS(mpls_pm_query_ctrl_code_rvals), 0x0,
                 "Code identifying the query type", HFILL
             }
         },
@@ -913,7 +911,7 @@ proto_register_mpls_pm(void)
                 "Control Code",
                 "mpls.pm.ctrl.code",
                 FT_UINT8, BASE_RANGE_STRING | BASE_HEX,
-                RVALS(&mpls_pm_response_ctrl_code_rvals), 0x0,
+                RVALS(mpls_pm_response_ctrl_code_rvals), 0x0,
                 "Code identifying the response type", HFILL
             }
         },
@@ -965,7 +963,7 @@ proto_register_mpls_pm(void)
                 "Origin Timestamp Format (OTF)",
                 "mpls.pm.otf",
                 FT_UINT8, BASE_RANGE_STRING | BASE_DEC,
-                RVALS(&mpls_pm_time_stamp_format_rvals), 0x0F,
+                RVALS(mpls_pm_time_stamp_format_rvals), 0x0F,
                 NULL, HFILL
             }
         },
@@ -984,8 +982,8 @@ proto_register_mpls_pm(void)
             {
                 "Differentiated Services Codepoint",
                 "mpls.pm.ds",
-                FT_UINT8, BASE_DEC,
-                VALS(dscp_vals), 0x3F,
+                FT_UINT8, BASE_DEC | BASE_EXT_STRING,
+                &dscp_vals_ext, 0x3F,
                 NULL, HFILL
             }
         },
@@ -1085,7 +1083,7 @@ proto_register_mpls_pm(void)
                 "Querier timestamp format (QTF)",
                 "mpls.pm.qtf",
                 FT_UINT8, BASE_RANGE_STRING | BASE_DEC,
-                RVALS(&mpls_pm_time_stamp_format_rvals), 0xF0,
+                RVALS(mpls_pm_time_stamp_format_rvals), 0xF0,
                 NULL, HFILL
             }
         },
@@ -1095,7 +1093,7 @@ proto_register_mpls_pm(void)
                 "Querier timestamp format (QTF)",
                 "mpls.pm.qtf",
                 FT_UINT8, BASE_RANGE_STRING | BASE_DEC,
-                RVALS(&mpls_pm_time_stamp_format_rvals), 0x0F,
+                RVALS(mpls_pm_time_stamp_format_rvals), 0x0F,
                 NULL, HFILL
             }
         },
@@ -1105,7 +1103,7 @@ proto_register_mpls_pm(void)
                 "Responder timestamp format (RTF)",
                 "mpls.pm.rtf",
                 FT_UINT8, BASE_RANGE_STRING | BASE_DEC,
-                RVALS(&mpls_pm_time_stamp_format_rvals), 0x0F,
+                RVALS(mpls_pm_time_stamp_format_rvals), 0x0F,
                 NULL, HFILL
             }
         },
@@ -1115,7 +1113,7 @@ proto_register_mpls_pm(void)
                 "Responder timestamp format (RTF)",
                 "mpls.pm.rtf",
                 FT_UINT8, BASE_RANGE_STRING | BASE_DEC,
-                RVALS(&mpls_pm_time_stamp_format_rvals), 0xF0,
+                RVALS(mpls_pm_time_stamp_format_rvals), 0xF0,
                 NULL, HFILL
             }
         },
@@ -1125,7 +1123,7 @@ proto_register_mpls_pm(void)
                 "Responder's preferred timestamp format (RPTF)",
                 "mpls.pm.rptf",
                 FT_UINT8, BASE_RANGE_STRING | BASE_DEC,
-                RVALS(&mpls_pm_time_stamp_format_rvals), 0xF0,
+                RVALS(mpls_pm_time_stamp_format_rvals), 0xF0,
                 NULL, HFILL
             }
         },
@@ -1135,7 +1133,7 @@ proto_register_mpls_pm(void)
                 "Responder's preferred timestamp format (RPTF)",
                 "mpls.pm.rptf",
                 FT_UINT8, BASE_RANGE_STRING | BASE_DEC,
-                RVALS(&mpls_pm_time_stamp_format_rvals), 0x0F,
+                RVALS(mpls_pm_time_stamp_format_rvals), 0x0F,
                 NULL, HFILL
             }
         },
@@ -1439,10 +1437,10 @@ proto_reg_handoff_mpls_pm(void)
  *
  * Local variables:
  * c-basic-offset: 4
- * tab-width: 4
+ * tab-width: 8
  * indent-tabs-mode: nil
  * End:
  *
- * vi: set shiftwidth=4 tabstop=4 expandtab:
- * :indentSize=4:tabSize=4:noTabs=true:
+ * vi: set shiftwidth=4 tabstop=8 expandtab:
+ * :indentSize=4:tabSize=8:noTabs=true:
  */

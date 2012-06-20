@@ -29,7 +29,6 @@
 # include "config.h"
 #endif
 
-#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -470,7 +469,7 @@ const aim_subtype
 {
 	GList *gl = families;
 	while(gl) {
-		aim_family *fam = gl->data;
+		aim_family *fam = (aim_family *)gl->data;
 		if(fam->family == famnum) {
 			int i;
 			for(i = 0; fam->subtypes[i].name; i++) {
@@ -489,7 +488,7 @@ const aim_family
 {
 	GList *gl = families;
 	while(gl) {
-		aim_family *fam = gl->data;
+		aim_family *fam = (aim_family *)gl->data;
 		if(fam->family == famnum) return fam;
 		gl = gl->next;
 	}
@@ -808,7 +807,7 @@ dissect_aim_close_conn(tvbuff_t *tvb, packet_info *pinfo, int offset,
 {
 	col_set_str(pinfo->cinfo, COL_INFO, "Close Connection");
 
-	offset = dissect_aim_tlv_sequence(tvb, pinfo, offset, tree, aim_client_tlvs);
+	dissect_aim_tlv_sequence(tvb, pinfo, offset, tree, aim_client_tlvs);
 }
 
 static void

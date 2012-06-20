@@ -73,8 +73,12 @@ static const guint8 jpeg_jfif_magic[] = { 0xFF, 0xD8, /* SOF */
 					  0xFF        /* start of the next marker */
 					};
 
+/* <?xml */
+static const guint8 xml_magic[] = { '<', '?', 'x', 'm', 'l' };
+
 static const mime_files_t magic_files[] = {
-	{ jpeg_jfif_magic, sizeof(jpeg_jfif_magic) }
+	{ jpeg_jfif_magic, sizeof(jpeg_jfif_magic) },
+	{ xml_magic, sizeof(xml_magic) }
 };
 
 #define	N_MAGIC_TYPES	(sizeof(magic_files) / sizeof(magic_files[0]))
@@ -98,7 +102,7 @@ mime_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
 	wth->phdr.ts.secs = 0;
 	wth->phdr.ts.nsecs = 0;
 
-	*data_offset = wth->data_offset;
+	*data_offset = file_tell(wth->fh);
 
 	/* try to read max WTAP_MAX_PACKET_SIZE bytes */
 	packet_size = file_read(_buf, sizeof(_buf), wth->fh);
@@ -119,7 +123,6 @@ mime_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
 	buf = buffer_start_ptr(wth->frame_buffer);
 	memcpy(buf, _buf, packet_size);
 
-	wth->data_offset += packet_size;
 	wth->phdr.caplen = packet_size;
 	wth->phdr.len = packet_size;
 	return TRUE;

@@ -150,7 +150,6 @@ int eyesdn_open(wtap *wth, int *err, gchar **err_info)
 	if (memcmp(magic, eyesdn_hdr_magic, EYESDN_HDR_MAGIC_SIZE) != 0)
 		return 0;
 
-	wth->data_offset = 0;
 	wth->file_encap = WTAP_ENCAP_PER_PACKET;
 	wth->file_type = WTAP_FILE_EYESDN;
 	wth->snapshot_length = 0; /* not known */
@@ -188,7 +187,6 @@ static gboolean eyesdn_read(wtap *wth, int *err, gchar **err_info,
 	if (!parse_eyesdn_packet_data(wth->fh, pkt_len, buf, err, err_info))
 		return FALSE;
 
-	wth->data_offset = offset;
 	*data_offset = offset;
 	return TRUE;
 }
@@ -330,7 +328,7 @@ parse_eyesdn_rec_hdr(wtap *wth, FILE_T fh,
 		pseudo_header->mtp2.annex_a_used = MTP2_ANNEX_A_USED_UNKNOWN;
 		pseudo_header->mtp2.link_number = channel;		
 		if(wth) {
-			wth->phdr.pkt_encap = WTAP_ENCAP_MTP2;
+			wth->phdr.pkt_encap = WTAP_ENCAP_MTP2_WITH_PHDR;
 		}
 		break;
 
@@ -351,10 +349,18 @@ parse_eyesdn_rec_hdr(wtap *wth, FILE_T fh,
 		break;
 
 	case EYESDN_ENCAP_BACNET: /* BACNET async over HDLC frames */
-		/* pseudo_header->isdn.uton = direction & 1; */
-		/* pseudo_header->isdn.channel = channel; */
+	        pseudo_header->isdn.uton = direction & 1;
+		pseudo_header->isdn.channel = channel;
 		if(wth) {
-			wth->phdr.pkt_encap = WTAP_ENCAP_BACNET_MS_TP;
+			wth->phdr.pkt_encap = WTAP_ENCAP_BACNET_MS_TP_WITH_PHDR;
+		}
+		break;
+
+	case EYESDN_ENCAP_V5_EF: /* V5EF */
+		pseudo_header->isdn.uton = direction & 1;
+		pseudo_header->isdn.channel = channel;
+		if(wth) {
+			wth->phdr.pkt_encap = WTAP_ENCAP_V5_EF;
 		}
 		break;
 	}
@@ -451,8 +457,8 @@ int eyesdn_dump_can_write_encap(int encap)
 	case WTAP_ENCAP_DPNSS:
 	case WTAP_ENCAP_ATM_PDUS_UNTRUNCATED:
 	case WTAP_ENCAP_LAPB:
-	case WTAP_ENCAP_MTP2:
-	case WTAP_ENCAP_BACNET_MS_TP:
+	case WTAP_ENCAP_MTP2_WITH_PHDR:
+	case WTAP_ENCAP_BACNET_MS_TP_WITH_PHDR:
 	case WTAP_ENCAP_PER_PACKET:
 		return 0;
 
@@ -512,12 +518,16 @@ static gboolean eyesdn_dump(wtap_dumper *wdh,
 		protocol=EYESDN_ENCAP_LAPB;
 		break;
 
-	case WTAP_ENCAP_MTP2:
+	case WTAP_ENCAP_MTP2_WITH_PHDR:
 		protocol=EYESDN_ENCAP_MTP2;
 		break;
 
-	case WTAP_ENCAP_BACNET_MS_TP:
+	case WTAP_ENCAP_BACNET_MS_TP_WITH_PHDR:
 		protocol=EYESDN_ENCAP_BACNET;
+		break;
+	    
+	case WTAP_ENCAP_V5_EF:
+		protocol=EYESDN_ENCAP_V5_EF;
 		break;
 
 	default:

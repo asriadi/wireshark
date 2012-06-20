@@ -39,11 +39,12 @@
 #include "ui/gtk/help_dlg.h"
 #include "ui/gtk/supported_protos_dlg.h"
 #include "ui/gtk/prefs_dlg.h"
+#include "ui/gtk/main_titlebar.h"
 #include "ui/gtk/gui_utils.h"
 #include "ui/gtk/dlg_utils.h"
 #include "ui/gtk/main.h"
 #include "ui/gtk/new_packet_list.h"
-#include "ui/gtk/main_proto_draw.h"
+#include "ui/gtk/packet_panes.h"
 #include "ui/gtk/main_toolbar.h"
 #include "ui/gtk/font_utils.h"
 #include "ui/gtk/webbrowser.h"
@@ -193,7 +194,7 @@ gui_prefs_show(void)
 	cfile.cinfo.columns_changed = FALSE;
 
 	/* Main vertical box */
-	main_vb = gtk_vbox_new(FALSE, 7);
+	main_vb = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 7, FALSE);
 	gtk_container_set_border_width( GTK_CONTAINER(main_vb), 5 );
 
 	/* Main table */
@@ -380,7 +381,11 @@ GtkWidget *
 gui_font_prefs_show(void)
 {
 	/* Create the font selection widget. */
+#if GTK_CHECK_VERSION(3,2,0)
+	font_browse_w = gtk_font_chooser_widget_new();
+#else
 	font_browse_w = (GtkWidget *) gtk_font_selection_new();
+#endif /* GTK_CHECK_VERSION(3,2,0) */
 	gtk_widget_show(font_browse_w);
 
 	return font_browse_w;
@@ -392,8 +397,14 @@ font_fetch(void)
 {
 	gchar   *font_name;
 
+
+#if GTK_CHECK_VERSION(3,2,0)
+	font_name = g_strdup(gtk_font_chooser_get_font(
+	      GTK_FONT_CHOOSER(font_browse_w)));
+#else
 	font_name = g_strdup(gtk_font_selection_get_font_name(
 	      GTK_FONT_SELECTION(font_browse_w)));
+#endif /* GTK_CHECK_VERSION(3,2,0) */
 	if (font_name == NULL) {
 		/* No font was selected; let the user know, but don't
 		   tear down the font selection dialog, so they can
@@ -533,7 +544,7 @@ gui_prefs_apply(GtkWidget *w _U_ , gboolean redissect)
 	}
 
 	/* Redisplay the main window's title */
-	update_main_window_title();
+	main_titlebar_update();
 
 	/* Redisplay the default welcome header message in case the "show 
 	 * version" option was changed. */

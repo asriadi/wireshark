@@ -168,6 +168,7 @@ static int hf_smb_primary_domain = -1;
 static int hf_smb_server = -1;
 static int hf_smb_max_raw_buf_size = -1;
 static int hf_smb_server_guid = -1;
+static int hf_smb_volume_guid = -1;
 static int hf_smb_security_blob_len = -1;
 static int hf_smb_security_blob = -1;
 static int hf_smb_sm_mode16 = -1;
@@ -505,6 +506,7 @@ static int hf_smb_extended_attributes = -1;
 static int hf_smb_oplock_level = -1;
 static int hf_smb_create_action = -1;
 static int hf_smb_file_id = -1;
+static int hf_smb_file_id_64bit = -1;
 static int hf_smb_ea_error_offset = -1;
 static int hf_smb_end_of_file = -1;
 static int hf_smb_replace = -1;
@@ -557,6 +559,7 @@ static int hf_smb_storage_type = -1;
 static int hf_smb_resume = -1;
 static int hf_smb_max_referral_level = -1;
 static int hf_smb_qfsi_information_level = -1;
+static int hf_smb_sfsi_information_level = -1;
 static int hf_smb_number_of_links = -1;
 static int hf_smb_delete_pending = -1;
 static int hf_smb_index_number = -1;
@@ -3463,7 +3466,6 @@ dissect_smb_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset,
 	smb_fid_info_t *suspect_fid_info=NULL;
 	/* We need this to use an array-accessed tree */
 	GSList          *GSL_iterator;
-	int             found=0;
 
 	DISSECTOR_ASSERT(si);
 
@@ -3510,7 +3512,6 @@ dissect_smb_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset,
 			if(suspect_fid_info->tid==si->tid && suspect_fid_info->fid==fid)
 				fid_info=suspect_fid_info;
 			GSL_iterator=g_slist_next(GSL_iterator);
-			found+=1;
 		}
 	}
 	if(!fid_info){
@@ -5782,8 +5783,9 @@ dissect_locking_andx_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 	}
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -5874,8 +5876,9 @@ dissect_locking_andx_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -5974,11 +5977,15 @@ dissect_open_flags(tvbuff_t *tvb, proto_tree *parent_tree, int offset, int bm)
 	return offset;
 }
 
+/* [MS-CIFS].pdf 2.2.4.64.2 provides the last two file types, however
+   [MS-SMB].PDF 2.2.4.9.2 elides value 4, Character mode device.  */
 static const value_string filetype_vals[] = {
 	{ 0,		"Disk file or directory"},
 	{ 1,		"Named pipe in byte mode"},
 	{ 2,		"Named pipe in message mode"},
 	{ 3,		"Spooled printer"},
+	{ 4,		"Character mode device"},
+	{ 0xFFFF,	"Unknown file type"},
 	{0, NULL}
 };
 static int
@@ -6075,8 +6082,9 @@ dissect_open_andx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -6243,8 +6251,9 @@ dissect_open_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -6403,8 +6412,9 @@ dissect_read_andx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -6438,7 +6448,6 @@ dissect_read_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	guint32 tvblen;
 	tvbuff_t        *data_tvb;
 	GSList          *GSL_iterator;
-	int             found=0;
 
 	DISSECTOR_ASSERT(si);
 
@@ -6564,7 +6573,6 @@ dissect_read_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 				if(suspect_fid_info->tid==si->tid && suspect_fid_info->fid==fid)
 					fid_info=suspect_fid_info;
 				GSL_iterator=g_slist_next(GSL_iterator);
-				found+=1;
 			}
 		}
 		tid_info = se_tree_lookup32(si->ct->tid_tree, si->tid);
@@ -6601,8 +6609,9 @@ dissect_read_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	END_OF_SMB
 
 	if (cmd != 0xff) {   /* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -6630,7 +6639,6 @@ dissect_write_andx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	guint32 tvblen;
 	tvbuff_t        *data_tvb;
 	GSList          *GSL_iterator;
-	int             found=0;
 
 	DISSECTOR_ASSERT(si);
 
@@ -6797,7 +6805,6 @@ dissect_write_andx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 				if(suspect_fid_info->tid==si->tid && suspect_fid_info->fid==fid)
 					fid_info=suspect_fid_info;
 				GSL_iterator=g_slist_next(GSL_iterator);
-				found+=1;
 			}
 		}
 		tid_info = se_tree_lookup32(si->ct->tid_tree, si->tid);
@@ -6837,8 +6844,9 @@ dissect_write_andx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -6923,8 +6931,9 @@ dissect_write_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -7328,8 +7337,9 @@ dissect_session_setup_andx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		pinfo->private_data = si;
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
@@ -7463,8 +7473,9 @@ dissect_session_setup_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		pinfo->private_data = si;
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
@@ -7505,8 +7516,9 @@ dissect_empty_andx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offs
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -7704,8 +7716,9 @@ dissect_tree_connect_andx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -7856,8 +7869,9 @@ dissect_tree_connect_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 	END_OF_SMB
 
 	if (cmd != 0xff) { 	/* there is an andX command */
-		if (andxoffset < offset)
+		if (andxoffset < offset) {
 			THROW(ReportedBoundsError);
+		}
 		dissect_smb_command(tvb, pinfo, andxoffset, smb_tree, cmd, FALSE);
 	}
 
@@ -8516,8 +8530,10 @@ dissect_nt_trans_data_request(tvbuff_t *tvb, packet_info *pinfo, int offset, pro
 	DISSECTOR_ASSERT(si);
 
 	if(parent_tree){
-		tvb_ensure_bytes_exist(tvb, offset, bc);
-		item = proto_tree_add_text(parent_tree, tvb, offset, bc,
+		guint32 bytes = 0;
+		bytes = tvb_length_remaining(tvb, offset);
+		/*tvb_ensure_bytes_exist(tvb, offset, bc);*/
+		item = proto_tree_add_text(parent_tree, tvb, offset, bytes,
 				"%s Data",
 				val_to_str_ext(ntd->subcmd, &nt_cmd_vals_ext, "Unknown NT transaction (%u)"));
 		tree = proto_item_add_subtree(item, ett_smb_nt_trans_data);
@@ -8563,6 +8579,11 @@ dissect_nt_trans_data_request(tvbuff_t *tvb, packet_info *pinfo, int offset, pro
 
 		offset = dissect_nt_sec_desc(
 			tvb, offset, pinfo, tree, NULL, TRUE, bc, ami);
+
+		if (offset < (old_offset + bc)) {
+			offset = old_offset + bc;
+		}
+
 		break;
 	case NT_TRANS_NOTIFY:
 		break;
@@ -8851,7 +8872,8 @@ static int
 dissect_nt_transaction_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, proto_tree *smb_tree _U_)
 {
 	guint8 wc, sc;
-	guint32 pc=0, po=0, dc=0, od=0;
+	guint32 pc=0, pd = 0, po=0, dc=0, od=0, dd = 0;
+	guint32 td=0, tp=0;
 	smb_info_t *si;
 	smb_saved_info_t *sip;
 	int subcmd;
@@ -8859,6 +8881,11 @@ dissect_nt_transaction_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 	guint16 bc;
 	guint32 padcnt;
 	smb_nt_transact_info_t *nti=NULL;
+	fragment_data *r_fd = NULL;
+	tvbuff_t *pd_tvb=NULL;
+	gboolean save_fragmented;
+
+	save_fragmented = pinfo->fragmented;
 
 	ntd.subcmd = ntd.sd_len = ntd.ea_len = 0;
 
@@ -8886,11 +8913,13 @@ dissect_nt_transaction_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 
 
 	/* total param count */
-	proto_tree_add_item(tree, hf_smb_total_param_count, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	tp = tvb_get_letohl(tvb, offset);
+	proto_tree_add_uint(tree, hf_smb_total_param_count, tvb, offset, 4, tp);
 	offset += 4;
 
 	/* total data count */
-	proto_tree_add_item(tree, hf_smb_total_data_count, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	td = tvb_get_letohl(tvb, offset);
+	proto_tree_add_uint(tree, hf_smb_total_data_count, tvb, offset, 4, td);
 	offset += 4;
 
 	if(wc>=19){
@@ -8939,7 +8968,8 @@ dissect_nt_transaction_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 		/* primary request */
 	} else {
 		/* secondary request */
-		proto_tree_add_item(tree, hf_smb_data_disp32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		dd = tvb_get_letohl(tvb, offset);
+		proto_tree_add_uint(tree, hf_smb_data_disp32, tvb, offset, 4, dd);
 		offset += 4;
 	}
 
@@ -9002,8 +9032,53 @@ dissect_nt_transaction_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 
 	BYTE_COUNT;
 
-	/* parameters */
-	if(po>(guint32)offset){
+	/* reassembly of SMB NT Transaction data payload.
+	   In this section we do reassembly of both the data and parameters
+	   blocks of the SMB transaction command.
+	*/
+	/* do we need reassembly? */
+	if( (td&&(td!=dc)) || (tp&&(tp!=pc)) ){
+		/* oh yeah, either data or parameter section needs
+		   reassembly...
+		*/
+		pinfo->fragmented = TRUE;
+		if(smb_trans_reassembly){
+			/* ...and we were told to do reassembly */
+			if(pc && ((unsigned int)tvb_length_remaining(tvb, po)>=pc) ){
+				r_fd = smb_trans_defragment(tree, pinfo, tvb,
+							     po, pc, pd, td+tp);
+			}
+			if((r_fd==NULL) && dc && ((unsigned int)tvb_length_remaining(tvb, od)>=dc) ){
+				r_fd = smb_trans_defragment(tree, pinfo, tvb,
+							     od, dc, dd+tp, td+tp);
+			}
+		}
+	}
+
+	/* if we got a reassembled fd structure from the reassembly routine we
+	   must create pd_tvb from it
+	*/
+	if(r_fd){
+		proto_item *frag_tree_item;
+
+		pd_tvb = tvb_new_child_real_data(tvb, r_fd->data, r_fd->datalen,
+						 r_fd->datalen);
+		add_new_data_source(pinfo, pd_tvb, "Reassembled SMB");
+
+		show_fragment_tree(r_fd, &smb_frag_items, tree, pinfo, pd_tvb, &frag_tree_item);
+	}
+
+	if(pd_tvb){
+	  /* we have reassembled data, grab param and data from there */
+	  dissect_nt_trans_param_request(pd_tvb, pinfo, 0, tree, tp,
+					  &ntd, (guint16) tvb_length(pd_tvb), nti);
+	  dissect_nt_trans_data_request(pd_tvb, pinfo, tp, tree, td, &ntd, nti);
+	  COUNT_BYTES(bc); /* We are done */
+	} else {
+	  /* we do not have reassembled data, just use what we have in the
+	     packet as well as we can */
+	  /* parameters */
+	  if(po>(guint32)offset){
 		/* We have some initial padding bytes.
 		*/
 		padcnt = po-offset;
@@ -9012,15 +9087,15 @@ dissect_nt_transaction_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 		CHECK_BYTE_COUNT(padcnt);
 	        proto_tree_add_item(tree, hf_smb_padding, tvb, offset, padcnt, ENC_NA);
 		COUNT_BYTES(padcnt);
-	}
-	if(pc){
+	  }
+	  if(pc){
 		CHECK_BYTE_COUNT(pc);
 		dissect_nt_trans_param_request(tvb, pinfo, offset, tree, pc, &ntd, bc, nti);
 		COUNT_BYTES(pc);
-	}
+	  }
 
-	/* data */
-	if(od>(guint32)offset){
+	  /* data */
+	  if(od>(guint32)offset){
 		/* We have some initial padding bytes.
 		*/
 		padcnt = od-offset;
@@ -9028,16 +9103,18 @@ dissect_nt_transaction_request(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 			padcnt = bc;
 	        proto_tree_add_item(tree, hf_smb_padding, tvb, offset, padcnt, ENC_NA);
 		COUNT_BYTES(padcnt);
-	}
-	if(dc){
+	  }
+	  if(dc){
 		CHECK_BYTE_COUNT(dc);
 		dissect_nt_trans_data_request(
 			tvb, pinfo, offset, tree, dc, &ntd, nti);
 		COUNT_BYTES(dc);
+	  }
 	}
 
 	END_OF_SMB
 
+	pinfo->fragmented = save_fragmented;
 	return offset;
 }
 
@@ -9548,6 +9625,7 @@ dissect_nt_transaction_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
 	  dissect_nt_trans_param_response(pd_tvb, pinfo, 0, tree, tp,
 					  &ntd, (guint16) tvb_length(pd_tvb));
 	  dissect_nt_trans_data_response(pd_tvb, pinfo, tp, tree, td, &ntd, nti);
+	  COUNT_BYTES(bc); /* We are done */
 	} else {
 	  /* we do not have reassembled data, just use what we have in the
 	     packet as well as we can */
@@ -10248,6 +10326,42 @@ dissect_nt_create_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 	proto_tree_add_item(tree, hf_smb_is_directory, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 	offset += 1;
 
+	/* Do we know whether or not EXTENDED_RESPONSES are required? */
+        /* MS-SMB 2.2.4.9.2 says that there is a Volume GUID, File ID,
+           Maximal Access Rights and Guest Maximal Access Rights here
+           if ExtendedResponses requested. */
+	if (si->sip != NULL && si->sip->extra_info_type == SMB_EI_FILEDATA &&
+		((smb_fid_saved_info_t *)(si->sip->extra_info))->create_flags & 0x10) {
+	    proto_item *mar = NULL;
+	    proto_item *gmar = NULL;
+	    proto_tree *tr = NULL;
+
+	    /* The first field is a Volume GUID ... */
+
+	    proto_tree_add_item(tree, hf_smb_volume_guid,
+			tvb, offset, 16, ENC_NA);
+	    offset += 16;
+
+	    /* The file ID comes next */
+	    proto_tree_add_item(tree, hf_smb_file_id_64bit,
+			tvb, offset, 8, ENC_LITTLE_ENDIAN);
+	    offset += 8;
+
+	    mar = proto_tree_add_text(tree, tvb, offset, 4,
+			"Maximal Access Rights");
+
+	    tr = proto_item_add_subtree(mar, ett_smb_nt_access_mask);
+
+	    offset = dissect_smb_access_mask(tvb, tr, offset);
+
+	    gmar = proto_tree_add_text(tree, tvb, offset, 4,
+			"Guest Maximal Access Rights");
+
+	    tr = proto_item_add_subtree(gmar, ett_smb_nt_access_mask);
+
+	    offset = dissect_smb_access_mask(tvb, tr, offset);
+	}
+
 	/* Try to remember the type of this fid so that we can dissect
 	 * any future security descriptor (access mask) properly
 	 */
@@ -10312,7 +10426,7 @@ static const value_string trans2_cmd_vals[] = {
 	{ 0x01,		"FIND_FIRST2" },
 	{ 0x02,		"FIND_NEXT2" },
 	{ 0x03,		"QUERY_FS_INFO" },
-	{ 0x04,		"SET_FS_QUOTA" },
+	{ 0x04,		"SET_FS_INFO" },
 	{ 0x05,		"QUERY_PATH_INFO" },
 	{ 0x06,		"SET_PATH_INFO" },
 	{ 0x07,		"QUERY_FILE_INFO" },
@@ -10502,6 +10616,12 @@ static const value_string qfsi_vals[] = {
 	{ 1006,		"Query FS Quota Info"},
 	{ 1007,		"Query Full FS Size Info"},
 	{ 1008,         "Object ID Information"},
+	{0, NULL}
+};
+
+static const value_string sfsi_vals[] = {
+	{ 0x203,	"Request Transport Encryption"},
+	{ 1006,		"Set FS Quota Info"},
 	{0, NULL}
 };
 
@@ -10942,6 +11062,21 @@ dissect_transaction2_request_parameters(tvbuff_t *tvb, packet_info *pinfo,
 		if (check_col(pinfo->cinfo, COL_INFO))
 			col_append_fstr(pinfo->cinfo, COL_INFO, ", %s",
 					val_to_str(si->info_level, qfsi_vals,
+						   "Unknown (0x%02x)"));
+
+		break;
+	case 0x0004:	/*TRANS2_SET_FS_INFORMATION*/
+		/* level of interest */
+		CHECK_BYTE_COUNT_TRANS(4);
+		si->info_level = tvb_get_letohs(tvb, offset+2);
+		if (t2i != NULL && !pinfo->fd->flags.visited)
+			t2i->info_level = si->info_level;
+		proto_tree_add_uint(tree, hf_smb_sfsi_information_level, tvb, offset+2, 2, si->info_level);
+		COUNT_BYTES_TRANS(4);
+
+		if (check_col(pinfo->cinfo, COL_INFO))
+			col_append_fstr(pinfo->cinfo, COL_INFO, ", %s",
+					val_to_str(si->info_level, sfsi_vals,
 						   "Unknown (0x%02x)"));
 
 		break;
@@ -12478,7 +12613,7 @@ dissect_4_2_16_13(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 {
 	smb_info_t *si = pinfo->private_data;
 	const char *fn;
-	int fn_len;
+	int fn_len = 0;
 
 	DISSECTOR_ASSERT(si);
 
@@ -13366,6 +13501,122 @@ dissect_nt_quota(tvbuff_t *tvb, proto_tree *tree, int offset, guint16 *bcp)
 }
 
 static int
+dissect_sfsi_request(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree,
+    int offset, guint16 *bcp)
+{
+	smb_info_t *si;
+
+	if(!*bcp){
+		return offset;
+	}
+
+	si = (smb_info_t *)pinfo->private_data;
+	DISSECTOR_ASSERT(si);
+
+	switch(si->info_level) {
+	case 0x203: /* REQUEST_TRANSPORT_ENCRYPTION */ {
+		proto_item *blob_item;
+		tvbuff_t *blob_tvb;
+		proto_tree *blob_tree;
+
+		/* security blob */
+		blob_item = proto_tree_add_item(tree, hf_smb_security_blob,
+						tvb, offset,
+						tvb_length_remaining(tvb,offset),
+						ENC_NA);
+
+		/* As an optimization, because Windows is perverse,
+		   we check to see if NTLMSSP is the first part of the
+		   blob, and if so, call the NTLMSSP dissector,
+		   otherwise we call the GSS-API dissector. This is because
+		   Windows can request RAW NTLMSSP, but will happily handle
+		   a client that wraps NTLMSSP in SPNEGO
+		*/
+
+		blob_tree = proto_item_add_subtree(blob_item,
+						   ett_smb_secblob);
+
+		blob_tvb = tvb_new_subset(tvb, offset,
+					  tvb_length_remaining(tvb,offset),
+					  tvb_length_remaining(tvb,offset));
+
+		if (tvb_strneql(blob_tvb, 0, "NTLMSSP", 7) == 0) {
+			call_dissector(ntlmssp_handle, blob_tvb, pinfo, blob_tree);
+		} else {
+			call_dissector(gssapi_handle, blob_tvb, pinfo, blob_tree);
+		}
+
+		offset += tvb_length_remaining(tvb,offset);
+		*bcp = 0;
+		break;
+	}
+	case 1006:	/* QUERY_FS_QUOTA_INFO */
+		offset = dissect_nt_quota(tvb, tree, offset, bcp);
+		break;
+	}
+
+	return offset;
+}
+
+static int
+dissect_sfsi_response(tvbuff_t * tvb _U_, packet_info * pinfo, proto_tree * tree _U_,
+    int offset, guint16 *bcp)
+{
+	smb_info_t *si;
+
+	if(!*bcp){
+		return offset;
+	}
+
+	si = (smb_info_t *)pinfo->private_data;
+	DISSECTOR_ASSERT(si);
+
+	switch(si->info_level) {
+	case 0x203: /* REQUEST_TRANSPORT_ENCRYPTION */ {
+		proto_item *blob_item;
+		tvbuff_t *blob_tvb;
+		proto_tree *blob_tree;
+
+		/* security blob */
+		blob_item = proto_tree_add_item(tree, hf_smb_security_blob,
+						tvb, offset,
+						tvb_length_remaining(tvb,offset),
+						ENC_NA);
+
+		/* As an optimization, because Windows is perverse,
+		   we check to see if NTLMSSP is the first part of the
+		   blob, and if so, call the NTLMSSP dissector,
+		   otherwise we call the GSS-API dissector. This is because
+		   Windows can request RAW NTLMSSP, but will happily handle
+		   a client that wraps NTLMSSP in SPNEGO
+		*/
+
+		blob_tree = proto_item_add_subtree(blob_item,
+						   ett_smb_secblob);
+
+		blob_tvb = tvb_new_subset(tvb, offset,
+					  tvb_length_remaining(tvb,offset),
+					  tvb_length_remaining(tvb,offset));
+
+		if (tvb_strneql(blob_tvb, 0, "NTLMSSP", 7) == 0) {
+			call_dissector(ntlmssp_handle, blob_tvb, pinfo, blob_tree);
+		} else {
+			call_dissector(gssapi_handle, blob_tvb, pinfo, blob_tree);
+		}
+
+		offset += tvb_length_remaining(tvb,offset);
+		*bcp = 0;
+		break;
+	}
+	case 1006:	/* QUERY_FS_QUOTA_INFO */
+		/* nothing */
+		break;
+	}
+
+	return offset;
+}
+
+static int
 dissect_transaction2_request_data(tvbuff_t *tvb, packet_info *pinfo,
     proto_tree *parent_tree, int offset, int subcmd, guint16 dc)
 {
@@ -13398,8 +13649,8 @@ dissect_transaction2_request_data(tvbuff_t *tvb, packet_info *pinfo,
 	case 0x0003:	/*TRANS2_QUERY_FS_INFORMATION*/
 		/* no data field in this request */
 		break;
-	case 0x0004:	/* TRANS2_SET_QUOTA */
-		offset = dissect_nt_quota(tvb, tree, offset, &dc);
+	case 0x0004:	/* TRANS2_SET_FS_INFORMATION */
+		offset = dissect_sfsi_request(tvb, pinfo, tree, offset, &dc);
 		break;
 	case 0x0005:	/*TRANS2_QUERY_PATH_INFORMATION*/
 		/* no data field in this request */
@@ -15634,6 +15885,9 @@ dissect_transaction2_response_data(tvbuff_t *tvb, packet_info *pinfo,
 	case 0x0003:	/*TRANS2_QUERY_FS_INFORMATION*/
 		offset = dissect_qfsi_vals(tvb, pinfo, tree, offset, &dc);
 		break;
+	case 0x0004:	/*TRANS2_SET_FS_INFORMATION*/
+		offset = dissect_sfsi_response(tvb, pinfo, tree, offset, &dc);
+		break;
 	case 0x0005:	/*TRANS2_QUERY_PATH_INFORMATION*/
 		offset = dissect_qpi_loi_vals(tvb, pinfo, tree, item, offset, &dc);
 		break;
@@ -16073,6 +16327,14 @@ dissect_transaction_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 						item=proto_tree_add_text(tree, tvb, 0, 0, "Level of Information: <UNKNOWN> since information level wasn't found in request packet");
 					else
 						item=proto_tree_add_uint(tree, hf_smb_qfsi_information_level, tvb, 0, 0, si->info_level);
+					PROTO_ITEM_SET_GENERATED(item);
+					break;
+
+				case 0x0004:	/* SET_FS_INFORMATION */
+					if (t2i->info_level == -1)
+						item=proto_tree_add_text(tree, tvb, 0, 0, "Level of Information: <UNKNOWN> since information level wasn't found in request packet");
+					else
+						item=proto_tree_add_uint(tree, hf_smb_sfsi_information_level, tvb, 0, 0, si->info_level);
 					PROTO_ITEM_SET_GENERATED(item);
 					break;
 				}
@@ -17028,6 +17290,8 @@ free_hash_tables(gpointer ctarg, gpointer user_data _U_)
 		g_hash_table_destroy(ct->unmatched);
 	if (ct->matched)
 		g_hash_table_destroy(ct->matched);
+	if (ct->primaries)
+		g_hash_table_destroy(ct->primaries);
 	if (ct->tid_service)
 		g_hash_table_destroy(ct->tid_service);
 	g_free(ct);
@@ -17390,6 +17654,10 @@ dissect_smb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree)
 			smb_saved_info_equal_matched);
 		si->ct->unmatched= g_hash_table_new(smb_saved_info_hash_unmatched,
 			smb_saved_info_equal_unmatched);
+		/* We used the same key format as the unmatched entries */
+		si->ct->primaries=g_hash_table_new(
+			smb_saved_info_hash_unmatched,
+			smb_saved_info_equal_unmatched);
 		si->ct->tid_service=g_hash_table_new(
 			smb_saved_info_hash_unmatched,
 			smb_saved_info_equal_unmatched);
@@ -17455,6 +17723,12 @@ dissect_smb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree)
 				new_key->pid_mid = pid_mid;
 				g_hash_table_insert(si->ct->matched, new_key,
 				    sip);
+			} else {
+				if (si->cmd == SMB_COM_TRANSACTION_SECONDARY ||
+				    si->cmd == SMB_COM_TRANSACTION2_SECONDARY ||
+				    si->cmd == SMB_COM_NT_TRANSACT_SECONDARY) {
+					sip = g_hash_table_lookup(si->ct->primaries, GUINT_TO_POINTER(pid_mid));
+				}
 			}
 		} else {
 			/* we have seen this packet before; check the
@@ -17600,6 +17874,12 @@ dissect_smb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree)
 						sip=NULL;
 					}
 				}
+			} else {
+				if (si->cmd == SMB_COM_TRANSACTION ||
+				    si->cmd == SMB_COM_TRANSACTION2 ||
+				    si->cmd == SMB_COM_NT_TRANSACT) {
+					sip = g_hash_table_lookup(si->ct->primaries, GUINT_TO_POINTER(pid_mid));
+				}
 			}
 			if(si->request){
 				sip = se_alloc(sizeof(smb_saved_info_t));
@@ -17621,6 +17901,13 @@ dissect_smb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree)
 				new_key->frame = sip->frame_req;
 				new_key->pid_mid = pid_mid;
 				g_hash_table_insert(si->ct->matched, new_key, sip);
+
+				/* If it is a TRANSACT cmd, insert in hash */
+				if (si->cmd == SMB_COM_TRANSACTION ||
+				    si->cmd == SMB_COM_TRANSACTION2 ||
+				    si->cmd == SMB_COM_NT_TRANSACT) {
+					g_hash_table_insert(si->ct->primaries, GUINT_TO_POINTER(pid_mid), sip);
+				}
 			}
 		} else {
 			/* we have seen this packet before; check the
@@ -18089,8 +18376,12 @@ proto_register_smb(void)
 		NULL, 0, "Maximum raw buffer size", HFILL }},
 
 	{ &hf_smb_server_guid,
-		{ "Server GUID", "smb.server_guid", FT_BYTES, BASE_NONE,
+		{ "Server GUID", "smb.server_guid", FT_GUID, BASE_NONE,
 		NULL, 0, "Globally unique identifier for this server", HFILL }},
+
+	{ &hf_smb_volume_guid,
+		{ "Volume GUID", "smb.volume_guid", FT_GUID, BASE_NONE,
+		NULL, 0, "Globally unique identifer for this volume", HFILL }},
 
 	{ &hf_smb_security_blob_len,
 		{ "Security Blob Length", "smb.security_blob_len", FT_UINT16, BASE_DEC,
@@ -19370,6 +19661,10 @@ proto_register_smb(void)
 		{ "Server unique file ID", "smb.create.file_id", FT_UINT32, BASE_HEX,
 		NULL, 0, NULL, HFILL }},
 
+	{ &hf_smb_file_id_64bit,
+		{ "Server unique 64-bit file ID", "smb.create.file_id_64b", FT_UINT64, BASE_HEX,
+		NULL, 0, NULL, HFILL }},
+
 	{ &hf_smb_ea_error_offset,
 		{ "EA Error offset", "smb.ea.error_offset", FT_UINT32, BASE_DEC,
 		NULL, 0, "Offset into EA list if EA error", HFILL }},
@@ -19568,6 +19863,10 @@ proto_register_smb(void)
 		{ "Level of Interest", "smb.qfsi_loi", FT_UINT16, BASE_HEX,
 		VALS(qfsi_vals), 0, "Level of interest for QUERY_FS_INFORMATION2 command", HFILL }},
 
+	{ &hf_smb_sfsi_information_level,
+		{ "Level of Interest", "smb.sfsi_loi", FT_UINT16, BASE_HEX,
+		VALS(sfsi_vals), 0, "Level of interest for SET_FS_INFORMATION2 command", HFILL }},
+
   	{ &hf_smb_nt_rename_level,
 		{ "Level of Interest", "smb.ntr_loi", FT_UINT16, BASE_DEC,
 		VALS(nt_rename_vals), 0, "NT Rename level", HFILL }},
@@ -19725,7 +20024,7 @@ proto_register_smb(void)
 		NULL, 0, "Dfs expanded name", HFILL }},
 
 	{ &hf_smb_dfs_referral_server_guid,
-		{ "Server GUID", "smb.dfs.referral.server_guid", FT_BYTES, BASE_NONE,
+		{ "Server GUID", "smb.dfs.referral.server_guid", FT_GUID, BASE_NONE,
 		NULL, 0, "Globally unique identifier for this server", HFILL }},
 
 	{ &hf_smb_end_of_search,

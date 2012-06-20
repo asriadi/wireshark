@@ -29,10 +29,6 @@
 
 #include <stdio.h>
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-
 #include <string.h>
 #include <epan/packet.h>
 #include <epan/packet_info.h>
@@ -469,7 +465,7 @@ mac_lte_stat_draw(void *phs)
                tmp->stats.UL_frames,
                tmp->stats.UL_total_bytes,
                UL_bw,
-               tmp->stats.UL_total_bytes ?
+               tmp->stats.UL_raw_bytes ?
                                     (((float)tmp->stats.UL_padding_bytes / (float)tmp->stats.UL_raw_bytes) * 100.0) :
                                     0.0,
                tmp->stats.UL_retx_frames,

@@ -187,7 +187,7 @@ format_text(const guchar *string, size_t len)
     }
     c = *string++;
 
-    if (g_unichar_isprint(c)) {
+    if (isprint(c)) {
       fmtbuf[idx][column] = c;
       column++;
     } else {
@@ -293,7 +293,7 @@ format_text_wsp(const guchar *string, size_t len)
     }
     c = *string++;
 
-    if (g_unichar_isprint(c)) {
+    if (isprint(c)) {
       fmtbuf[idx][column] = c;
       column++;
     } else if  (isspace(c)) {
@@ -418,7 +418,6 @@ hex_str_to_bytes(const char *hex_str, GByteArray *bytes, gboolean force_separato
 				}
 				else if (force_separators) {
 					return FALSE;
-					break;
 				}
 			}
 			p = punct;
@@ -450,7 +449,6 @@ hex_str_to_bytes(const char *hex_str, GByteArray *bytes, gboolean force_separato
 				}
 				else if (force_separators) {
 					return FALSE;
-					break;
 				}
 			}
 			p = punct;
@@ -521,7 +519,7 @@ uri_str_to_bytes(const char *uri_str, GByteArray *bytes) {
 			val = (guint8) strtoul((char *)hex_digit, NULL, 16);
 			g_byte_array_append(bytes, &val, 1);
 		} else {
-			g_byte_array_append(bytes, (guint8 *) p, 1);
+			g_byte_array_append(bytes, (const guint8 *) p, 1);
 		}
 		p++;
 
@@ -581,7 +579,7 @@ format_uri(const GByteArray *bytes, const gchar *reserved_chars)
       is_reserved = TRUE;
     }
 
-    for (i = 0; i < strlen(reserved); i++) {
+    for (i = 0; reserved[i]; i++) {
       if (c == reserved[i])
 	is_reserved = TRUE;
     }

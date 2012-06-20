@@ -52,6 +52,7 @@
 #include <epan/packet.h>
 #include <epan/conversation.h>
 #include <epan/emem.h>
+#include <epan/sctpppids.h>
 
 #include "packet-tcp.h"
 #include <epan/prefs.h>
@@ -456,7 +457,7 @@ ssh_dissect_ssh2(tvbuff_t *tvb, packet_info *pinfo,
 
 		ti=proto_tree_add_text(tree,tvb,offset,-1, "%s", title->str);
 		ssh2_tree = proto_item_add_subtree(ti ,ett_ssh2);
-		if (title) g_string_free(title,TRUE);
+		g_string_free(title,TRUE);
 	}
 
 	if((is_response && this_number > 3) || (!is_response && this_number>4)) {
@@ -945,7 +946,7 @@ ssh_gslist_compare_strings(gconstpointer a, gconstpointer b)
 		return -1;
 	if (b == NULL)
 		return 1;
-	return strcmp((char*)a,(char*)b);
+	return strcmp((const char*)a,(const char*)b);
 }
 
 /* expects that *result is NULL */
@@ -1339,4 +1340,5 @@ proto_reg_handoff_ssh(void)
 
 	dissector_add_uint("tcp.port", TCP_PORT_SSH, ssh_handle);
 	dissector_add_uint("sctp.port", SCTP_PORT_SSH, ssh_handle);
+	dissector_add_uint("sctp.ppi", SSH_PAYLOAD_PROTOCOL_ID, ssh_handle);
 }

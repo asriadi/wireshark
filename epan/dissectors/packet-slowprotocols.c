@@ -31,8 +31,8 @@
 # include "config.h"
 #endif
 
-#include <string.h>
 #include <glib.h>
+
 #include <epan/packet.h>
 #include <epan/etypes.h>
 #include <epan/llcsaps.h>
@@ -728,7 +728,7 @@ static const value_string esmc_quality_level_opt_2_short[] = {
     {  0,   "QL-STU" },
     {  1,   "QL-PRS" },
     {  4,   "QL-TNC" },
-    { 7,    "QL-ST2" },
+    {  7,   "QL-ST2" },
     { 10,   "QL-ST3" },
     { 12,   "QL-SMC" },
     { 13,   "QL-ST3E" },
@@ -2256,7 +2256,7 @@ dissect_oampdu_information(tvbuff_t *tvb, proto_tree *tree)
             proto_tree_add_item(info_tree, hf_oampdu_info_vendor,
                                 tvb, offset, raw_octet-5, ENC_NA);
 
-            offset += raw_octet-2;
+            offset += raw_octet-5;
 
         }
         else if (info_type==OAMPDU_INFO_TYPE_ENDMARKER)
@@ -2447,9 +2447,9 @@ dissect_oampdu_event_notification(tvbuff_t *tvb, proto_tree *tree)
 
                 offset += OAMPDU_EVENT_TIMESTAMP_SZ;
 
-                raw_word = tvb_get_ntohl(tvb, offset);
+                dword = tvb_get_ntohl(tvb, offset);
                 proto_tree_add_uint(event_tree, hf_oampdu_event_efpeWindow,
-                        tvb, offset, 4, raw_word);
+                        tvb, offset, 4, dword);
 
                 offset += OAMPDU_EFPE_WINDOW_SZ;
 
@@ -2539,7 +2539,7 @@ dissect_oampdu_event_notification(tvbuff_t *tvb, proto_tree *tree)
 
                 offset += OAMPDU_EVENT_LENGTH_SZ;
 
-                offset += (raw_word-2);
+                offset += (raw_octet-2);
                 break;
             }
             default:

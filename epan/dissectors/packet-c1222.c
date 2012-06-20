@@ -802,10 +802,10 @@ keylookup(guint8 *keybuff, guint8 keyid)
  * \param decrypt TRUE if packet is to be authenticated and decrypted; FALSE if authentication only is requested
  * \returns TRUE if the requested operation was successful; otherwise FALSE
  */
+#ifdef HAVE_LIBGCRYPT
 static gboolean 
 decrypt_packet(guchar *buffer, guint32 length, gboolean decrypt)
 {
-#ifdef HAVE_LIBGCRYPT
 #define CANONBUFFSIZE 300U
   guchar canonbuff[CANONBUFFSIZE];
   guint8 c1222_key[EAX_SIZEOF_KEY];
@@ -841,14 +841,14 @@ decrypt_packet(guchar *buffer, guint32 length, gboolean decrypt)
 		  decrypt ? EAX_MODE_CIPHERTEXT_AUTH : EAX_MODE_CLEARTEXT_AUTH);
   }
   return status;
-#else /* HAVE_LIBCRYPT */  
-  /* these are to silence compiler unreferenced variable warnings */
-  buffer=buffer;
-  length=length;
-  decrypt=decrypt;
-  return FALSE;
-#endif /* HAVE_LIBGCRYPT */
 }
+#else /* HAVE_LIBCRYPT */  
+static gboolean 
+decrypt_packet(guchar *buffer _U_, guint32 length _U_, gboolean decrypt _U_)
+{
+  return FALSE;
+}
+#endif /* HAVE_LIBGCRYPT */
 
 /**
  * Checks to make sure that a complete, valid BER-encoded length is in the buffer.
@@ -925,13 +925,15 @@ dissect_epsem(tvbuff_t *tvb, int offset, guint32 len, packet_info *pinfo, proto_
   }
   /* parse the flags byte which is always unencrypted */
   flags = tvb_get_guint8(tvb, offset);
-  proto_tree_add_bitmask(tree, tvb, offset, hf_c1222_epsem_flags, ett_c1222_flags, c1222_flags, FALSE);
+  proto_tree_add_bitmask(tree, tvb, offset, hf_c1222_epsem_flags, ett_c1222_flags, c1222_flags, ENC_BIG_ENDIAN);
   offset++;
   switch ((flags & C1222_EPSEM_FLAG_SECURITY_MODE) >> 2) {
     case EAX_MODE_CIPHERTEXT_AUTH:
       /* mode is ciphertext with authentication */
       hasmac = TRUE;
       len2 = tvb_length_remaining(tvb, offset);
+      if (len2 <= 0)
+        return offset; 
       encrypted = TRUE;
       if (c1222_decrypt) {
 	buffer = tvb_memdup(tvb, offset, len2);
@@ -951,6 +953,8 @@ dissect_epsem(tvbuff_t *tvb, int offset, guint32 len, packet_info *pinfo, proto_
       /* mode is cleartext with authentication */
       hasmac = TRUE;
       len2 = tvb_length_remaining(tvb, offset);
+      if (len2 <= 0)
+        return offset;
       buffer = tvb_memdup(tvb, offset, len2);
       epsem_buffer = tvb_new_subset(tvb, offset, -1, -1);
       if (c1222_decrypt) {
@@ -1402,7 +1406,7 @@ dissect_c1222_User_information(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int
     offset = dissect_ber_identifier(actx->pinfo, tree, tvb, offset, &class, &pc, &tag);
     offset = dissect_ber_length(actx->pinfo, tree, tvb, offset, &len, &ind);
     if (tag == 0x1) { /* implicit octet string */
-      tf = proto_tree_add_item(tree, hf_c1222_user_information, tvb, offset, len, FALSE);
+      tf = proto_tree_add_item(tree, hf_c1222_user_information, tvb, offset, len, ENC_NA);
       epsem_tree = proto_item_add_subtree(tf, ett_c1222_epsem);
       dissect_epsem(tvb, offset, len, actx->pinfo, epsem_tree);
       offset += len;
@@ -1456,7 +1460,7 @@ static void dissect_C1222_MESSAGE_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_,
 
 
 /*--- End of included file: packet-c1222-fn.c ---*/
-#line 987 "../../asn1/c1222/packet-c1222-template.c"
+#line 991 "../../asn1/c1222/packet-c1222-template.c"
 
 /**
  * Dissects a a full (reassembled) C12.22 message.
@@ -1827,7 +1831,7 @@ void proto_register_c1222(void) {
         "OCTET_STRING_SIZE_CONSTR002", HFILL }},
 
 /*--- End of included file: packet-c1222-hfarr.c ---*/
-#line 1269 "../../asn1/c1222/packet-c1222-template.c"
+#line 1273 "../../asn1/c1222/packet-c1222-template.c"
   };
 
   /* List of subtrees */
@@ -1848,7 +1852,7 @@ void proto_register_c1222(void) {
     &ett_c1222_Calling_authentication_value_c1221_U,
 
 /*--- End of included file: packet-c1222-ettarr.c ---*/
-#line 1279 "../../asn1/c1222/packet-c1222-template.c"
+#line 1283 "../../asn1/c1222/packet-c1222-template.c"
   };
 
   module_t *c1222_module;

@@ -308,7 +308,7 @@ static gboolean dialog_graph_dump_to_file(graph_analysis_data_t *user_data)
 	GString *label_string, *empty_line,*separator_line, *tmp_str, *tmp_str2;
 	char    *empty_header;
 	char     src_port[8],dst_port[8];
-	gchar	*time_str = g_malloc(COL_MAX_LEN);
+	gchar	*time_str;
 	GList *list;
 
 	FILE  *of;
@@ -319,6 +319,7 @@ static gboolean dialog_graph_dump_to_file(graph_analysis_data_t *user_data)
 		return FALSE;
 	}
 
+	time_str       = g_malloc(COL_MAX_LEN);
 	label_string   = g_string_new("");
 	empty_line     = g_string_new("");
 	separator_line = g_string_new("");
@@ -666,7 +667,7 @@ static void dialog_graph_draw(graph_analysis_data_t *user_data)
 	char label_string[MAX_COMMENT];
 	GList *list;
 	cairo_t *cr;
-	gchar	*time_str = g_malloc(COL_MAX_LEN);
+	gchar	*time_str;
 
 	GdkColor *color_p, *bg_color_p;
 	GdkColor black_color = {0, 0, 0, 0};
@@ -691,7 +692,7 @@ static void dialog_graph_draw(graph_analysis_data_t *user_data)
 	};
 
 	/* XXX can't we just set the background color ? */
-	GdkPixbuf *bg_pixbuf =  gdk_pixbuf_new_from_xpm_data(voip_bg_xpm);
+	GdkPixbuf *bg_pixbuf;
 
 	/* Dashed line pattern */
 	static const double dashed1[] = {5.0, 4.0};
@@ -702,6 +703,9 @@ static void dialog_graph_draw(graph_analysis_data_t *user_data)
 	if(!user_data->dlg.needs_redraw){
 		return;
 	}
+
+	bg_pixbuf =  gdk_pixbuf_new_from_xpm_data(voip_bg_xpm);
+	time_str = g_malloc(COL_MAX_LEN);
 	user_data->dlg.needs_redraw=FALSE;
 
 	gtk_widget_get_allocation(user_data->dlg.draw_area_time, &draw_area_time_alloc);
@@ -808,7 +812,10 @@ static void dialog_graph_draw(graph_analysis_data_t *user_data)
 	last_item = first_item+display_items-1;
 
 	/* if no items to display */
-	if (display_items == 0)	return;
+	if (display_items == 0)	{
+		g_free(time_str);
+		return;
+	}
 
 
 	/* Calculate the x borders */
@@ -1123,8 +1130,6 @@ static void dialog_graph_draw(graph_analysis_data_t *user_data)
 			arrow_width = start_arrow-end_arrow;
 			label_x = arrow_width/2+end_arrow;
 		}
-
-		if (label_width>(gint)arrow_width) arrow_width = label_width;
 
 		if ((int)left_x_border > ((int)label_x-(int)label_width/2))
 			label_x = left_x_border + label_width/2;
@@ -1753,7 +1758,7 @@ static void create_draw_area(graph_analysis_data_t *user_data, GtkWidget *box)
 	GtkRequisition scroll_requisition;
 	GtkWidget *frame;
 
-	hbox=gtk_hbox_new(FALSE, 0);
+	hbox=ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0, FALSE);
 	gtk_widget_show(hbox);
 
 	/* create "time" draw area */ 
@@ -1867,7 +1872,7 @@ static void create_draw_area(graph_analysis_data_t *user_data, GtkWidget *box)
 	/* Allow the hbox with time to expand (TRUE, TRUE) */
 	gtk_box_pack_start(GTK_BOX(hbox), frame_time, FALSE, FALSE, 3);
 
-	user_data->dlg.hpane = gtk_hpaned_new();
+	user_data->dlg.hpane = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_paned_pack1(GTK_PANED (user_data->dlg.hpane), user_data->dlg.scroll_window, FALSE, TRUE);
 	gtk_paned_pack2(GTK_PANED (user_data->dlg.hpane), scroll_window_comments, TRUE, TRUE);
 	g_signal_connect(user_data->dlg.hpane, "notify::position",  G_CALLBACK(pane_callback), user_data);
@@ -1876,12 +1881,12 @@ static void create_draw_area(graph_analysis_data_t *user_data, GtkWidget *box)
 	gtk_box_pack_start(GTK_BOX(hbox), user_data->dlg.hpane, TRUE, TRUE, 0);
 
 	/* Create the scroll_vbox to include the vertical scroll and a box at the bottom */
-	scroll_vbox=gtk_vbox_new(FALSE, 0);
+	scroll_vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_widget_show(scroll_vbox);
 
 	/* create the associated v_scrollbar */
 	user_data->dlg.v_scrollbar_adjustment=(GtkAdjustment *)gtk_adjustment_new(0,0,0,0,0,0);
-	user_data->dlg.v_scrollbar=gtk_vscrollbar_new(user_data->dlg.v_scrollbar_adjustment);
+	user_data->dlg.v_scrollbar=gtk_scrollbar_new(GTK_ORIENTATION_VERTICAL, user_data->dlg.v_scrollbar_adjustment);
 	gtk_widget_show(user_data->dlg.v_scrollbar);
 	gtk_box_pack_start(GTK_BOX(scroll_vbox), user_data->dlg.v_scrollbar, TRUE, TRUE, 0);
 	g_signal_connect(user_data->dlg.v_scrollbar_adjustment, "value_changed",
@@ -1922,24 +1927,25 @@ static void dialog_graph_create_window(graph_analysis_data_t *user_data)
 	GtkWidget *hbuttonbox;
 	GtkWidget *bt_close;
 	GtkWidget *bt_save;
-	const gchar *title_name_ptr;
+	gchar   *title_name_ptr;
 	gchar   *win_name;
 
 	title_name_ptr = cf_get_display_name(&cfile);
 	win_name = g_strdup_printf("%s - Graph Analysis", title_name_ptr);
+	g_free(title_name_ptr);
 
 	/* create the main window */
 	user_data->dlg.window=dlg_window_new((user_data->dlg.title)?user_data->dlg.title:win_name);
 	gtk_window_set_destroy_with_parent(GTK_WINDOW(user_data->dlg.window), TRUE);
 
-	vbox=gtk_vbox_new(FALSE, 0);
+	vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 0, FALSE);
 	gtk_container_add(GTK_CONTAINER(user_data->dlg.window), vbox);
 	gtk_widget_show(vbox);
 
 	create_draw_area(user_data, vbox);
 
 	/* button row */
-	hbuttonbox = gtk_hbutton_box_new ();
+	hbuttonbox = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
 	gtk_box_pack_start (GTK_BOX (vbox), hbuttonbox, FALSE, FALSE, 10);
 	gtk_button_box_set_layout (GTK_BUTTON_BOX (hbuttonbox), GTK_BUTTONBOX_SPREAD);
 	gtk_box_set_spacing (GTK_BOX (hbuttonbox), 30);

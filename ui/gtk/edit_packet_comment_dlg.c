@@ -27,9 +27,6 @@
 #include "config.h"
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
 #include <string.h>
 
 #include <gtk/gtk.h>
@@ -46,24 +43,12 @@
 #include "ui/gtk/gui_utils.h"
 #include "ui/gtk/help_dlg.h"
 #include "ui/gtk/main.h"
-#include "ui/gtk/menus.h"
 #include "ui/gtk/new_packet_list.h"
 #include "ui/gtk/edit_packet_comment_dlg.h"
 #include "ui/gtk/old-gtk-compat.h"
 
 static GtkWidget *edit_or_add_pkt_comment_dlg = NULL;
 static GtkWidget *edit_or_add_capture_comment_dlg = NULL;
-
-
-static void
-comment_text_buff_clear_cb(GtkWidget *w _U_, GtkWidget *view)
-{
-  GtkTextBuffer *buffer;
-
-  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
-  gtk_text_buffer_set_text (buffer, "", -1);
-
-}
 
 static void
 pkt_comment_text_buff_ok_cb(GtkWidget *w _U_, GtkWidget *view)
@@ -105,9 +90,8 @@ capture_comment_text_buff_ok_cb(GtkWidget *w _U_, GtkWidget *view)
   /*g_warning("The new comment is '%s'",new_capture_comment);*/
   cf_update_capture_comment(&cfile, new_capture_comment);
 
-  /* Mark the file as unsaved, caues a popup asking to save the file if we quit the file */
-  cfile.user_saved = FALSE;
-  set_menus_for_capture_file(&cfile);
+  /* Update the main window as appropriate */
+  main_update_for_unsaved_changes(&cfile);
 
   window_destroy(edit_or_add_capture_comment_dlg);
 
@@ -120,21 +104,22 @@ edit_packet_comment_dlg (GtkAction *action _U_, gpointer data _U_)
   GtkWidget *vbox;
   GtkWidget *view;
   GtkWidget *bbox;
-  GtkWidget *ok_bt, *clear_bt, *cancel_bt, *help_bt;
+  GtkWidget *ok_bt, *cancel_bt, *help_bt;
   GtkTextBuffer *buffer = NULL;
   gchar *opt_comment;
-  const gchar *buf_str;
+  gchar *buf_str;
 
   edit_or_add_pkt_comment_dlg = dlg_window_new ("Edit or Add Packet Comments");
   gtk_widget_set_size_request (edit_or_add_pkt_comment_dlg, 500, 160);
   gtk_window_set_resizable (GTK_WINDOW (edit_or_add_pkt_comment_dlg), TRUE);
   gtk_container_set_border_width (GTK_CONTAINER (edit_or_add_pkt_comment_dlg), DLG_OUTER_MARGIN);
 
-  vbox = gtk_vbox_new (FALSE, DLG_UNRELATED_SPACING);
+  vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, DLG_UNRELATED_SPACING, FALSE);
   gtk_container_add (GTK_CONTAINER (edit_or_add_pkt_comment_dlg), vbox);
   gtk_widget_show (vbox);
 
   view = gtk_text_view_new ();
+  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view), GTK_WRAP_WORD);
   buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
 
   /* Get the comment */
@@ -144,20 +129,18 @@ edit_packet_comment_dlg (GtkAction *action _U_, gpointer data _U_)
   if(opt_comment){
     buf_str = g_strdup_printf("%s", opt_comment);
     gtk_text_buffer_set_text (buffer, buf_str, -1);
+    g_free(buf_str);
   }
   gtk_container_add(GTK_CONTAINER(vbox), view);
   gtk_widget_show (view);
 
   /* Button row. */
-  bbox = dlg_button_row_new (GTK_STOCK_OK, GTK_STOCK_CLEAR, GTK_STOCK_CANCEL, GTK_STOCK_HELP, NULL);
+  bbox = dlg_button_row_new (GTK_STOCK_OK, GTK_STOCK_CANCEL, GTK_STOCK_HELP, NULL);
   gtk_box_pack_end (GTK_BOX(vbox), bbox, FALSE, FALSE, 0);
 
   ok_bt = g_object_get_data (G_OBJECT(bbox), GTK_STOCK_OK);
   g_signal_connect (ok_bt, "clicked", G_CALLBACK(pkt_comment_text_buff_ok_cb), view);
   gtk_widget_set_sensitive (ok_bt, TRUE);
-
-  clear_bt = g_object_get_data(G_OBJECT(bbox), GTK_STOCK_CLEAR);
-  g_signal_connect(clear_bt, "clicked", G_CALLBACK(comment_text_buff_clear_cb), view);
 
   cancel_bt = g_object_get_data (G_OBJECT(bbox), GTK_STOCK_CANCEL);
   window_set_cancel_button (edit_or_add_pkt_comment_dlg, cancel_bt, window_cancel_button_cb);
@@ -173,8 +156,6 @@ edit_packet_comment_dlg (GtkAction *action _U_, gpointer data _U_)
 
 
   gtk_widget_show (edit_or_add_pkt_comment_dlg);
-
-
 }
 
 static void
@@ -191,10 +172,10 @@ edit_capture_dlg_launch (void)
   GtkWidget *vbox;
   GtkWidget *view;
   GtkWidget *bbox;
-  GtkWidget *ok_bt, *clear_bt, *cancel_bt, *help_bt;
+  GtkWidget *ok_bt, *cancel_bt, *help_bt;
   GtkTextBuffer *buffer = NULL;
   const gchar *comment_str = NULL;
-  const gchar *buf_str;
+  gchar *buf_str;
 
   if (edit_or_add_capture_comment_dlg != NULL) {
     /* There's already an "Edit Capture Comment" dialog box; reactivate it. */
@@ -210,11 +191,12 @@ edit_capture_dlg_launch (void)
   g_signal_connect(edit_or_add_capture_comment_dlg, "destroy",
                    G_CALLBACK(edit_capture_comment_destroy_cb), NULL);
 
-  vbox = gtk_vbox_new (FALSE, DLG_UNRELATED_SPACING);
+  vbox = ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, DLG_UNRELATED_SPACING, FALSE);
   gtk_container_add (GTK_CONTAINER (edit_or_add_capture_comment_dlg), vbox);
   gtk_widget_show (vbox);
 
   view = gtk_text_view_new ();
+  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view), GTK_WRAP_WORD);
   buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
 
   /* Get the comment */
@@ -224,20 +206,18 @@ edit_capture_dlg_launch (void)
   if(comment_str != NULL){
     buf_str = g_strdup_printf("%s", comment_str);
     gtk_text_buffer_set_text (buffer, buf_str, -1);
+    g_free(buf_str);
   }
   gtk_container_add(GTK_CONTAINER(vbox), view);
   gtk_widget_show (view);
 
   /* Button row. */
-  bbox = dlg_button_row_new (GTK_STOCK_OK, GTK_STOCK_CLEAR, GTK_STOCK_CANCEL, GTK_STOCK_HELP, NULL);
+  bbox = dlg_button_row_new (GTK_STOCK_OK, GTK_STOCK_CANCEL, GTK_STOCK_HELP, NULL);
   gtk_box_pack_end (GTK_BOX(vbox), bbox, FALSE, FALSE, 0);
 
   ok_bt = g_object_get_data (G_OBJECT(bbox), GTK_STOCK_OK);
   g_signal_connect (ok_bt, "clicked", G_CALLBACK(capture_comment_text_buff_ok_cb), view);
   gtk_widget_set_sensitive (ok_bt, TRUE);
-
-  clear_bt = g_object_get_data(G_OBJECT(bbox), GTK_STOCK_CLEAR);
-  g_signal_connect(clear_bt, "clicked", G_CALLBACK(comment_text_buff_clear_cb), view);
 
   cancel_bt = g_object_get_data (G_OBJECT(bbox), GTK_STOCK_CANCEL);
   window_set_cancel_button (edit_or_add_capture_comment_dlg, cancel_bt, window_cancel_button_cb);

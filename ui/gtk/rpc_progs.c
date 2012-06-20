@@ -92,10 +92,13 @@ static rpc_program_t *prog_list=NULL;
 static char *
 rpcprogs_gen_title(void)
 {
+	char *display_name;
 	char *title;
 
+	display_name = cf_get_display_name(&cfile);
 	title = g_strdup_printf("ONC-RPC Program Statistics: %s",
-	    cf_get_display_name(&cfile));
+	    display_name);
+	g_free(display_name);
 	return title;
 }
 
@@ -271,7 +274,6 @@ rpcprogs_draw(void *dummy _U_)
 	for(rp=prog_list,i=1;rp;rp=rp->next,i++){
 		/* Ignore procedures with no calls */
 		if(rp->num==0){
-			td=0;
 			continue;
 		}
 		/* Scale the average SRT in units of 1us and round to the nearest us.
@@ -350,7 +352,7 @@ gtk_rpcprogs_init(const char *optarg _U_, void* userdata _U_)
 	win = dlg_window_new(title_string);  /* transient_for top_level */
 	gtk_window_set_destroy_with_parent (GTK_WINDOW(win), TRUE);
 
-	vbox=gtk_vbox_new(FALSE, 3);
+	vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 3, FALSE);
 	gtk_container_add(GTK_CONTAINER(win), vbox);
 	gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
 

@@ -11,58 +11,18 @@
 ; So if you get an error here, please update to at least NSIS 2.07!
 SetCompressor /SOLID lzma
 
-InstType "un.Default (keep Personal Settings and WinPcap)"
-InstType "un.All (remove all)"
-
-; Used to refresh the display of file association
-!define SHCNE_ASSOCCHANGED 0x08000000
-!define SHCNF_IDLIST 0
-
-; Used to add associations between file extensions and Wireshark
-!define WIRESHARK_ASSOC "wireshark-capture-file"
+!include "common.nsh"
+!include 'LogicLib.nsh'
 
 ; ============================================================================
 ; Header configuration
 ; ============================================================================
-; The name of the installer
-!define PROGRAM_NAME "Wireshark"
-!if ${WIRESHARK_TARGET_PLATFORM} == "win32"
-!define BITS 32
-!else
-!define BITS 64
-!endif
-
-Name "${PROGRAM_NAME} ${VERSION} (${BITS}-bit)"
-
-;
-VIAddVersionKey "ProductName" "${PROGRAM_NAME}"
-VIAddVersionKey "Comments" "It's a great product with a great story to tell. I'm pumped!"
-VIAddVersionKey "CompanyName" "${PROGRAM_NAME} development team"
-; NSIS handles the copyright symbol correctly using CP-1252 but not UTF-8.
-VIAddVersionKey "LegalCopyright" "© Gerald Combs and many others"
-VIAddVersionKey "LegalTrademarks" "Wireshark and the 'fin' logo are registered trademarks of the Wireshark Foundation"
-VIAddVersionKey "FileDescription" "${PROGRAM_NAME} installer for ${BITS}-bit Windows"
-VIAddVersionKey "Language" "English"
-VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
-VIAddVersionKey "FileVersion" "${PRODUCT_VERSION}"
-VIProductVersion "${PRODUCT_VERSION}"
-
 
 ; The file to write
-OutFile "wireshark-${WIRESHARK_TARGET_PLATFORM}-${VERSION}.exe"
+OutFile "${PROGRAM_NAME}-${WIRESHARK_TARGET_PLATFORM}-${VERSION}.exe"
 
-; Icon of installer and uninstaller
+; Installer icon
 Icon "..\..\image\wiresharkinst.ico"
-UninstallIcon "..\..\image\wiresharkinst.ico"
-
-; Uninstall stuff (NSIS 2.08: "\r\n" don't work here)
-!define MUI_UNCONFIRMPAGE_TEXT_TOP "The following Wireshark installation will be uninstalled. Click 'Next' to continue."
-; Uninstall stuff (this text isn't used with the MODERN_UI!)
-;UninstallText "This will uninstall Wireshark.\r\nBefore starting the uninstallation, make sure Wireshark is not running.\r\nClick 'Next' to continue."
-
-XPStyle on
-
-
 
 ; ============================================================================
 ; Modern UI
@@ -77,11 +37,9 @@ XPStyle on
 ;!addplugindir ".\Plugins"
 
 !define MUI_ICON "..\..\image\wiresharkinst.ico"
-!define MUI_UNICON "..\..\image\wiresharkinst.ico"
 
 !define MUI_COMPONENTSPAGE_SMALLDESC
 !define MUI_FINISHPAGE_NOAUTOCLOSE
-!define MUI_UNFINISHPAGE_NOAUTOCLOSE
 !define MUI_WELCOMEPAGE_TEXT "This wizard will guide you through the installation of Wireshark.\r\n\r\nBefore starting the installation, make sure Wireshark is not running.\r\n\r\nClick 'Next' to continue."
 ;!define MUI_FINISHPAGE_LINK "Install WinPcap to be able to capture packets from a network!"
 ;!define MUI_FINISHPAGE_LINK_LOCATION "http://www.winpcap.org"
@@ -112,12 +70,6 @@ Page custom DisplayAdditionalTasksPage
 Page custom DisplayWinPcapPage
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
-
-!insertmacro MUI_UNPAGE_WELCOME
-!insertmacro MUI_UNPAGE_CONFIRM
-!insertmacro MUI_UNPAGE_COMPONENTS
-!insertmacro MUI_UNPAGE_INSTFILES
-!insertmacro MUI_UNPAGE_FINISH
 
 ; ============================================================================
 ; MUI Languages
@@ -206,63 +158,34 @@ InstallDirRegKey HKEY_LOCAL_MACHINE SOFTWARE\Wireshark "InstallDir"
 ; Install page configuration
 ; ============================================================================
 ShowInstDetails show
-ShowUninstDetails show
 
 ; ============================================================================
 ; Functions and macros
 ; ============================================================================
-!macro UpdateIcons
-	Push $R0
-  	Push $R1
-  	Push $R2
 
-	!define UPDATEICONS_UNIQUE ${__LINE__}
-
-	IfFileExists "$SYSDIR\shell32.dll" UpdateIcons.ok_shell32_${UPDATEICONS_UNIQUE} UpdateIcons.error_shell32_${UPDATEICONS_UNIQUE}
-UpdateIcons.ok_shell32_${UPDATEICONS_UNIQUE}:
-	System::Call 'shell32.dll::SHChangeNotify(i, i, i, i) v (${SHCNE_ASSOCCHANGED}, ${SHCNF_IDLIST}, 0, 0)'
-	Goto UpdateIcons.quit_${UPDATEICONS_UNIQUE}
-
-UpdateIcons.error_shell32_${UPDATEICONS_UNIQUE}:
-	MessageBox MB_OK|MB_ICONSTOP  \
-            "Can't find 'shell32.dll' library. Impossible to update icons" \
-            /SD IDOK
-	Goto UpdateIcons.quit_${UPDATEICONS_UNIQUE}
-
-UpdateIcons.quit_${UPDATEICONS_UNIQUE}:
-	!undef UPDATEICONS_UNIQUE
-	Pop $R2
-	Pop $R1
-  	Pop $R0
-
-!macroend
-
+Var EXTENSION
+; http://msdn.microsoft.com/en-us/library/windows/desktop/cc144148.aspx
 Function Associate
-	; $R0 should contain the prefix to associate to Wireshark
-	Push $R1
+	Push $R0
+!insertmacro PushFileExtensions
 
-	ReadRegStr $R1 HKCR $R0 ""
-	StrCmp $R1 "" Associate.doRegister
-	Goto Associate.end
+	Pop $EXTENSION
+	
+	${DoUntil} $EXTENSION == ${FILE_EXTENSION_MARKER}
+		ReadRegStr $R0 HKCR $EXTENSION ""
+		StrCmp $R0 "" Associate.doRegister
+		Goto Associate.end
+
 Associate.doRegister:
-	;The extension is not associated to any program, we can do the link
-	WriteRegStr HKCR $R0 "" ${WIRESHARK_ASSOC}
+		;The extension is not associated to any program, we can do the link
+		WriteRegStr HKCR $EXTENSION "" ${WIRESHARK_ASSOC}
+		DetailPrint "Registered file type: $EXTENSION"
+
 Associate.end:
-	pop $R1
-FunctionEnd
+		Pop $EXTENSION
+	${Loop}
 
-Function un.unlink
-	; $R0 should contain the prefix to unlink
-	Push $R1
-
-	ReadRegStr $R1 HKCR $R0 ""
-	StrCmp $R1 ${WIRESHARK_ASSOC} un.unlink.doUnlink
-	Goto un.unlink.end
-un.unlink.doUnlink:
-	; The extension is associated with Wireshark so, we must destroy this!
-	DeleteRegKey HKCR $R0
-un.unlink.end:
-	pop $R1
+	Pop $R0
 FunctionEnd
 
 Var OLD_UNINSTALLER
@@ -361,58 +284,61 @@ Section "-Required"
 SetShellVarContext all
 
 
-
 SetOutPath $INSTDIR
-File "..\..\wireshark-gtk2\wiretap-${WTAP_VERSION}.dll"
+File "${STAGING_DIR}\${UNINSTALLER_NAME}"
+File "${STAGING_DIR}\wiretap-${WTAP_VERSION}.dll"
 !ifdef ENABLE_LIBWIRESHARK
-File "..\..\epan\libwireshark.dll"
+File "${STAGING_DIR}\libwireshark.dll"
 !endif
-File "..\..\wireshark-gtk2\libwsutil.dll"
-File "..\..\wireshark-gtk2\libgio-2.0-0.dll"
-File "..\..\wireshark-gtk2\libglib-2.0-0.dll"
-File "..\..\wireshark-gtk2\libgobject-2.0-0.dll"
-File "..\..\wireshark-gtk2\libgmodule-2.0-0.dll"
-File "..\..\wireshark-gtk2\libgthread-2.0-0.dll"
+File "${STAGING_DIR}\libwsutil.dll"
+File "${STAGING_DIR}\libgio-2.0-0.dll"
+File "${STAGING_DIR}\libglib-2.0-0.dll"
+File "${STAGING_DIR}\libgobject-2.0-0.dll"
+File "${STAGING_DIR}\libgmodule-2.0-0.dll"
+File "${STAGING_DIR}\libgthread-2.0-0.dll"
 !ifdef ICONV_DIR
-File "..\..\wireshark-gtk2\iconv.dll"
+File "${STAGING_DIR}\iconv.dll"
 !endif
-File "..\..\wireshark-gtk2\${INTL_DLL}"
+File "${STAGING_DIR}\${INTL_DLL}"
 !ifdef ZLIB_DIR
-File "..\..\wireshark-gtk2\zlib1.dll"
+File "${STAGING_DIR}\zlib1.dll"
 !endif
 !ifdef C_ARES_DIR
-File "..\..\wireshark-gtk2\libcares-2.dll"
+File "${STAGING_DIR}\libcares-2.dll"
 !endif
 !ifdef ADNS_DIR
-File "..\..\wireshark-gtk2\adns_dll.dll"
+File "${STAGING_DIR}\adns_dll.dll"
 !endif
 !ifdef KFW_DIR
-File "..\..\wireshark-gtk2\comerr32.dll"
-File "..\..\wireshark-gtk2\krb5_32.dll"
-File "..\..\wireshark-gtk2\k5sprt32.dll"
+File "${STAGING_DIR}\comerr32.dll"
+File "${STAGING_DIR}\krb5_32.dll"
+File "${STAGING_DIR}\k5sprt32.dll"
 !endif
 !ifdef GNUTLS_DIR
-File "..\..\wireshark-gtk2\libgcrypt-11.dll"
-File "..\..\wireshark-gtk2\libgnutls-26.dll"
-File "..\..\wireshark-gtk2\libgpg-error-0.dll"
-File "..\..\wireshark-gtk2\libtasn1-3.dll"
+File "${STAGING_DIR}\libgcrypt-11.dll"
+File "${STAGING_DIR}\libgnutls-26.dll"
+File "${STAGING_DIR}\libgpg-error-0.dll"
+File "${STAGING_DIR}\libtasn1-3.dll"
 StrCmp "${INTL_DLL}" "libintl-8.dll" SkipLibIntl8
-File "..\..\wireshark-gtk2\libintl-8.dll"
+File "${STAGING_DIR}\libintl-8.dll"
 SkipLibIntl8:
 !endif
 !ifdef LUA_DIR
-File "..\..\wireshark-gtk2\lua5.1.dll"
+File "${STAGING_DIR}\lua5.1.dll"
 File "..\..\epan\wslua\init.lua"
 File "..\..\epan\wslua\console.lua"
 File "..\..\epan\wslua\dtd_gen.lua"
 !endif
 !ifdef SMI_DIR
-File "..\..\wireshark-gtk2\libsmi-2.dll"
+File "${STAGING_DIR}\libsmi-2.dll"
 !endif
-File "..\..\wireshark-gtk2\COPYING.txt"
-File "..\..\wireshark-gtk2\NEWS.txt"
-File "..\..\wireshark-gtk2\README.txt"
-File "..\..\wireshark-gtk2\README.windows.txt"
+!ifdef GEOIP_DIR
+File "${STAGING_DIR}\libGeoIP-1.dll"
+!endif
+File "${STAGING_DIR}\COPYING.txt"
+File "${STAGING_DIR}\NEWS.txt"
+File "${STAGING_DIR}\README.txt"
+File "${STAGING_DIR}\README.windows.txt"
 File "..\..\doc\AUTHORS-SHORT"
 File "..\..\manuf"
 File "..\..\services"
@@ -420,7 +346,7 @@ File "..\..\pdml2html.xsl"
 File "..\..\doc\ws.css"
 File "..\..\doc\wireshark.html"
 File "..\..\doc\wireshark-filter.html"
-File "..\..\dumpcap.exe"
+File "${STAGING_DIR}\dumpcap.exe"
 File "..\..\doc\dumpcap.html"
 File "..\..\ipmap.html"
 
@@ -487,11 +413,10 @@ File "..\..\diameter\sip.xml"
 File "..\..\diameter\sunping.xml"
 File "..\..\diameter\TGPPGmb.xml"
 File "..\..\diameter\TGPPRx.xml"
+File "..\..\diameter\TGPPS9.xml"
 File "..\..\diameter\TGPPSh.xml"
 File "..\..\diameter\Vodafone.xml"
 SetOutPath $INSTDIR
-
-
 
 ;
 ; Install the RADIUS directory files in the "radius" subdirectory
@@ -509,6 +434,7 @@ File "..\..\radius\dictionary.airespace"
 File "..\..\radius\dictionary.alcatel"
 File "..\..\radius\dictionary.alcatel.esam"
 File "..\..\radius\dictionary.alcatel.sr"
+File "..\..\radius\dictionary.alcatel-lucent.xylan"
 File "..\..\radius\dictionary.alteon"
 File "..\..\radius\dictionary.altiga"
 File "..\..\radius\dictionary.alvarion"
@@ -637,7 +563,6 @@ File "..\..\radius\dictionary.wimax"
 File "..\..\radius\dictionary.wimax.wichorus"
 File "..\..\radius\dictionary.wispr"
 File "..\..\radius\dictionary.xedia"
-File "..\..\radius\dictionary.xylan"
 File "..\..\radius\dictionary.zyxel"
 SetOutPath $INSTDIR
 
@@ -665,14 +590,6 @@ SetOutPath $INSTDIR\tpncp
 File "..\..\tpncp\tpncp.dat"
 
 ;
-; Install the GUI XML files in the "ui" subdirectory
-; of the installation directory.
-;
-SetOutPath $INSTDIR\ui
-File "..\..\ui\gtk\ui\main-menubar-ui.xml"
-SetOutPath $INSTDIR
-
-;
 ; install the wimaxasncp TLV definitions in the wimaxasncp subdirectory
 ;
 SetOutPath $INSTDIR\wimaxasncp
@@ -681,25 +598,37 @@ File "..\..\wimaxasncp\dictionary.dtd"
 SetOutPath $INSTDIR
 
 SetOutPath $INSTDIR\help
-File "..\..\wireshark-gtk2\help\toc"
-File "..\..\wireshark-gtk2\help\overview.txt"
-File "..\..\wireshark-gtk2\help\getting_started.txt"
-File "..\..\wireshark-gtk2\help\capturing.txt"
-File "..\..\wireshark-gtk2\help\capture_filters.txt"
-File "..\..\wireshark-gtk2\help\display_filters.txt"
-File "..\..\wireshark-gtk2\help\faq.txt"
+File "${STAGING_DIR}\help\toc"
+File "${STAGING_DIR}\help\overview.txt"
+File "${STAGING_DIR}\help\getting_started.txt"
+File "${STAGING_DIR}\help\capturing.txt"
+File "${STAGING_DIR}\help\capture_filters.txt"
+File "${STAGING_DIR}\help\display_filters.txt"
+File "${STAGING_DIR}\help\faq.txt"
 
 ; Write the uninstall keys for Windows
-WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark" "DisplayVersion" "${VERSION}"
-WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark" "DisplayName" "Wireshark ${VERSION}"
-WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark" "UninstallString" '"$INSTDIR\uninstall.exe"'
-WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark" "Publisher" "The Wireshark developer community, http://www.wireshark.org"
-WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark" "HelpLink" "mailto:wireshark-users@wireshark.org"
-WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark" "URLInfoAbout" "http://www.wireshark.org"
-WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark" "URLUpdateInfo" "http://www.wireshark.org/download/win32/"
-WriteRegDWORD HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark" "NoModify" 1
-WriteRegDWORD HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark" "NoRepair" 1
-WriteUninstaller "uninstall.exe"
+; http://nsis.sourceforge.net/Add_uninstall_information_to_Add/Remove_Programs
+; http://msdn.microsoft.com/en-us/library/ms954376.aspx
+; http://msdn.microsoft.com/en-us/library/windows/desktop/aa372105.aspx
+!define UNINSTALL_PATH "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PROGRAM_NAME}"
+
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "Comments" "${DISPLAY_NAME}"
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "DisplayIcon" "$INSTDIR\wireshark.exe,0"
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "DisplayName" "${DISPLAY_NAME}"
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "DisplayVersion" "${VERSION}"
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "HelpLink" "http://ask.wireshark.org/"
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "InstallLocation" "$INSTDIR"
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "Publisher" "The Wireshark developer community, http://www.wireshark.org"
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "URLInfoAbout" "http://www.wireshark.org"
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "URLUpdateInfo" "http://www.wireshark.org/download.html"
+
+WriteRegDWORD HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "NoModify" 1
+WriteRegDWORD HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "NoRepair" 1
+WriteRegDWORD HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "VersionMajor" ${VERSION_MAJOR}
+WriteRegDWORD HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "VersionMinor" ${VERSION_MINOR}
+
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "UninstallString" '"$INSTDIR\${UNINSTALLER_NAME}"'
+WriteRegStr HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "QuietUninstallString" '"$INSTDIR\${UNINSTALLER_NAME}" /S'
 
 ; Write an entry for ShellExecute
 WriteRegStr HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\App Paths\wireshark.exe" "" '$INSTDIR\wireshark.exe'
@@ -718,7 +647,6 @@ CreateShortCut "$SMPROGRAMS\Wireshark.lnk" "$INSTDIR\wireshark.exe" "" "$INSTDIR
 ;CreateShortCut "$SMPROGRAMS\Wireshark\Wireshark Manual.lnk" "$INSTDIR\wireshark.html"
 ;CreateShortCut "$SMPROGRAMS\Wireshark\Display Filters Manual.lnk" "$INSTDIR\wireshark-filter.html"
 ;CreateShortCut "$SMPROGRAMS\Wireshark\Wireshark Program Directory.lnk" "$INSTDIR"
-;CreateShortCut "$SMPROGRAMS\Wireshark\Uninstall Wireshark.lnk" "$INSTDIR\uninstall.exe"
 SecRequired_skip_StartMenu:
 
 ; is command line option "/desktopicon" set?
@@ -753,51 +681,11 @@ StrCmp $0 "0" SecRequired_skip_FileExtensions
 WriteRegStr HKCR ${WIRESHARK_ASSOC} "" "Wireshark capture file"
 WriteRegStr HKCR "${WIRESHARK_ASSOC}\Shell\open\command" "" '"$INSTDIR\wireshark.exe" "%1"'
 WriteRegStr HKCR "${WIRESHARK_ASSOC}\DefaultIcon" "" '"$INSTDIR\wireshark.exe",1'
-push $R0
-	StrCpy $R0 ".5vw"
-  	Call Associate
-	StrCpy $R0 ".acp"
-  	Call Associate
-  	StrCpy $R0 ".apc"
-  	Call Associate
-  	StrCpy $R0 ".atc"
-  	Call Associate
-  	StrCpy $R0 ".bfr"
-  	Call Associate
-	StrCpy $R0 ".cap"
-  	Call Associate
-	StrCpy $R0 ".enc"
-  	Call Associate
-  	StrCpy $R0 ".erf"
-  	Call Associate
-  	StrCpy $R0 ".fdc"
-  	Call Associate
-  	StrCpy $R0 ".pcap"
-  	Call Associate
-  	StrCpy $R0 ".pcapng"
-  	Call Associate
-  	StrCpy $R0 ".pkt"
-  	Call Associate
-  	StrCpy $R0 ".snoop"
-  	Call Associate
-	StrCpy $R0 ".syc"
-  	Call Associate
-  	StrCpy $R0 ".tpc"
-  	Call Associate
-  	StrCpy $R0 ".tr1"
-  	Call Associate
-  	StrCpy $R0 ".trace"
-  	Call Associate
-	StrCpy $R0 ".trc"
-  	Call Associate
-  	StrCpy $R0 ".wpc"
-  	Call Associate
-  	StrCpy $R0 ".wpz"
-  	Call Associate
-  	StrCpy $R0 ".rf5"
-  	Call Associate
+
+
+Call Associate
 ; if somethings added here, add it also to the uninstall section and the AdditionalTask page
-pop $R0
+
 !insertmacro UpdateIcons
 SecRequired_skip_FileExtensions:
 
@@ -836,52 +724,68 @@ SectionEnd ; "Required"
 Section "Wireshark" SecWireshark
 ;-------------------------------------------
 SetOutPath $INSTDIR
-File "..\..\wireshark.exe"
-File "..\..\wireshark-gtk2\libgdk-win32-2.0-0.dll"
-File "..\..\wireshark-gtk2\libgdk_pixbuf-2.0-0.dll"
-File "..\..\wireshark-gtk2\libgtk-win32-2.0-0.dll"
-File "..\..\wireshark-gtk2\libatk-1.0-0.dll"
-File "..\..\wireshark-gtk2\libpango-1.0-0.dll"
-File "..\..\wireshark-gtk2\libpangowin32-1.0-0.dll"
+File "${STAGING_DIR}\wireshark.exe"
+File "${STAGING_DIR}\libgdk-win32-2.0-0.dll"
+File "${STAGING_DIR}\libgdk_pixbuf-2.0-0.dll"
+File "${STAGING_DIR}\libgtk-win32-2.0-0.dll"
+File "${STAGING_DIR}\libatk-1.0-0.dll"
+File "${STAGING_DIR}\libpango-1.0-0.dll"
+File "${STAGING_DIR}\libpangowin32-1.0-0.dll"
 !ifdef NEED_CAIRO_DLL
-File "..\..\wireshark-gtk2\libcairo-2.dll"
-File "..\..\wireshark-gtk2\libpangocairo-1.0-0.dll"
-!endif
-!ifdef NEED_LIBPNG_DLL
-File "..\..\wireshark-gtk2\${PNG_DLL}"
-!endif
-!ifdef NEED_LIBTIFF_DLL
-File "..\..\wireshark-gtk2\${TIFF_DLL}"
-!endif
-!ifdef NEED_LIBJPEG_DLL
-File "..\..\wireshark-gtk2\${JPEG_DLL}"
-!endif
-!ifdef NEED_FREETYPE_DLL
-File "..\..\wireshark-gtk2\libpangoft2-1.0-0.dll"
-File "..\..\wireshark-gtk2\${FREETYPE_DLL}"
-!endif
-!ifdef NEED_FONTCONFIG_DLL
-File "..\..\wireshark-gtk2\${FONTCONFIG_DLL}"
+File "${STAGING_DIR}\libcairo-2.dll"
+File "${STAGING_DIR}\libpangocairo-1.0-0.dll"
 !endif
 !ifdef NEED_EXPAT_DLL
-File "..\..\wireshark-gtk2\${EXPAT_DLL}"
+File "${STAGING_DIR}\${EXPAT_DLL}"
 !endif
+!ifdef NEED_FFI_DLL
+File "${STAGING_DIR}\${FFI_DLL}"
+!endif
+!ifdef NEED_FONTCONFIG_DLL
+File "${STAGING_DIR}\${FONTCONFIG_DLL}"
+!endif
+!ifdef NEED_FREETYPE_DLL
+File "${STAGING_DIR}\libpangoft2-1.0-0.dll"
+File "${STAGING_DIR}\${FREETYPE_DLL}"
+!endif
+!ifdef NEED_JASPER_DLL
+File "${STAGING_DIR}\${JASPER_DLL}"
+!endif
+!ifdef NEED_JPEG_DLL
+File "${STAGING_DIR}\${JPEG_DLL}"
+!endif
+!ifdef NEED_LZMA_DLL
+File "${STAGING_DIR}\${LZMA_DLL}"
+!endif
+!ifdef NEED_PIXMAN_DLL
+File "${STAGING_DIR}\${PIXMAN_DLL}"
+!endif
+!ifdef NEED_PNG_DLL
+File "${STAGING_DIR}\${PNG_DLL}"
+!endif
+!ifdef NEED_TIFF_DLL
+File "${STAGING_DIR}\${TIFF_DLL}"
+!endif
+!ifdef NEED_XML_DLL
+File "${STAGING_DIR}\${XML_DLL}"
+!endif
+
 SetOutPath $INSTDIR\etc\gtk-2.0
 File "${GTK_DIR}\etc\gtk-2.0\*.*"
 
-!if ${WIRESHARK_TARGET_PLATFORM} == "win32"
-SetOutPath $INSTDIR\etc\pango
-File "${GTK_DIR}\etc\pango\pango.*"
-!endif
+#!if ${WIRESHARK_TARGET_PLATFORM} == "win32"
+#SetOutPath $INSTDIR\etc\pango
+#File "${GTK_DIR}\etc\pango\pango.*"
+#!endif
 
 SetOutPath $INSTDIR\lib\gtk-2.0\${GTK_LIB_DIR}\engines
-File "..\..\wireshark-gtk2\lib\gtk-2.0\${GTK_LIB_DIR}\engines\libpixmap.dll"
+File "${STAGING_DIR}\lib\gtk-2.0\${GTK_LIB_DIR}\engines\libpixmap.dll"
 SetOutPath $INSTDIR\lib\gtk-2.0\modules
-File "..\..\wireshark-gtk2\lib\gtk-2.0\modules\libgail.dll"
+File "${STAGING_DIR}\lib\gtk-2.0\modules\libgail.dll"
 
 ; GTK MS-Windows Engine (GTK-Wimp)
 SetOutPath $INSTDIR\${GTK_WIMP_DLLDST_DIR}
-File "..\..\wireshark-gtk2\lib\gtk-2.0\${GTK_LIB_DIR}\engines\libwimp.dll"
+File "${STAGING_DIR}\lib\gtk-2.0\${GTK_LIB_DIR}\engines\libwimp.dll"
 SetOutPath $INSTDIR\${GTK_WIMP_RCDST_DIR}
 File "${GTK_WIMP_RCSRC_DIR}\gtkrc"
 
@@ -892,7 +796,7 @@ SectionEnd ; "Wireshark"
 Section "TShark" SecTShark
 ;-------------------------------------------
 SetOutPath $INSTDIR
-File "..\..\tshark.exe"
+File "${STAGING_DIR}\tshark.exe"
 File "..\..\doc\tshark.html"
 SectionEnd
 
@@ -901,34 +805,30 @@ SectionGroup "Plugins / Extensions" SecPluginsGroup
 Section "Dissector Plugins" SecPlugins
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${VERSION}'
-File "..\..\plugins\asn1\asn1.dll"
-File "..\..\plugins\docsis\docsis.dll"
-File "..\..\plugins\ethercat\ethercat.dll"
-File "..\..\plugins\giop\coseventcomm.dll"
-File "..\..\plugins\giop\cosnaming.dll"
-File "..\..\plugins\giop\parlay.dll"
-File "..\..\plugins\giop\tango.dll"
-File "..\..\plugins\gryphon\gryphon.dll"
-File "..\..\plugins\irda\irda.dll"
-File "..\..\plugins\m2m\m2m.dll"
-File "..\..\plugins\opcua\opcua.dll"
-File "..\..\plugins\profinet\profinet.dll"
-File "..\..\plugins\unistim\unistim.dll"
-File "..\..\plugins\wimax\wimax.dll"
-File "..\..\plugins\wimaxasncp\wimaxasncp.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\asn1.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\docsis.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\ethercat.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\gryphon.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\irda.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\m2m.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\opcua.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\profinet.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\unistim.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\wimax.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\wimaxasncp.dll"
 !include "custom_plugins.txt"
 SectionEnd
 
 Section "Tree Statistics Plugin" SecStatsTree
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${VERSION}'
-File "..\..\plugins\stats_tree\stats_tree.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\stats_tree.dll"
 SectionEnd
 
 Section "Mate - Meta Analysis and Tracing Engine" SecMate
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${VERSION}'
-File "..\..\plugins\mate\mate.dll"
+File "${STAGING_DIR}\plugins\${VERSION}\mate.dll"
 SectionEnd
 
 
@@ -953,35 +853,35 @@ SectionGroup "Tools" SecToolsGroup
 Section "Editcap" SecEditcap
 ;-------------------------------------------
 SetOutPath $INSTDIR
-File "..\..\editcap.exe"
+File "${STAGING_DIR}\editcap.exe"
 File "..\..\doc\editcap.html"
 SectionEnd
 
 Section "Text2Pcap" SecText2Pcap
 ;-------------------------------------------
 SetOutPath $INSTDIR
-File "..\..\text2pcap.exe"
+File "${STAGING_DIR}\text2pcap.exe"
 File "..\..\doc\text2pcap.html"
 SectionEnd
 
 Section "Mergecap" SecMergecap
 ;-------------------------------------------
 SetOutPath $INSTDIR
-File "..\..\mergecap.exe"
+File "${STAGING_DIR}\mergecap.exe"
 File "..\..\doc\mergecap.html"
 SectionEnd
 
 Section "Capinfos" SecCapinfos
 ;-------------------------------------------
 SetOutPath $INSTDIR
-File "..\..\capinfos.exe"
+File "${STAGING_DIR}\capinfos.exe"
 File "..\..\doc\capinfos.html"
 SectionEnd
 
 Section "Rawshark" SecRawshark
 ;-------------------------------------------
 SetOutPath $INSTDIR
-File "..\..\rawshark.exe"
+File "${STAGING_DIR}\rawshark.exe"
 File "..\..\doc\rawshark.html"
 SectionEnd
 
@@ -995,229 +895,13 @@ File "user-guide.chm"
 SectionEnd
 !endif
 
-Section "Uninstall" un.SecUinstall
-;-------------------------------------------
+Section "-Finally"
 
-;
-; UnInstall for every user
-;
-SectionIn 1 2
-SetShellVarContext all
+; Compute and write the installation directory size
+${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+IntFmt $0 "0x%08X" $0
+WriteRegDWORD HKEY_LOCAL_MACHINE "${UNINSTALL_PATH}" "EstimatedSize" "$0"
 
-Delete "$INSTDIR\rawshark.exe"
-IfErrors 0 NoRawsharkErrorMsg
-	MessageBox MB_OK "Please note: rawshark.exe could not be removed, it's probably in use!" IDOK 0 ;skipped if rawshark.exe removed
-	Abort "Please note: rawshark.exe could not be removed, it's probably in use! Abort uninstall process!"
-NoRawsharkErrorMsg:
-
-Delete "$INSTDIR\tshark.exe"
-IfErrors 0 NoTSharkErrorMsg
-	MessageBox MB_OK "Please note: tshark.exe could not be removed, it's probably in use!" IDOK 0 ;skipped if tshark.exe removed
-	Abort "Please note: tshark.exe could not be removed, it's probably in use! Abort uninstall process!"
-NoTSharkErrorMsg:
-
-Delete "$INSTDIR\wireshark.exe"
-IfErrors 0 NoWiresharkErrorMsg
-	MessageBox MB_OK "Please note: wireshark.exe could not be removed, it's probably in use!" IDOK 0 ;skipped if wireshark.exe removed
-	Abort "Please note: wireshark.exe could not be removed, it's probably in use! Abort uninstall process!"
-NoWiresharkErrorMsg:
-
-DeleteRegKey HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wireshark"
-DeleteRegKey HKEY_LOCAL_MACHINE "Software\Wireshark"
-DeleteRegKey HKEY_LOCAL_MACHINE "Software\Microsoft\Windows\CurrentVersion\App Paths\wireshark.exe"
-
-push $R0
-	StrCpy $R0 ".5vw"
-  	Call un.unlink
-	StrCpy $R0 ".acp"
-  	Call un.unlink
-  	StrCpy $R0 ".apc"
-  	Call un.unlink
-  	StrCpy $R0 ".atc"
-  	Call un.unlink
-  	StrCpy $R0 ".bfr"
-  	Call un.unlink
-	StrCpy $R0 ".cap"
-  	Call un.unlink
-	StrCpy $R0 ".enc"
-  	Call un.unlink
-  	StrCpy $R0 ".erf"
-  	Call un.unlink
-  	StrCpy $R0 ".fdc"
-  	Call un.unlink
-  	StrCpy $R0 ".pcap"
-  	Call un.unlink
-  	StrCpy $R0 ".pkt"
-  	Call un.unlink
-  	StrCpy $R0 ".snoop"
-  	Call un.unlink
-	StrCpy $R0 ".syc"
-  	Call un.unlink
-  	StrCpy $R0 ".tpc"
-  	Call un.unlink
-  	StrCpy $R0 ".tr1"
-  	Call un.unlink
-  	StrCpy $R0 ".trace"
-  	Call un.unlink
-	StrCpy $R0 ".trc"
-  	Call un.unlink
-  	StrCpy $R0 ".wpc"
-  	Call un.unlink
-  	StrCpy $R0 ".wpz"
-  	Call un.unlink
-  	StrCpy $R0 ".rf5"
-  	Call un.unlink
-pop $R0
-
-DeleteRegKey HKCR ${WIRESHARK_ASSOC}
-DeleteRegKey HKCR "${WIRESHARK_ASSOC}\Shell\open\command"
-DeleteRegKey HKCR "${WIRESHARK_ASSOC}\DefaultIcon"
-!insertmacro UpdateIcons
-
-Delete "$INSTDIR\etc\gtk-2.0\*.*"
-Delete "$INSTDIR\etc\pango\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\2.2.0\engines\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\2.2.0\loaders\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\2.2.0\immodules\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\2.4.0\engines\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\2.4.0\loaders\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\2.4.0\immodules\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\2.10.0\engines\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\2.10.0\loaders\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\2.10.0\immodules\*.*"
-Delete "$INSTDIR\lib\gtk-2.0\modules\*.*"
-Delete "$INSTDIR\lib\pango\1.2.0\modules\*.*"
-Delete "$INSTDIR\lib\pango\1.4.0\modules\*.*"
-Delete "$INSTDIR\lib\pango\1.5.0\modules\*.*"
-Delete "$INSTDIR\share\themes\Default\gtk-2.0\*.*"
-Delete "$INSTDIR\help\*.*"
-Delete "$INSTDIR\diameter\*.*"
-Delete "$INSTDIR\snmp\mibs\*.*"
-Delete "$INSTDIR\snmp\*.*"
-Delete "$INSTDIR\tpncp\*.*"
-Delete "$INSTDIR\ui\*.*"
-Delete "$INSTDIR\wimaxasncp\*.*"
-Delete "$INSTDIR\*.exe"
-Delete "$INSTDIR\*.dll"
-Delete "$INSTDIR\*.html"
-Delete "$INSTDIR\ws.css"
-Delete "$INSTDIR\COPYING*"
-Delete "$INSTDIR\AUTHORS-SHORT"
-; previous versions installed these files
-Delete "$INSTDIR\*.manifest"
-; previous versions installed this file
-Delete "$INSTDIR\AUTHORS-SHORT-FORMAT"
-Delete "$INSTDIR\README*"
-Delete "$INSTDIR\NEWS.txt"
-Delete "$INSTDIR\manuf"
-Delete "$INSTDIR\services"
-Delete "$INSTDIR\pdml2html.xsl"
-Delete "$INSTDIR\pcrepattern.3.txt"
-Delete "$INSTDIR\user-guide.chm"
-Delete "$INSTDIR\example_snmp_users_file"
-Delete "$INSTDIR\ipmap.html"
-Delete "$INSTDIR\radius\*.*"
-Delete "$INSTDIR\dtds\*.*"
-Delete "$SMPROGRAMS\Wireshark\*.*"
-Delete "$SMPROGRAMS\Wireshark.lnk"
-Delete "$DESKTOP\Wireshark.lnk"
-Delete "$QUICKLAUNCH\Wireshark.lnk"
-
-RMDir "$INSTDIR\etc\gtk-2.0"
-RMDir "$INSTDIR\etc\pango"
-RMDir "$INSTDIR\etc"
-RMDir "$INSTDIR\lib\gtk-2.0\2.2.0\engines"
-RMDir "$INSTDIR\lib\gtk-2.0\2.2.0\loaders"
-RMDir "$INSTDIR\lib\gtk-2.0\2.2.0\immodules"
-RMDir "$INSTDIR\lib\gtk-2.0\2.2.0"
-RMDir "$INSTDIR\lib\gtk-2.0\2.4.0\engines"
-RMDir "$INSTDIR\lib\gtk-2.0\2.4.0\loaders"
-RMDir "$INSTDIR\lib\gtk-2.0\2.4.0\immodules"
-RMDir "$INSTDIR\lib\gtk-2.0\2.4.0"
-RMDir "$INSTDIR\lib\gtk-2.0\2.10.0\engines"
-RMDir "$INSTDIR\lib\gtk-2.0\2.10.0\loaders"
-RMDir "$INSTDIR\lib\gtk-2.0\2.10.0\immodules"
-RMDir "$INSTDIR\lib\gtk-2.0\2.10.0"
-RMDir "$INSTDIR\lib\gtk-2.0\modules"
-RMDir "$INSTDIR\lib\gtk-2.0"
-RMDir "$INSTDIR\lib\pango\1.2.0\modules"
-RMDir "$INSTDIR\lib\pango\1.2.0"
-RMDir "$INSTDIR\lib\pango\1.4.0\modules"
-RMDir "$INSTDIR\lib\pango\1.4.0"
-RMDir "$INSTDIR\lib\pango\1.5.0\modules"
-RMDir "$INSTDIR\lib\pango\1.5.0"
-RMDir "$INSTDIR\lib\pango"
-RMDir "$INSTDIR\lib"
-RMDir "$INSTDIR\share\themes\Default\gtk-2.0"
-RMDir "$INSTDIR\share\themes\Default"
-RMDir "$INSTDIR\share\themes"
-RMDir "$INSTDIR\share"
-RMDir "$SMPROGRAMS\Wireshark"
-RMDir "$INSTDIR\help"
-RMDir "$INSTDIR\diameter"
-RMDir "$INSTDIR\snmp\mibs"
-RMDir "$INSTDIR\snmp"
-RMDir "$INSTDIR\radius"
-RMDir "$INSTDIR\dtds"
-RMDir "$INSTDIR\tpncp"
-RMDir "$INSTDIR\ui"
-RMDir "$INSTDIR\wimaxasncp"
-RMDir "$INSTDIR"
-
-SectionEnd ; "Uinstall"
-
-Section "Un.Plugins" un.SecPlugins
-;-------------------------------------------
-SectionIn 1 2
-;Delete "$INSTDIR\plugins\${VERSION}\*.*"
-;Delete "$INSTDIR\plugins\*.*"
-;RMDir "$INSTDIR\plugins\${VERSION}"
-;RMDir "$INSTDIR\plugins"
-RMDir /r "$INSTDIR\plugins"
-SectionEnd
-
-Section "Un.Global Settings" un.SecGlobalSettings
-;-------------------------------------------
-SectionIn 1 2
-Delete "$INSTDIR\cfilters"
-Delete "$INSTDIR\colorfilters"
-Delete "$INSTDIR\dfilters"
-Delete "$INSTDIR\init.lua"
-Delete "$INSTDIR\console.lua"
-Delete "$INSTDIR\dtd_gen.lua"
-Delete "$INSTDIR\smi_modules"
-RMDir "$INSTDIR"
-SectionEnd
-
-Section /o "Un.Personal Settings" un.SecPersonalSettings
-;-------------------------------------------
-SectionIn 2
-SetShellVarContext current
-Delete "$APPDATA\Wireshark\*.*"
-RMDir "$APPDATA\Wireshark"
-SectionEnd
-
-;VAR un.WINPCAP_UNINSTALL
-
-Section /o "Un.WinPcap" un.SecWinPcap
-;-------------------------------------------
-SectionIn 2
-ReadRegStr $1 HKEY_LOCAL_MACHINE "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\WinPcapInst" "UninstallString"
-;IfErrors un.lbl_winpcap_notinstalled ;if RegKey is unavailable, WinPcap is not installed
-;MessageBox MB_OK "WinPcap $1"
-ExecWait '$1' $0
-DetailPrint "WinPcap uninstaller returned $0"
-;SetRebootFlag true
-;un.lbl_winpcap_notinstalled:
-SectionEnd
-
-Section "-Un.Finally"
-;-------------------------------------------
-SectionIn 1 2
-; this test must be done after all other things uninstalled (e.g. Global Settings)
-IfFileExists "$INSTDIR" 0 NoFinalErrorMsg
-    MessageBox MB_OK "Please note: The directory $INSTDIR could not be removed!" IDOK 0 ; skipped if dir doesn't exist
-NoFinalErrorMsg:
 SectionEnd
 
 
@@ -1246,14 +930,6 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SecUsersGuide} "Install the user's guide, so an internet connection is not required to read the help pages."
 !endif
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
-
-!insertmacro MUI_UNFUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${un.SecUinstall} "Uninstall all Wireshark components."
-  !insertmacro MUI_DESCRIPTION_TEXT ${un.SecPlugins} "Uninstall all Plugins (even from previous Wireshark versions)."
-  !insertmacro MUI_DESCRIPTION_TEXT ${un.SecGlobalSettings} "Uninstall global settings like: $INSTDIR\cfilters"
-  !insertmacro MUI_DESCRIPTION_TEXT ${un.SecPersonalSettings} "Uninstall personal settings like your preferences file from your profile: $PROFILE."
-  !insertmacro MUI_DESCRIPTION_TEXT ${un.SecWinPcap} "Call WinPcap's uninstall program."
-!insertmacro MUI_UNFUNCTION_DESCRIPTION_END
 
 ; ============================================================================
 ; Callback functions
@@ -1383,6 +1059,5 @@ lbl_have_desktopicon:
 lbl_have_quicklaunchicon:
 
 lbl_wireshark_notinstalled:
-
 
 FunctionEnd

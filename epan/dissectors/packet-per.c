@@ -32,13 +32,12 @@ proper helper routines
 # include "config.h"
 #endif
 
-#include <glib.h>
-#include <epan/packet.h>
-
-#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
+#include <glib.h>
+
+#include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/to_str.h>
 #include <epan/prefs.h>
@@ -207,7 +206,7 @@ dissect_per_open_type_internal(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, 
 					actx->created_item = proto_tree_add_int(tree, hf_index, val_tvb, 0, type_length, type_length);
 				proto_item_append_text(actx->created_item, plurality(type_length, " octet", " octets"));
 			} else {
-				actx->created_item = proto_tree_add_item(tree, hf_index, val_tvb, 0, type_length, FALSE);
+				actx->created_item = proto_tree_add_item(tree, hf_index, val_tvb, 0, type_length, ENC_BIG_ENDIAN);
 			}
 			subtree = proto_item_add_subtree(actx->created_item, ett_per_open_type);
 		}
@@ -447,7 +446,7 @@ dissect_per_GeneralString(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto
 
 	offset=dissect_per_length_determinant(tvb, offset, actx, tree, hf_per_GeneralString_length, &length);
 
-	proto_tree_add_item(tree, hf_index, tvb, offset>>3, length, FALSE);
+	proto_tree_add_item(tree, hf_index, tvb, offset>>3, length, ENC_BIG_ENDIAN);
 
 	offset+=length*8;
 
@@ -459,7 +458,7 @@ guint32
 dissect_per_null(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx _U_, proto_tree *tree, int hf_index) {
   proto_item *ti_tmp;
 
-  ti_tmp = proto_tree_add_item(tree, hf_index, tvb, offset>>3, 1, FALSE);
+  ti_tmp = proto_tree_add_item(tree, hf_index, tvb, offset>>3, 1, ENC_BIG_ENDIAN);
   proto_item_append_text(ti_tmp, ": NULL");
 
   return offset;
@@ -507,7 +506,7 @@ DEBUG_ENTRY("dissect_per_sequence_of");
 		item = proto_tree_add_uint(parent_tree, hf_index, tvb, old_offset>>3, 0, length);
 		proto_item_append_text(item, (length==1)?" item":" items");
 	} else {
-		item=proto_tree_add_item(parent_tree, hf_index, tvb, old_offset>>3, 0, FALSE);
+		item=proto_tree_add_item(parent_tree, hf_index, tvb, old_offset>>3, 0, ENC_BIG_ENDIAN);
 	}
 	tree=proto_item_add_subtree(item, ett_index);
 
@@ -518,17 +517,6 @@ DEBUG_ENTRY("dissect_per_sequence_of");
 	return offset;
 }
 
-
-/* dissect a constrained IA5String that consists of the full ASCII set,
-   i.e. no FROM stuff limiting the alphabet
-*/
-guint32
-dissect_per_IA5String(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len, int max_len, gboolean has_extension)
-{
-	offset=dissect_per_octet_string(tvb, offset, actx, tree, hf_index, min_len, max_len, has_extension, NULL);
-
-	return offset;
-}
 
 /* XXX we don't do >64k length strings   yet */
 static guint32
@@ -657,7 +645,8 @@ DEBUG_ENTRY("dissect_per_restricted_character_string");
 		/* ALIGNED PER does not do any remapping of chars if
 		   bitsperchar is 8
 		*/
-		if(bits_per_char==8){
+		/* If alphabet is not provided, do not do any remapping either */
+		if((bits_per_char==8) || (alphabet==NULL)){
 			buf[char_pos]=val;
 		} else {
 			if (val < alphabet_length){
@@ -712,6 +701,18 @@ dissect_per_restricted_character_string(tvbuff_t *tvb, guint32 offset, asn1_ctx_
     alphabet_ptr = sort_alphabet(sorted_alphabet, alphabet, alphabet_length);
   }
   return dissect_per_restricted_character_string_sorted(tvb, offset, actx, tree, hf_index, min_len, max_len, has_extension, alphabet_ptr, alphabet_length, value_tvb);
+}
+
+/* dissect a constrained IA5String that consists of the full ASCII set,
+   i.e. no FROM stuff limiting the alphabet
+*/
+guint32
+dissect_per_IA5String(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len, int max_len, gboolean has_extension)
+{
+	offset=dissect_per_restricted_character_string_sorted(tvb, offset, actx, tree, hf_index, min_len, max_len, has_extension,
+		NULL, 128, NULL);
+
+	return offset;
 }
 
 guint32
@@ -771,7 +772,7 @@ dissect_per_BMPString(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tre
 		length=1024;
 	}
 
-	str = tvb_get_ephemeral_unicode_string(tvb, offset>>3, length, ENC_BIG_ENDIAN);
+	str = tvb_get_ephemeral_unicode_string(tvb, offset>>3, length*2, ENC_BIG_ENDIAN);
 
 	proto_tree_add_string(tree, hf_index, tvb, offset>>3, length*2, str);
 
@@ -842,7 +843,7 @@ call_sohelper:
 		item = proto_tree_add_uint(parent_tree, hf_index, tvb, offset>>3, 0, length);
 		proto_item_append_text(item, (length==1)?" item":" items");
 	} else {
-		item=proto_tree_add_item(parent_tree, hf_index, tvb, offset>>3, 0, FALSE);
+		item=proto_tree_add_item(parent_tree, hf_index, tvb, offset>>3, 0, ENC_BIG_ENDIAN);
 	}
 	tree=proto_item_add_subtree(item, ett_index);
 	per_check_items(length, min_len, max_len, actx, item);
@@ -906,7 +907,7 @@ DEBUG_ENTRY("dissect_per_object_identifier");
 
   hfi = proto_registrar_get_nth(hf_index);
   if (hfi->type == FT_OID) {
-    actx->created_item = proto_tree_add_item(tree, hf_index, val_tvb, 0, length, FALSE);
+    actx->created_item = proto_tree_add_item(tree, hf_index, val_tvb, 0, length, ENC_BIG_ENDIAN);
   } else if (IS_FT_STRING(hfi->type)) {
     str = oid_encoded2string(tvb_get_ptr(val_tvb, 0, length), length);
     actx->created_item = proto_tree_add_string(tree, hf_index, val_tvb, 0, length, str);
@@ -944,7 +945,7 @@ dissect_per_object_identifier_str(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *act
 
 /* this function reads a single bit */
 guint32
-dissect_per_boolean(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx _U_, proto_tree *tree, int hf_index, gboolean *bool_val)
+dissect_per_boolean(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, gboolean *bool_val)
 {
 	guint8 ch, mask;
 	gboolean value;
@@ -1163,7 +1164,6 @@ DEBUG_ENTRY("dissect_per_constrained_integer");
 		}
 	}
 
-	num_bits=0;
 	val=0;
 	timeval.secs=val; timeval.nsecs=0;
 	/* 10.5.4 If "range" has the value 1, then the result of the encoding shall be an empty bit-field (no bits).*/
@@ -1241,7 +1241,6 @@ DEBUG_ENTRY("dissect_per_constrained_integer");
 			proto_tree_add_text(tree, tvb, val_start,val_length,"Range = %u Bitfield length %u, %s",range, num_bits, str);
 	} else if(range==256){
 		/* 10.5.7.2 */
-		num_bits=8;
 
 		/* in the aligned case, align to byte boundary */
 		BYTE_ALIGN_OFFSET(offset);
@@ -1252,7 +1251,6 @@ DEBUG_ENTRY("dissect_per_constrained_integer");
 		val+=min;
 	} else if(range<=65536){
 		/* 10.5.7.3 */
-		num_bits=16;
 
 		/* in the aligned case, align to byte boundary */
 		BYTE_ALIGN_OFFSET(offset);
@@ -1359,7 +1357,6 @@ DEBUG_ENTRY("dissect_per_constrained_integer_64b");
 		}
 	}
 
-	num_bits=0;
 	val=0;
 	timeval.secs=0; timeval.nsecs=0;
 	/* 10.5.4 If "range" has the value 1, then the result of the encoding shall be an empty bit-field (no bits).*/
@@ -1437,7 +1434,6 @@ DEBUG_ENTRY("dissect_per_constrained_integer_64b");
 			proto_tree_add_text(tree, tvb, val_start,val_length,"Range = (%" G_GINT64_MODIFIER "u) Bitfield length %u, %s",range, num_bits, str);
 	} else if(range==256){
 		/* 10.5.7.2 */
-		num_bits=8;
 
 		/* in the aligned case, align to byte boundary */
 		BYTE_ALIGN_OFFSET(offset);
@@ -1448,7 +1444,6 @@ DEBUG_ENTRY("dissect_per_constrained_integer_64b");
 		val+=min;
 	} else if(range<=65536){
 		/* 10.5.7.3 */
-		num_bits=16;
 
 		/* in the aligned case, align to byte boundary */
 		BYTE_ALIGN_OFFSET(offset);
@@ -1748,7 +1743,7 @@ dissect_per_sequence(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree
 
 DEBUG_ENTRY("dissect_per_sequence");
 
-	item=proto_tree_add_item(parent_tree, hf_index, tvb, offset>>3, 0, FALSE);
+	item=proto_tree_add_item(parent_tree, hf_index, tvb, offset>>3, 0, ENC_BIG_ENDIAN);
 	tree=proto_item_add_subtree(item, ett_index);
 
 
@@ -1984,7 +1979,7 @@ static tvbuff_t *dissect_per_bit_string_display(tvbuff_t *tvb, guint32 offset, a
 	add_new_data_source(actx->pinfo, out_tvb, "Bitstring tvb");
 
 	if (hfi) {
-		actx->created_item = proto_tree_add_item(tree, hf_index, out_tvb, 0, -1, FALSE);
+		actx->created_item = proto_tree_add_item(tree, hf_index, out_tvb, 0, -1, ENC_BIG_ENDIAN);
 		proto_item_append_text(actx->created_item, " [bit length %u", length);
 		if (length%8) {
 			pad_length = 8-(length%8);
@@ -2175,7 +2170,7 @@ guint32
 dissect_per_octet_string(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len, int max_len, gboolean has_extension, tvbuff_t **value_tvb)
 {
 	gint val_start = 0, val_length;
-	guint32 length;
+	guint32 length = 0;
 	header_field_info *hfi;
 	tvbuff_t *out_tvb = NULL;
 
@@ -2253,10 +2248,10 @@ DEBUG_ENTRY("dissect_per_octet_string");
 			proto_item_append_text(actx->created_item, plurality(val_length, " octet", " octets"));
 		} else {
 			if(out_tvb){
-				actx->created_item = proto_tree_add_item(tree, hf_index, out_tvb, 0, val_length, FALSE);
+				actx->created_item = proto_tree_add_item(tree, hf_index, out_tvb, 0, val_length, ENC_BIG_ENDIAN);
 			}else{
 				/* Length = 0 */
-				actx->created_item = proto_tree_add_item(tree, hf_index, tvb, val_start, val_length, FALSE);
+				actx->created_item = proto_tree_add_item(tree, hf_index, tvb, val_start, val_length, ENC_BIG_ENDIAN);
 			}
 		}
 	}
@@ -2354,7 +2349,7 @@ gboolean get_size_constraint_from_stack(asn1_ctx_t *actx, const gchar *name, int
 /* NOTE: This sequence type differs from that in ITU-T Rec. X.680 | ISO/IEC 8824-1 for historical reasons. */
 
 static int
-dissect_per_T_direct_reference(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_per_T_direct_reference(tvbuff_t *tvb, int offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index) {
   offset = dissect_per_object_identifier_str(tvb, offset, actx, tree, hf_index, &actx->external.direct_reference);
 
   actx->external.direct_ref_present = TRUE;
@@ -2374,7 +2369,7 @@ dissect_per_T_indirect_reference(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 
 static int
-dissect_per_T_data_value_descriptor(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_per_T_data_value_descriptor(tvbuff_t *tvb, int offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index) {
   offset = dissect_per_object_descriptor(tvb, offset, actx, tree, hf_index, &actx->external.data_value_descriptor);
 
   actx->external.data_value_descr_present = TRUE;
@@ -2393,7 +2388,7 @@ dissect_per_T_single_ASN1_type(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 
 static int
-dissect_per_T_octet_aligned(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_per_T_octet_aligned(tvbuff_t *tvb, int offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
                                        NO_BOUND, NO_BOUND, FALSE, &actx->external.octet_aligned);
 
@@ -2408,7 +2403,7 @@ dissect_per_T_octet_aligned(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 
 static int
-dissect_per_T_arbitrary(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_per_T_arbitrary(tvbuff_t *tvb, int offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
                                      NO_BOUND, NO_BOUND, FALSE, &actx->external.arbitrary);
 
@@ -2436,7 +2431,7 @@ static const per_choice_t External_encoding_choice[] = {
 };
 
 static int
-dissect_per_External_encoding(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_per_External_encoding(tvbuff_t *tvb, int offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index) {
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
                                  ett_per_External_encoding, External_encoding_choice,
                                  &actx->external.encoding);

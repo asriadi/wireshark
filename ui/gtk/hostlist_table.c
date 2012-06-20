@@ -181,6 +181,7 @@ static void
 reset_hostlist_table_data(hostlist_table *hosts)
 {
     guint32 i;
+    char *display_name;
     char title[256];
     GString *error_string;
     const char *filter;
@@ -200,7 +201,9 @@ reset_hostlist_table_data(hostlist_table *hosts)
 
 
     if(hosts->page_lb) {
-        g_snprintf(title, sizeof(title), "Endpoints: %s", cf_get_display_name(&cfile));
+        display_name = cf_get_display_name(&cfile);
+        g_snprintf(title, sizeof(title), "Endpoints: %s", display_name);
+        g_free(display_name);
         gtk_window_set_title(GTK_WINDOW(hosts->win), title);
         g_snprintf(title, sizeof(title), "%s", hosts->name);
         gtk_label_set_text(GTK_LABEL(hosts->page_lb), title);
@@ -217,7 +220,9 @@ reset_hostlist_table_data(hostlist_table *hosts)
         }
         gtk_label_set_text(GTK_LABEL(hosts->name_lb), title);
     } else {
-        g_snprintf(title, sizeof(title), "%s Endpoints: %s", hosts->name, cf_get_display_name(&cfile));
+        display_name = cf_get_display_name(&cfile);
+        g_snprintf(title, sizeof(title), "%s Endpoints: %s", hosts->name, display_name);
+        g_free(display_name);
         gtk_window_set_title(GTK_WINDOW(hosts->win), title);
     }
 
@@ -712,7 +717,7 @@ draw_hostlist_table_data(hostlist_table *hl)
         if (!host->iter_valid) {
             char *entries[2];
 #ifdef HAVE_GEOIP
-            char geoip[NUM_GEOIP_COLS][COL_STR_LEN];
+            char *geoip[NUM_GEOIP_COLS];
             guint j;
 
             if ((host->address.type == AT_IPv4 || host->address.type == AT_IPv6) && !hl->geoip_visible) {
@@ -740,15 +745,15 @@ draw_hostlist_table_data(hostlist_table *hl)
             for (j = 0; j < NUM_GEOIP_COLS; j++) {
                 if (host->address.type == AT_IPv4 && j < geoip_db_num_dbs()) {
                     const guchar *name = geoip_db_lookup_ipv4(j, pntohl(host->address.data), "-");
-                    g_strlcpy(geoip[j], format_text (name, strlen(name)), COL_STR_LEN);
+                    geoip[j] = g_strdup(name);
                 } else if (host->address.type == AT_IPv6 && j < geoip_db_num_dbs()) {
                     const guchar *name;
                     const struct e_in6_addr *addr = (struct e_in6_addr *) host->address.data;
 
                     name = geoip_db_lookup_ipv6(j, *addr, "-");
-                    g_strlcpy(geoip[j], format_text (name, strlen(name)), COL_STR_LEN);
+                    geoip[j] = g_strdup(name);
                 } else {
-                  geoip[j][0] = 0;
+                  geoip[j] = NULL;
                 }
             }
 #endif /* HAVE_GEOIP */
@@ -781,6 +786,11 @@ draw_hostlist_table_data(hostlist_table *hl)
 #endif
                   INDEX_COLUMN,    i,
                     -1);
+
+#ifdef HAVE_GEOIP
+            for (j = 0; j < NUM_GEOIP_COLS; j++)
+                g_free(geoip[j]);
+#endif /* HAVE_GEOIP */
         }
         else {
             gtk_list_store_set (store, &host->iter,
@@ -930,7 +940,7 @@ map_handle(GtkTreeModel *model, GtkTreePath *path _U_, GtkTreeIter *iter,
               gpointer data)
 {
     map_t   *map = (map_t *)data;
-    gchar   *table_entry;
+    gchar   *table_entry, *esc_entry;
     guint64  value;
     /* Add the column values to the TSV data */
 
@@ -947,46 +957,66 @@ map_handle(GtkTreeModel *model, GtkTreePath *path _U_, GtkTreeIter *iter,
         return FALSE;
     }
 
-    /* Latitude */
-    gtk_tree_model_get(model, iter, map->col_lat, &table_entry, -1);
-    fputs(table_entry, map->out_file);
-    g_free(table_entry);
-    fputs("\t", map->out_file);
+/*
+{
+  'type': 'Feature', 'geometry': { 'type': 'Point', 'coordinates': [-122.583889, 37.898889] },
+  'properties': { 'title': 'host.example.com', 'description': 'AS: AS12345 Ewok Holdings, Inc.<br/>Country: US<br/>City: Muir Woods, CA<br/>Packets: 6<br/>Bytes: 980' }
+},
+ */
+
+    fputs("{\n", map->out_file);
+    fputs("  'type': 'Feature', 'geometry': { 'type': 'Point', 'coordinates': [", map->out_file);
 
     /* Longitude */
     gtk_tree_model_get(model, iter, map->col_lon, &table_entry, -1);
     fputs(table_entry, map->out_file);
     g_free(table_entry);
-    fputs("\t", map->out_file);
+    fputs(", ", map->out_file);
+
+    /* Latitude */
+    gtk_tree_model_get(model, iter, map->col_lat, &table_entry, -1);
+    fputs(table_entry, map->out_file);
+    g_free(table_entry);
+    fputs("] },\n", map->out_file);
+
+    fputs("  'properties': { 'title': '", map->out_file);
 
     /* Title */
     gtk_tree_model_get(model, iter, map->col_ip, &table_entry, -1);
-    fputs(table_entry, map->out_file);
+    esc_entry = string_replace(table_entry, "'", "&#39;");
+    fputs(esc_entry, map->out_file);
     g_free(table_entry);
-    fputs("\t", map->out_file);
+    g_free(esc_entry);
+    fputs("', 'description': '", map->out_file);
 
     /* Description */
     if (map->col_as_num >= 0) {
         gtk_tree_model_get(model, iter, map->col_as_num, &table_entry, -1);
         fputs("AS: ", map->out_file);
-        fputs(table_entry, map->out_file);
+        esc_entry = string_replace(table_entry, "'", "&#39;");
+        fputs(esc_entry, map->out_file);
         g_free(table_entry);
+        g_free(esc_entry);
         fputs("<br/>", map->out_file);
     }
 
     if (map->col_country >= 0) {
         gtk_tree_model_get(model, iter, map->col_country, &table_entry, -1);
         fputs("Country: ", map->out_file);
-        fputs(table_entry, map->out_file);
+        esc_entry = string_replace(table_entry, "'", "&#39;");
+        fputs(esc_entry, map->out_file);
         g_free(table_entry);
+        g_free(esc_entry);
         fputs("<br/>", map->out_file);
     }
 
     if (map->col_country >= 0) {
         gtk_tree_model_get(model, iter, map->col_city, &table_entry, -1);
         fputs("City: ", map->out_file);
-        fputs(table_entry, map->out_file);
+        esc_entry = string_replace(table_entry, "'", "&#39;");
+        fputs(esc_entry, map->out_file);
         g_free(table_entry);
+        g_free(esc_entry);
         fputs("<br/>", map->out_file);
     }
 
@@ -994,29 +1024,32 @@ map_handle(GtkTreeModel *model, GtkTreePath *path _U_, GtkTreeIter *iter,
     fprintf(map->out_file, "Packets: %" G_GINT64_MODIFIER "u<br/>", value);
 
     gtk_tree_model_get(model, iter, map->col_bytes, &value, -1);
-    fprintf(map->out_file, "Bytes: %" G_GINT64_MODIFIER "u\t", value);
+    fprintf(map->out_file, "Bytes: %" G_GINT64_MODIFIER "u", value);
 
     /* XXX - we could add specific icons, e.g. depending on the amount of packets or bytes */
 
-    fputs("\n", map->out_file);                     /* new row */
+    fputs("' }\n", map->out_file);
+    fputs("},\n", map->out_file);       /* XXX - Trim the comma from the last item */
     map->hosts_written = TRUE;
 
     return FALSE;
 }
 
+#define MAX_TPL_LINE_LEN 4096
 static void
 open_as_map_cb(GtkWindow *copy_bt, gpointer data _U_)
 {
-    guint32         i;
+    guint32            i;
     gchar             *file_uri;
     gboolean           uri_open;
-    char              *map_path, *map_data_filename;
-    char              *src_file_path;
-    char              *dst_file_path;
+    char              *map_path, *map_filename;
+    char              *tpl_filename;
+    char              *tpl_line;
     GList             *columns, *list;
     GtkTreeViewColumn *column;
     GtkListStore      *store;
     map_t              map;
+    FILE              *tpl_file;
 
     map.talkers =g_object_get_data(G_OBJECT(copy_bt), HOST_PTR_KEY);
     if (!map.talkers)
@@ -1072,47 +1105,59 @@ open_as_map_cb(GtkWindow *copy_bt, gpointer data _U_)
         return;
     }
 
-    /* open the TSV output file */
+    /* Create a location map HTML file from a template */
     /* XXX - add error handling */
+    tpl_filename = get_datafile_path("ipmap.html");
+    tpl_file = ws_fopen(tpl_filename, "r");
+    if(tpl_file == NULL) {
+        open_failure_alert_box(tpl_filename, errno, FALSE);
+        g_free(tpl_filename);
+        return;
+    }
+    g_free(tpl_filename);
+
+    /* We should probably create a file with a temporary name and a .html extension instead */
     if (! create_tempdir(&map_path, "Wireshark IP Map ")) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
                 "Could not create temporary directory\n%s",
                 map_path);
+        fclose(tpl_file);
         return;
     }
-    map_data_filename = g_strdup_printf("%s%cipmap.txt", map_path, G_DIR_SEPARATOR);
-    map.out_file = ws_fopen(map_data_filename, "w");
+
+    map_filename = g_strdup_printf("%s%cipmap.html", map_path, G_DIR_SEPARATOR);
+    map.out_file = ws_fopen(map_filename, "w");
     if(map.out_file == NULL) {
-        open_failure_alert_box(map_data_filename, errno, TRUE);
+        open_failure_alert_box(map_filename, errno, TRUE);
+        g_free(map_filename);
+        fclose(tpl_file);
         return;
     }
 
-    fputs("lat\tlon\ttitle\tdescription\t\n", map.out_file);
     store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(map.talkers->table)));
-    gtk_tree_model_foreach(GTK_TREE_MODEL(store), map_handle, &map);
+    tpl_line = g_malloc(MAX_TPL_LINE_LEN);
 
+    while (fgets(tpl_line, MAX_TPL_LINE_LEN, tpl_file) != NULL) {
+        fputs(tpl_line, map.out_file);
+        /* MUST match ipmap.html */
+        if (strstr(tpl_line, "// Start endpoint list")) {
+            gtk_tree_model_foreach(GTK_TREE_MODEL(store), map_handle, &map);
+        }
+    }
+    g_free(tpl_line);
 
+    fclose(tpl_file);
     fclose(map.out_file);
 
     if(!map.hosts_written) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "No latitude/longitude data found");
+        g_free(map_filename);
         return;
     }
-
-    /* copy ipmap.html to temp dir */
-    src_file_path = get_datafile_path("ipmap.html");
-    dst_file_path = g_strdup_printf("%s%cipmap.html", map_path, G_DIR_SEPARATOR);
-
-    if (!copy_file_binary_mode(src_file_path, dst_file_path)) {
-        g_free(src_file_path);
-        g_free(dst_file_path);
-        return;
-    }
-    g_free(src_file_path);
 
     /* open the webbrowser */
-    file_uri = filename2uri(dst_file_path);
-    g_free(dst_file_path);
+    file_uri = filename2uri(map_filename);
+    g_free(map_filename);
     uri_open = browser_open_url (file_uri);
     if(!uri_open) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "Couldn't open the file: \"%s\" in your web browser", file_uri);
@@ -1333,6 +1378,7 @@ void
 init_hostlist_table(gboolean hide_ports, const char *table_name, const char *tap_name, const char *filter, tap_packet_cb packet_func)
 {
     hostlist_table *hosttable;
+    char *display_name;
     char title[256];
     GtkWidget *vbox;
     GtkWidget *bbox;
@@ -1348,13 +1394,15 @@ init_hostlist_table(gboolean hide_ports, const char *table_name, const char *tap
     hosttable->name=table_name;
     hosttable->filter=filter;
     hosttable->use_dfilter=FALSE;
-    g_snprintf(title, sizeof(title), "%s Endpoints: %s", table_name, cf_get_display_name(&cfile));
+    display_name = cf_get_display_name(&cfile);
+    g_snprintf(title, sizeof(title), "%s Endpoints: %s", table_name, display_name);
+    g_free(display_name);
     hosttable->win = dlg_window_new(title);  /* transient_for top_level */
     gtk_window_set_destroy_with_parent (GTK_WINDOW(hosttable->win), TRUE);
 
     gtk_window_set_default_size(GTK_WINDOW(hosttable->win), 750, 400);
 
-    vbox=gtk_vbox_new(FALSE, 3);
+    vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 3, FALSE);
     gtk_container_add(GTK_CONTAINER(hosttable->win), vbox);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
 
@@ -1473,7 +1521,7 @@ init_hostlist_notebook_page_cb(gboolean hide_ports, const char *table_name, cons
     hosttable->filter=filter;
     hosttable->use_dfilter=FALSE;
 
-    page_vbox=gtk_vbox_new(FALSE, 6);
+    page_vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 6, FALSE);
     hosttable->win = page_vbox;
     gtk_container_set_border_width(GTK_CONTAINER(page_vbox), 6);
 
@@ -1561,6 +1609,7 @@ void
 init_hostlist_notebook_cb(GtkWidget *w _U_, gpointer d _U_)
 {
     hostlist_table *hosttable;
+    char *display_name;
     char title[256];
     GtkWidget *vbox;
     GtkWidget *hbox;
@@ -1586,11 +1635,13 @@ init_hostlist_notebook_cb(GtkWidget *w _U_, gpointer d _U_)
     win = dlg_window_new("hostlist");  /* transient_for top_level */
     gtk_window_set_destroy_with_parent (GTK_WINDOW(win), TRUE);
 
-    g_snprintf(title, sizeof(title), "Endpoints: %s", cf_get_display_name(&cfile));
+    display_name = cf_get_display_name(&cfile);
+    g_snprintf(title, sizeof(title), "Endpoints: %s", display_name);
+    g_free(display_name);
     gtk_window_set_title(GTK_WINDOW(win), title);
     gtk_window_set_default_size(GTK_WINDOW(win), 750, 400);
 
-    vbox=gtk_vbox_new(FALSE, 6);
+    vbox=ws_gtk_box_new(GTK_ORIENTATION_VERTICAL, 6, FALSE);
     gtk_container_add(GTK_CONTAINER(win), vbox);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
 
@@ -1617,7 +1668,7 @@ init_hostlist_notebook_cb(GtkWidget *w _U_, gpointer d _U_)
 
     pages[0] = GINT_TO_POINTER(page);
 
-    hbox = gtk_hbox_new(FALSE, 3);
+    hbox = ws_gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3, FALSE);
     gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 
     resolv_cb = gtk_check_button_new_with_mnemonic("Name resolution");
