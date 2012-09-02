@@ -49,8 +49,10 @@
 #include <glib.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
+#include <epan/asn1.h>
 
 #include "packet-tetra.h"
+#include "packet-rrc.h"
 
 /* ====== DO NOT MAKE UNAPPROVED MODIFICATIONS HERE ===== */
 /* The following types and definitions are imported from libosmocore,
@@ -75,6 +77,8 @@
 #define GSMTAP_TYPE_GB_LLC			0x08 /* GPRS Gb interface: LLC */
 #define GSMTAP_TYPE_GB_SNDCP		0x09 /* GPRS Gb interface: SNDCP */
 #define GSMTAP_TYPE_GMR1_UM				0x0a	/* GMR-1 L2 packets */
+#define GSMTAP_TYPE_UMTS_RLC_MAC	0x0b
+#define GSMTAP_TYPE_UMTS_RRC		0x0c
 
 /* ====== DO NOT MAKE UNAPPROVED MODIFICATIONS HERE ===== */
 #define GSMTAP_BURST_UNKNOWN		0x00
@@ -155,6 +159,9 @@
 #define GSMTAP_GMR1_TCH6			0x14
 #define GSMTAP_GMR1_TCH9			0x18
 
+#define GSMTAP_UMTS_CH_PCCH			0x01
+#define GSMTAP_UMTS_CH_CCCH			0x02
+#define GSMTAP_UMTS_CH_DCCH			0x03
 
 #define GSMTAP_ARFCN_F_PCS			0x8000
 #define GSMTAP_ARFCN_F_UPLINK		0x4000
@@ -230,6 +237,9 @@ enum {
 	GSMTAP_SUB_GMR1_CCCH,
 	GSMTAP_SUB_GMR1_LAPSAT,
 	GSMTAP_SUB_GMR1_RACH,
+	/* UMTS */
+	GSMTAP_SUB_UMTS_RLC_MAC,
+	GSMTAP_SUB_UMTS_RRC,
 
 	GSMTAP_SUB_MAX
 };
@@ -287,6 +297,13 @@ static const value_string gsmtap_channels[] = {
 	{ GSMTAP_CHANNEL_ACCH|
 	  GSMTAP_CHANNEL_TCH_H,		"SACCH/H" },
 	{ 0,				NULL },
+};
+
+static const value_string gsmtap_umts_channels[] = {
+	{ GSMTAP_UMTS_CH_PCCH,		"PCCH" },
+	{ GSMTAP_UMTS_CH_CCCH,		"CCCH" },
+	{ GSMTAP_UMTS_CH_DCCH,		"DCCH" },
+	{ 0, 				NULL }
 };
 
 static const value_string gsmtap_tetra_channels[] = {
@@ -352,6 +369,8 @@ static const value_string gsmtap_types[] = {
 	{ GSMTAP_TTPE_TETRA_I1_BURST, "TETRA V+D burst"},
 	{ GSMTAP_TYPE_WMX_BURST,"WiMAX burst" },
 	{ GSMTAP_TYPE_GMR1_UM, "GMR-1 air interfeace (MES-MS<->GTS)" },
+	{ GSMTAP_TYPE_UMTS_RLC_MAC,	"UMTS RLC/MAC" },
+	{ GSMTAP_TYPE_UMTS_RRC,		"UMTS RRC" },
 	{ 0,			NULL },
 };
 
@@ -525,6 +544,36 @@ dissect_gsmtap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 	}
 
 	switch (type) {
+	case GSMTAP_TYPE_UMTS_RRC:
+		{
+		struct rrc_info *rrcinf;
+		enum rrc_message_type msgt = 0;
+
+		rrcinf = se_new0(struct rrc_info);
+		pinfo->fd->subnum = 0;
+
+		switch (sub_type) {
+		case GSMTAP_UMTS_CH_PCCH:
+			msgt = RRC_MESSAGE_TYPE_PCCH;
+			break;
+		case GSMTAP_UMTS_CH_CCCH:
+			if (arfcn & GSMTAP_ARFCN_F_UPLINK)
+				msgt = RRC_MESSAGE_TYPE_UL_CCCH;
+			else
+				msgt = RRC_MESSAGE_TYPE_DL_CCCH;
+			break;
+		case GSMTAP_UMTS_CH_DCCH:
+			if (arfcn & GSMTAP_ARFCN_F_UPLINK)
+				msgt = RRC_MESSAGE_TYPE_UL_DCCH;
+			else
+				msgt = RRC_MESSAGE_TYPE_DL_DCCH;
+			break;
+		}
+		rrcinf->msgtype[pinfo->fd->subnum] = msgt;
+		p_add_proto_data(pinfo->fd, proto_rrc, rrcinf);
+		sub_handle = GSMTAP_SUB_UMTS_RRC;
+		}
+		break;
 	case GSMTAP_TYPE_UM:
 		if (l1h_tvb)
 			dissect_sacch_l1h(l1h_tvb, tree);
@@ -717,6 +766,7 @@ proto_reg_handoff_gsmtap(void)
 	sub_handles[GSMTAP_SUB_GMR1_CCCH] = find_dissector("gmr1_ccch");
 	sub_handles[GSMTAP_SUB_GMR1_LAPSAT] = find_dissector("lapsat");
 	sub_handles[GSMTAP_SUB_GMR1_RACH] = find_dissector("gmr1_rach");
+	sub_handles[GSMTAP_SUB_UMTS_RRC] = find_dissector("rrc");
 	gsmtap_handle = create_dissector_handle(dissect_gsmtap, proto_gsmtap);
 	dissector_add_uint("udp.port", GSMTAP_UDP_PORT, gsmtap_handle);
 }
